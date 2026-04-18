@@ -1,0 +1,54 @@
+---
+sidebar_position: 1
+title: Documentation Overview
+---
+
+# Axon Documentation Portal
+
+This site centralizes architecture references, schema documentation, and executable diagram definitions for Axon.
+
+## Documentation scope
+
+- Database schema and entity relationships
+- Use case, activity, sequence, and state machine documentation
+- Technical implementation references and conventions
+
+## Diagram strategy
+
+All diagrams are authored as Mermaid blocks directly in source-controlled markdown files.
+
+| Artifact | Mermaid syntax |
+| --- | --- |
+| DB schema | erDiagram |
+| Use case | flowchart |
+| Activity | flowchart TD |
+| Sequence | sequenceDiagram |
+| State machines | stateDiagram-v2 |
+
+## Quick links
+
+- [Database schema](./schema/database-schema.md)
+- [Use case diagram](./diagrams/use-case.md)
+- [Activity diagram](./diagrams/activity.md)
+- [Sequence diagram](./diagrams/sequence.md)
+- [State machines](./diagrams/state-machines.md)
+- [Technical reference](./reference/technical-reference.md)
+
+## Local development
+
+```bash
+npm install
+npm run start
+```
+
+## Production build
+
+```bash
+npm run build
+npm run serve
+```
+
+## Deployment
+
+Deployment is handled by the GitHub Actions workflow in .github/workflows/deploy.yml.
+
