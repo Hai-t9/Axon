@@ -17,6 +17,13 @@ const sidebars: SidebarsConfig = {
     'intro',
     {
       type: 'category',
+      label: 'About Axon',
+      items: [
+        'aboutaxon/problem-definition'
+      ],
+    },
+    {
+      type: 'category',
       label: 'Schema',
       items: ['schema/database-schema'],
     },
@@ -25,9 +32,14 @@ const sidebars: SidebarsConfig = {
       label: 'Diagrams',
       items: [
         'diagrams/use-case',
-        'diagrams/activity',
-        'diagrams/sequence',
-        'diagrams/state-machines',
+        'diagrams/activity'
+      ],
+    },
+      {
+      type: 'category',
+      label: 'System Architecture',
+      items: [
+        'system-architecture/system-architecture-overview',
       ],
     },
     {

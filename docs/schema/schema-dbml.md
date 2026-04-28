@@ -1,0 +1,208 @@
+---
+sidebar_position: 2
+title: Database Schema (DBML)
+---
+
+# Database Schema (DBML)
+
+This page contains the canonical DBML schema stored in `static/schema/schema.db.txt`. The DBML source is useful for regenerating diagrams (for example via https://dbdiagram.io) or for reference when authoring migrations.
+
+Keep the DBML file in `static/schema/` as the single source of truth; update this document when the schema file changes so the docs site remains discoverable.
+
+```dbml
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table user {
+  id integer [primary key, not null, increment]
+  fullname varchar [not null]
+  email varchar [unique, not null]
+  password varchar [not null]
+  phone varchar [null]
+  created_at timestamp [default: `now()`]
+}
+
+Table role {
+  user_id integer [not null]
+  competition_id integer [not null]
+  role enum('host','staff','participant') [not null]
+
+  indexes {
+    (user_id, competition_id) [pk]
+  }
+}
+
+Table competition {
+  id integer [primary key, not null, increment]
+  name varchar [not null]
+  description text [null]
+  launch_date date [null]
+  configjson json [null]
+  invitation_link varchar [unique, null]
+}
+
+Table config {
+  id integer [primary key, not null, increment]
+  competition_id integer [unique, not null]
+  labels json
+  data_ex varchar
+  scoring_ex varchar
+  overview varchar
+  terms_conditions varchar
+  data_md varchar
+  data_format varchar
+  evaluation varchar
+  duplicate_threshhold float
+}
+
+Table team {
+  id integer [primary key, not null, increment]
+  name varchar [not null]
+  comp_id integer [not null]
+  user_ids json [null, note: 'array of user.id values']
+
+  indexes {
+    (name, comp_id) [unique]
+  }
+}
+
+Table phase_log {
+  id integer [primary key, not null, increment]
+  competition_id integer [not null]
+  phase_dates json [null, note: 'map of phase_name to date']
+  current_phase varchar [not null]
+}
+
+Table image {
+  id integer [primary key, not null, increment]
+  team_id integer [not null]
+  author_id integer [not null]
+  time timestamp [default: `now()`]
+  label varchar [null]
+  filepath varchar [unique, not null]
+  status enum('verified','onhold') [not null, default: 'onhold']
+
+  original_filename varchar [null]
+  old_extension varchar [null]
+  image_hash varchar [unique, not null]
+  old_size_mb float [null]
+  old_width float [null]
+  old_height float [null]
+  device varchar [null]
+}
+
+Table image_metadata {
+  id integer [primary key, not null, increment]
+  image_id integer [unique, not null]
+
+  GPSInfo varchar [null]
+  ImageWidth float [null]
+  ImageLength float [null]
+  ResolutionUnit varchar [null]
+  ExifOffset float [null]
+  Make varchar [null]
+  Model varchar [null]
+  Software varchar [null]
+  Orientation float [null]
+  DateTime datetime [null]
+  YCbCrPositioning varchar [null]
+  XResolution float [null]
+  YResolution float [null]
+  New_width float [null]
+  New_height float [null]
+  New_size_mb float [null]
+  Extra_subfolder varchar [null]
+  original_resolution varchar [null]
+  new_resolution varchar [null]
+  resizing_method varchar [null]
+  format_change varchar [null]
+  label varchar [null]
+  english_name varchar [null]
+  scientific_name varchar [null]
+}
+
+Table label {
+  id integer [primary key, not null, increment]
+  image_id integer [not null]
+  label varchar [not null]
+  validated bool [not null, default: false]
+}
+
+Table label_validations {
+  id integer [primary key, not null, increment]
+  label_id integer [not null]
+  validator_id integer [not null]
+  label varchar [not null]
+  validated_at timestamp [default: `now()`]
+}
+
+Table dataset {
+  id integer [primary key, not null, increment]
+  team_id integer [not null]
+  team_folderpath varchar
+}
+
+Table model {
+  id integer [primary key, not null, increment]
+  team_id integer [not null]
+  competition_id integer [not null]
+  docker_img_filepath varchar [not null]
+  submitted_at timestamp [default: `now()`]
+}
+
+Table evaluation {
+  id integer [primary key, not null, increment]
+  model_id integer [not null]
+  score float [not null]
+  evaluated_at timestamp [default: `now()`]
+}
+
+
+// --------------------------------
+// References
+// --------------------------------
+
+// role
+Ref: role.user_id - user.id
+Ref: role.competition_id > competition.id
+
+// competition
+
+// config
+Ref: config.competition_id - competition.id
+
+// team
+Ref: team.comp_id > competition.id
+
+// phase_log
+Ref: phase_log.competition_id > competition.id
+
+// image
+Ref: image.team_id > team.id
+Ref: image.author_id > user.id
+
+// image_metadata
+Ref: image_metadata.image_id - image.id
+
+// label
+Ref: label.image_id - image.id
+
+// label_validations
+Ref: label_validations.label_id > label.id
+Ref: label_validations.validator_id > user.id
+
+// dataset
+Ref: dataset.team_id - team.id
+
+// model
+Ref: model.team_id - team.id
+Ref: model.competition_id > competition.id
+
+// evaluation
+Ref: evaluation.model_id - model.id
+```
+
+## Notes
+
+- This DBML is the source for generating ER diagrams and cross-checking migrations. Keep it up to date with any schema changes.
+- To render the DBML visually, copy it into https://dbdiagram.io or use local DBML tooling.
