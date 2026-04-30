@@ -134,7 +134,7 @@
 - `:compId` (integer path, required)
 **Output:**
 - `total` (integer)
-- `by_status` ({ onhold: int, verified: int })
-- `by_team` ({ team_id: int, count: int }[])
-- `by_label` ({ label: string, count: int }[])
+- `by_status` (`{ onhold: int, verified: int }`)
+- `by_team` (`{ team_id: int, count: int }[]`)
+- `by_label` (`{ label: string, count: int }[]`)
 

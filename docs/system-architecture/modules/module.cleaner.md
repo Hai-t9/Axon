@@ -86,7 +86,7 @@
 **Input:**
 - `:compId` (integer path, required)
 **Output:**
-- `duplicate_groups` ({ hash: string, image_ids: integer[] }[])
+- `duplicate_groups` (`{ hash: string, image_ids: integer[] }[]`)
 - `total_duplicates` (integer)
 
 ### `POST /teams/:teamId/cleaner/clean`
