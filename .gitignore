@@ -2,3 +2,6 @@
 /.docusaurus
 /build
 /.cache
+
+.vscode
+.idea
