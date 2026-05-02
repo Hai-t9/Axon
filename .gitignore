@@ -1,7 +1,4 @@
-/node_modules
-/.docusaurus
-/build
-/.cache
-
+node_modules
 .vscode
 .idea
+.docusaurus
