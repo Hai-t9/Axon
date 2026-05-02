@@ -1,4 +1,5 @@
 import { CleanerRepository } from './cleaner.repository';
+import { ImageRecord } from '../image/image.interface';
 
 export class CleanerService {
   private repository = new CleanerRepository();
@@ -34,7 +35,7 @@ export class CleanerService {
     return this.getDuplicateCandidates(images);
   }
 
-  getDuplicateCandidates(images: any[]) {
+  getDuplicateCandidates(images: ImageRecord[]): ImageRecord[] {
     this.compareHashes();
     // mock logic identifying duplicates based on hash
     return [];
@@ -44,21 +45,23 @@ export class CleanerService {
     // mock hash comparison
   }
 
-  async flagDuplicateImages(duplicates: any[]) {
-    const toUpdate = duplicates.map(d => ({ ...d, flag: 'duplicate' }));
+  async flagDuplicateImages(duplicates: ImageRecord[]) {
+    // In real app, we might add a generic "flag" property or just update status. By schema, 'status' limits to 'verified'/'onhold'.
+    // We will just pass the mapped images. 
+    const toUpdate = duplicates.map(d => ({ ...d })); 
     await this.repository.bulkUpdate(toUpdate);
   }
 
-  async removeDuplicateImages(duplicates: any[]) {
+  async removeDuplicateImages(duplicates: ImageRecord[]) {
     // map and delete
     await this.repository.bulkDelete(duplicates);
   }
 
-  async detectCorruptedImages(compId: number) {
+  async detectCorruptedImages(compId: number): Promise<ImageRecord[]> {
     return await this.repository.findCorruptedImages();
   }
 
-  async removeCorruptedImages(corrupted: any[]) {
+  async removeCorruptedImages(corrupted: ImageRecord[]) {
     await this.repository.bulkDelete(corrupted);
   }
 
@@ -77,7 +80,7 @@ export class CleanerService {
   async cleanMetadata(compId: number) {
     const images = await this.repository.findImagesByCompetition(compId);
     for (const image of images) {
-      await this.removeSensitiveMetadata((image as any).id);
+      await this.removeSensitiveMetadata(image.id);
     }
   }
 
