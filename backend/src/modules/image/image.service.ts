@@ -1,5 +1,6 @@
 import { ImageRepository } from './image.repository';
 import * as crypto from 'crypto';
+import ExifReader from 'exifreader';
 
 export class ImageService {
   private repository = new ImageRepository();
@@ -13,8 +14,10 @@ export class ImageService {
     
     const filepath = await this.storeImageFile(file);
     
-    const record = await this.saveImageRecord(userId, teamId, filepath, hash, label);
     const metadata = this.extractMetadata(file);
+    const deviceName = metadata.Model !== 'Unknown' ? `${metadata.Make} ${metadata.Model}`.trim() : 'Unknown';
+    
+    const record = await this.saveImageRecord(userId, teamId, filepath, hash, deviceName, label);
     await this.storeImageMetadata(record.id, metadata);
 
     const fullRecord = await this.getImageById(record.id);
@@ -86,32 +89,42 @@ export class ImageService {
     return `uploads/${file.originalname}`;
   }
 
-  private async saveImageRecord(userId: number, teamId: number, filepath: string, hash: string, label?: string) {
+  private async saveImageRecord(userId: number, teamId: number, filepath: string, hash: string, device: string, label?: string) {
     return await this.repository.create({
       team_id: teamId,
       author_id: userId,
       filepath,
       image_hash: hash,
       label,
-      old_size_mb: 0, // Mocked values for schema compliance
+      old_size_mb: 0, // Should be computed dynamically before resizing
       old_width: 0,
       old_height: 0,
-      device: 'Unknown',
+      device: device,
       metadata: {} as any // Will be updated by storeImageMetadata
     });
   }
 
   private extractMetadata(file: Express.Multer.File) {
-    // Mock metadata extraction (in reality you'd use a library like sharp & exif-reader)
+    let tags: any = {};
+    try {
+      tags = ExifReader.load(file.buffer);
+    } catch (e) {
+      console.warn('Failed to extract EXIF data', e);
+    }
+
     return {
-      ImageWidth: 1024,
-      ImageLength: 768,
+      ImageWidth: tags['ImageWidth']?.value || 1024,
+      ImageLength: tags['ImageLength']?.value || 768,
       New_size_mb: file.size / (1024 * 1024),
-      Make: 'Unknown',
-      Model: 'Unknown',
-      Software: 'Axon Default',
-      format_change: file.mimetype.split('/')[1] || 'unknown',
-      DateTime: new Date()
+      Make: tags['Make']?.description || 'Unknown',
+      Model: tags['Model']?.description || 'Unknown',
+      Software: tags['Software']?.description || 'Axon Default',
+      GPSInfo: (tags['GPSLatitude'] && tags['GPSLongitude']) 
+        ? `${tags['GPSLatitude'].description}, ${tags['GPSLongitude'].description}` 
+        : undefined,
+      Orientation: tags['Orientation']?.value,
+      DateTime: tags['DateTimeOriginal']?.description ? new Date(tags['DateTimeOriginal'].description.replace(/:/g, '/')) : new Date(),
+      format_change: file.mimetype.split('/')[1] || 'unknown'
     };
   }
 
