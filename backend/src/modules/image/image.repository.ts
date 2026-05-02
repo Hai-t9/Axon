@@ -8,6 +8,7 @@ export class ImageRepository {
   async create(data: CreateImageDTO): Promise<ImageRecord> {
     const newImage: ImageRecord = {
       id: currentId++,
+      time: new Date(),
       ...data,
       status: 'onhold', // default status
     };

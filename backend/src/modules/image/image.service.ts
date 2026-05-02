@@ -93,17 +93,25 @@ export class ImageService {
       filepath,
       image_hash: hash,
       label,
+      old_size_mb: 0, // Mocked values for schema compliance
+      old_width: 0,
+      old_height: 0,
+      device: 'Unknown',
       metadata: {} as any // Will be updated by storeImageMetadata
     });
   }
 
   private extractMetadata(file: Express.Multer.File) {
-    // Mock metadata extraction (in reality you'd use a library like sharp)
+    // Mock metadata extraction (in reality you'd use a library like sharp & exif-reader)
     return {
-      width: 1024,
-      height: 768,
-      size: file.size,
-      format: file.mimetype.split('/')[1] || 'unknown'
+      ImageWidth: 1024,
+      ImageLength: 768,
+      New_size_mb: file.size / (1024 * 1024),
+      Make: 'Unknown',
+      Model: 'Unknown',
+      Software: 'Axon Default',
+      format_change: file.mimetype.split('/')[1] || 'unknown',
+      DateTime: new Date()
     };
   }
 
