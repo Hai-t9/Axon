@@ -17,13 +17,15 @@
     "exifreader": "^4.38.1",
     "express": "^5.2.1",
     "multer": "^2.1.1",
-    "prisma": "^7.8.0"
+    "prisma": "^7.8.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.6.0",
+    "@types/sharp": "^0.31.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }
