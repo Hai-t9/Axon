@@ -2,3 +2,18 @@
 .idea
 node_modules
 .docusaurus
+
+# Backend ignores
+backend/node_modules/
+backend/dist/
+backend/build/
+backend/**/*.js
+backend/**/*.js.map
+backend/**/*.d.ts
+backend/**/*.d.ts.map
+backend/.env
+
+# Global ignores
+build/
+dist/
+.env
