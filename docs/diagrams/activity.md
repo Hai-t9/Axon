@@ -5,13 +5,18 @@ title: Activity Diagram
 
 # Activity Diagram
 
+<<<<<<< Updated upstream
 This diagram captures the competition workflow shown in the activity PNG under `static/diagrams/diagram.activity.png`.
 
 Read top-to-bottom: the swimlanes group responsibilities (Organizers, Participants, System). Use this page as the canonical, source-controlled diagram for the competition lifecycle — update the Mermaid block here when the process or phases change.
+=======
+This diagram captures the flow for submitting a model and running an evaluation.
+>>>>>>> Stashed changes
 
 ```mermaid
 %%{init: {'themeVariables': { 'fontSize':'20px', 'fontFamily':'Inter, Arial, sans-serif' }}}%%
 flowchart TD
+<<<<<<< Updated upstream
   start([Start])
 
   subgraph O[Organizers]
@@ -101,10 +106,24 @@ flowchart TD
   class p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12 participant;
   class s1,s2,s3,s4,s6,s7,s10,s11,s14,s15 system;
   class s5,s8,s9,s12,s13,end1,end2 decision;
+=======
+  A([Start]) --> B[Prepare model package]
+  B --> C[Validate package and metadata]
+  C --> D[Submit to Axon]
+  D --> E[Create evaluation job]
+  E --> F[Queue job]
+  F --> G[Run containerized evaluation]
+  G --> H[Compute metrics]
+  H --> I[Persist results]
+  I --> J[Update leaderboard]
+  J --> K[Notify team]
+  K --> L([End])
+>>>>>>> Stashed changes
 ```
 
 ## Operational notes
 
+<<<<<<< Updated upstream
 - Keep each step deterministic and repeatable; keep node names short and action-oriented (verb + object).
 - Keep a single responsibility per node — split complex activities into smaller nodes so sequence and activity diagrams remain readable.
 - Use quoted labels with HTML breaks (for example: "Register<br/>(Web Version)") when you need multi-line node text; do not rely on raw `\n` escapes.
@@ -114,3 +133,7 @@ flowchart TD
 - For local Mermaid preview, use `npx mmdc` or a trusted editor plugin; test large graphs in smaller pieces to avoid rendering timeouts.
 
 - Accessibility: include a short textual summary above the diagram (this page) and keep the diagram's intent clear for screen-reader users.
+=======
+- Keep evaluation steps deterministic and repeatable.
+- Validate packages early to avoid wasted compute.
+>>>>>>> Stashed changes

@@ -5,11 +5,18 @@ title: Database Schema
 
 # Database Schema
 
+<<<<<<< Updated upstream
 This ER diagram is generated to match the canonical DBML in `static/schema/schema.db.txt` (source-controlled). It reflects core tables used by competitions, teams, images, labels, models and evaluations.
+=======
+Database engine: PostgreSQL. Model artifacts and datasets are stored in object storage and referenced by URI.
+
+The following ER diagram models teams, submissions, evaluation jobs, and leaderboard ranking.
+>>>>>>> Stashed changes
 
 ```mermaid
 %%{init: {'themeVariables': { 'fontSize':'20px', 'fontFamily':'Inter, Arial, sans-serif' }}}%%
 erDiagram
+<<<<<<< Updated upstream
   USER ||--o{ ROLE : has
   COMPETITION ||--o{ ROLE : includes
   COMPETITION ||--|| CONFIG : has_config
@@ -23,6 +30,29 @@ erDiagram
   TEAM ||--o{ MODEL : submits
   MODEL ||--o{ EVALUATION : evaluated_by
   COMPETITION ||--o{ PHASE_LOG : logs
+=======
+  TEAM ||--o{ TEAM_MEMBER : includes
+  USER ||--o{ TEAM_MEMBER : joins
+  DATASET ||--o{ DATASET_VERSION : versions
+  PHASE ||--o{ SUBMISSION : accepts
+  DATASET_VERSION ||--o{ SUBMISSION : evaluated_on
+  TEAM ||--o{ SUBMISSION : submits
+  SUBMISSION ||--|| MODEL_ARTIFACT : contains
+  SUBMISSION ||--o{ EVALUATION_JOB : schedules
+  EVALUATION_JOB ||--|| EVALUATION_RESULT : produces
+  EVALUATION_RESULT ||--o{ METRIC : reports
+  SUBMISSION ||--o{ LEADERBOARD_ENTRY : ranks
+  PHASE ||--o{ LEADERBOARD_ENTRY : groups
+  TEAM ||--o{ LEADERBOARD_ENTRY : earns
+
+  TEAM {
+    uuid id PK
+    string name
+    string organization
+    string status
+    datetime created_at
+  }
+>>>>>>> Stashed changes
 
   USER {
     int id PK
@@ -33,6 +63,7 @@ erDiagram
     timestamp created_at
   }
 
+<<<<<<< Updated upstream
   ROLE {
     int user_id FK
     int competition_id FK
@@ -146,6 +177,91 @@ erDiagram
     int model_id FK
     float score
     timestamp evaluated_at
+=======
+  TEAM_MEMBER {
+    uuid team_id FK
+    uuid user_id FK
+    string role
+    datetime joined_at
+  }
+
+  PHASE {
+    uuid id PK
+    string name
+    string description
+    datetime start_at
+    datetime end_at
+    string status
+  }
+
+  DATASET {
+    uuid id PK
+    string name
+    string description
+    string modality
+    datetime created_at
+  }
+
+  DATASET_VERSION {
+    uuid id PK
+    uuid dataset_id FK
+    string version
+    string checksum
+    string storage_uri
+    datetime created_at
+  }
+
+  SUBMISSION {
+    uuid id PK
+    uuid team_id FK
+    uuid phase_id FK
+    uuid dataset_version_id FK
+    string status
+    datetime created_at
+  }
+
+  MODEL_ARTIFACT {
+    uuid id PK
+    uuid submission_id FK
+    string storage_uri
+    string sha256
+    string runtime
+    datetime created_at
+  }
+
+  EVALUATION_JOB {
+    uuid id PK
+    uuid submission_id FK
+    string status
+    datetime queued_at
+    datetime started_at
+    datetime finished_at
+  }
+
+  EVALUATION_RESULT {
+    uuid id PK
+    uuid job_id FK
+    decimal score
+    jsonb metrics_json
+    datetime created_at
+  }
+
+  METRIC {
+    uuid id PK
+    uuid result_id FK
+    string name
+    decimal value
+  }
+
+  LEADERBOARD_ENTRY {
+    uuid id PK
+    uuid phase_id FK
+    uuid team_id FK
+    uuid submission_id FK
+    int rank
+    decimal score
+    datetime created_at
+>>>>>>> Stashed changes
   }
 ```
 

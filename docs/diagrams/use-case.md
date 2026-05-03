@@ -12,6 +12,7 @@ Use the Mermaid source below as the canonical representation — update it when 
 ```mermaid
 %%{init: {'themeVariables': { 'fontSize':'20px', 'fontFamily':'Inter, Arial, sans-serif' }}}%%
 flowchart LR
+<<<<<<< Updated upstream
   %% Actors (emoji used as lightweight stick-figure stand-ins)
   Host(["👤\nHost (organiser)"])
   Staff(["👥\nStaff (organiser)"])
@@ -116,6 +117,31 @@ flowchart LR
 
   class REG,SETUP,TEAM,DATA,VALID,EVAL area;
   class Host,Staff,Participant actorStyle;
+=======
+  TM[Team]
+  ADM[Admin]
+  DS[Data Steward]
+  EV[Evaluator]
+
+  subgraph AX[Axon Challenge Platform]
+    UC1([Register team])
+    UC2([Upload model artifact])
+    UC3([Submit for evaluation])
+    UC4([View leaderboard])
+    UC5([Manage datasets])
+    UC6([Configure phases and rules])
+    UC7([Review evaluation logs])
+  end
+
+  TM --> UC1
+  TM --> UC2
+  TM --> UC3
+  TM --> UC4
+  DS --> UC5
+  ADM --> UC6
+  ADM --> UC7
+  EV --> UC7
+>>>>>>> Stashed changes
 ```
 
 ## Modeling guidance

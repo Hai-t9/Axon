@@ -15,6 +15,18 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
+    'problem-definition',
+    'what-is-axon',
+    {
+      type: 'category',
+      label: 'System Architecture',
+      items: ['architecture/system-architecture'],
+    },
+    {
+      type: 'category',
+      label: 'System Design',
+      items: ['architecture/system-design'],
+    },
     {
       type: 'category',
       label: 'About Axon',
@@ -30,6 +42,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Diagrams',
+<<<<<<< Updated upstream
       items: [
         'diagrams/use-case',
         'diagrams/activity'
@@ -45,6 +58,19 @@ const sidebars: SidebarsConfig = {
           dirName: 'system-architecture/modules',
         },
       ],
+=======
+      items: ['diagrams/use-case', 'diagrams/activity'],
+    },
+    {
+      type: 'category',
+      label: 'API Contract',
+      items: ['reference/api-contract'],
+    },
+    {
+      type: 'category',
+      label: 'Tech Stack',
+      items: ['reference/tech-stack'],
+>>>>>>> Stashed changes
     },
     {
       type: 'category',
