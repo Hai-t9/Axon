@@ -7,15 +7,17 @@ title: Technical Reference
 
 ## Stack
 
-- Site framework: Docusaurus classic preset with TypeScript
+- Documentation portal framework: Docusaurus classic preset with TypeScript
 - Diagram engine: Mermaid via theme integration
 - Hosting: GitHub Pages
 - Deployment: GitHub Actions workflow
 
+For Axon platform implementation details, see the Tech Stack page.
+
 ## Repository conventions
 
 - Keep primary documentation under docs.
-- Group domain docs by concern: schema, diagrams, and reference.
+- Group domain docs by concern: architecture, schema, diagrams, and reference.
 - Prefer stable document slugs to avoid broken links.
 
 ## Authoring conventions
