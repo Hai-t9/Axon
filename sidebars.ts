@@ -41,7 +41,9 @@ const sidebars: SidebarsConfig = {
         'modules-components/module-dashboard',
         'modules-components/module-leaderboard',
         'modules-components/module-label',
-        'modules-components/module-validation'
+        'modules-components/module-validation',
+        'modules-components/module-image',
+        'modules-components/module-cleaner'
       ],
     },
     {
