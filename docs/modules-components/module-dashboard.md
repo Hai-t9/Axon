@@ -1,5 +1,7 @@
 # Module Breakdown — Dashboard
 
+![Dashboard Diagram](../../static/diagrams/dashboard.png)
+
 ## Overview
 
 Passive read module that aggregates competition state from multiple tables and returns a unified dashboard view. Supports Redis caching to avoid redundant queries on frequent loads.

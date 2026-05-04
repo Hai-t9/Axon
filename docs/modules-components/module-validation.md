@@ -1,5 +1,7 @@
 # Module Breakdown — Validation
 
+![Dashboard Diagram](../../static/diagrams/Validation.png)
+
 ## Overview
 
 Handles the participant voting workflow for finalizing image labels. Each participant receives a queue of images to validate — 60% from their own team and 40% from other teams, making the split invisible to them. The queue size is defined by the host in the competition config. Once enough votes are collected, `finalizeLabel` computes the majority vote and persists the result via the Label module.

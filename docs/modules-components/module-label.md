@@ -1,5 +1,7 @@
 # Module Breakdown — Label
 
+![Dashboard Diagram](../../static/diagrams/Label.png)
+
 ## Overview
 
 Manages image labels submitted by teams throughout the competition. Each image starts with an unvalidated label. The Validation module calls `updateLabel` internally when a label is finalized via majority vote.

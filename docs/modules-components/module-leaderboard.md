@@ -1,5 +1,7 @@
 # Module Breakdown — Leaderboard
 
+![Dashboard Diagram](../../static/diagrams/leaderboard.png)
+
 ## Overview
 
 Standalone read module that computes and returns team rankings from scores already stored in the DB. Displayed at the end of the competition. Rankings are computed on the fly every time the endpoint is called.
