@@ -18,8 +18,12 @@ graph TB
     subgraph API["API & Orchestration Layer"]
         GW["API Gateway"]
         AUTH["Authentication & Authorization"]
+        COMPETITION_API["Competition Service"]
+        PHASE_API["Phase Service"]
         TEAMS_API["Teams Service"]
         DATA_API["Data Ingestion Service"]
+        LABEL_API["Label Service"]
+        CLEANER_API["Cleaner Service"]
         VALIDATION_API["Data Validation Service"]
         MODELS_API["Model Submission Service"]
         EVAL_API["Evaluation Orchestration Service"]
@@ -43,13 +47,17 @@ graph TB
     MA -->|Image Upload| GW
     WP -->|Model Submit| GW
     GW -->|Route Requests| AUTH
-    AUTH -->|Validated| TEAMS_API & DATA_API & MODELS_API & EVAL_API & LEADERBOARD_API & VALIDATION_API
+    AUTH -->|Validated| COMPETITION_API & PHASE_API & TEAMS_API & DATA_API & LABEL_API & CLEANER_API & MODELS_API & EVAL_API & LEADERBOARD_API & VALIDATION_API
     
     DATA_API -->|Store Images| IMAGES
     DATA_API -->|Queue for Review| VALIDATION_API
     
     VALIDATION_API -->|Display to Team| WP
-    VALIDATION_API -->|Store Labels| DB
+    VALIDATION_API -->|Manage Labels| LABEL_API
+    LABEL_API -->|Store Labels| DB
+    
+    CLEANER_API -->|Analyze & Clean| IMAGES
+    CLEANER_API -->|Update Metadata| DB
     
     MODELS_API -->|Store Models| MODELS
     MODELS_API -->|Schedule| QUEUE
@@ -66,6 +74,10 @@ graph TB
     LEADERBOARD_API -->|Fetch Rankings| WP
     LEADERBOARD_API -->|Cache| CACHE
     
+    COMPETITION_API -->|Persist| DB
+    PHASE_API -->|Persist| DB
+    LABEL_API -->|Persist| DB
+    CLEANER_API -->|Persist| DB
     TEAMS_API -->|Persist| DB
     EVAL_API -->|Persist| DB
     VALIDATOR -->|Validate Quality| DB
@@ -120,6 +132,29 @@ graph TB
   - **Staff:** Data quality monitoring, team approvals, moderation
   - **Participants:** Data submission and model management
 
+#### Competition Service
+- **Purpose:** Manage competition lifecycle and configuration
+- **Responsibilities:**
+  - Create and configure competitions
+  - Manage competition protocols and parameters
+  - Update and delete competitions
+  - Store competition metadata and configuration
+- **Access Control:** Host role only for create, update, delete operations
+- **Data Model:** Competitions, competition configuration
+
+#### Phase Service
+- **Purpose:** Manage competition phase lifecycle and transitions
+- **Responsibilities:**
+  - Track current competition phase (creation → active → evaluation → complete)
+  - Handle automatic and manual phase transitions
+  - Adjust phase deadlines as needed
+  - Configure transition mode (automatic or manual)
+  - Maintain immutable audit logs of all phase changes
+  - Support manual phase overrides with documented reasons
+  - Handle backward transitions when needed
+- **Access Control:** Host role only for phase transitions and deadline adjustments
+- **Data Model:** Phases, phase transition config, phase audit logs
+
 #### Teams Service
 - **Purpose:** Manage competition participants
 - **Responsibilities:**
@@ -144,22 +179,55 @@ graph TB
   - Resolution requirements
   - Timestamp consistency
 
+#### Label Service
+- **Purpose:** Manage image labels throughout competition lifecycle
+- **Responsibilities:**
+  - Create initial (unvalidated) labels for images
+  - Retrieve label information by image
+  - Update labels (called by teams and Validation module)
+  - Validate labels (restrict to staff/host)
+  - Track label validation status and history
+  - Support label corrections and feedback
+  - Ensure label-image integrity
+- **Access Control:** 
+  - All authenticated users can create/read/update labels
+  - Staff and hosts only can validate labels
+- **Integration:** Called by Data Validation Service and Validation module
+- **Data Model:** Labels, label validation status, label history
+
+#### Cleaner Service
+- **Purpose:** Maintain dataset integrity through automated cleaning and deduplication
+- **Responsibilities:**
+  - Detect and remove duplicate images (via hash comparison)
+  - Identify and flag corrupted files
+  - Normalize image formats and sizes
+  - Sanitize metadata (remove sensitive information)
+  - Enforce dataset quality rules (missing labels, invalid formats, imbalance)
+  - Optimize storage (compression, removal of unused files)
+  - Generate cleaning reports and statistics
+  - Rebuild affected datasets after cleaning operations
+- **Access Control:** Host and staff roles only
+- **Operation Levels:** Competition-wide and team-level cleaning
+- **Integration:** Works with Image module, updates database metadata
+- **Data Model:** Cleaning jobs, duplicate groups, cleaning reports
+
 #### Data Validation Service
 - **Purpose:** Enable teams to review and correct image labels
 - **Responsibilities:**
   - Display collected images to respective teams with initial labels
   - Provide intuitive UI for label review and correction
-  - Track label validation status and history
-  - Handle label modifications and feedback from teams
+  - Coordinate voting workflow for label finalization
   - Ensure validation deadlines are respected
   - Generate validation completion reports
-  - Store final validated labels in database
+  - Call Label Service to persist label updates
 - **Workflow:**
   - System automatically assigns images to collecting team
   - Team reviews images and associated labels
   - Team confirms label accuracy or provides corrections
-  - Validated labels locked for evaluation phase
+  - Delegates to Label Service for label updates
+  - Validates and locks finalized labels for evaluation phase
   - Staff monitors validation completion rates
+- **Integration:** Calls Label Service for all label CRUD operations
 - **Output:** Validated, human-reviewed dataset ready for model evaluation
 
 #### Model Submission Service
@@ -361,7 +429,7 @@ Leaderboard Service
 Web Portal (Real-time update)
 ```
 
-### 4. **Leaderboard Update Flow**
+### 3. **Leaderboard Update Flow**
 ```
 Evaluation Results Stored
     ↓

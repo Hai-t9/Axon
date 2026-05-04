@@ -6,26 +6,396 @@ sidebar_position: 1
 
 ## Database Schema
 
-### Core Entities
+### DBML Database Definition
 
-- **Teams**: Competition participants with metadata (team_id, organization, member_count, registration_date)
-- **Images**: Agricultural field data with standardized attributes
-  - `image_id`, `team_id`, `filename`, `device_info`, `metadata` (location, timestamp, environmental conditions)
-  - `format` (JPEG, PNG), `resolution`, `storage_path`
-- **Models**: Participant submissions with evaluation tracking
-  - `model_id`, `team_id`, `submission_date`, `framework`, `version`
-- **Evaluations**: Model performance records
-  - `evaluation_id`, `model_id`, `dataset_fold`, `protocol_type` (LOTO, TOTO), `accuracy`, `timestamp`
-- **Leaderboards**: Real-time rankings with historical snapshots
-  - `leaderboard_id`, `evaluation_fold`, `team_rankings`, `updated_at`
+```dbml
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table user {
+  id integer [primary key, not null, increment]
+  fullname varchar [not null]
+  email varchar [unique, not null]
+  password varchar [not null]
+  phone varchar [null]
+  created_at timestamp [default: `now()`]
+}
+
+Table role {
+  user_id integer [not null]
+  competition_id integer [not null]
+  role enum('host','staff','participant') [not null]
+
+  indexes {
+    (user_id, competition_id) [pk]
+  }
+}
+
+Table competition {
+  id integer [primary key, not null, increment]
+  name varchar [not null]
+  description text [null]
+  launch_date date [null]
+  configjson json [null]
+  invitation_link varchar [unique, null]
+}
+
+Table config {
+  id integer [primary key, not null, increment]
+  competition_id integer [unique, not null]
+  labels json
+  data_ex varchar
+  scoring_ex varchar
+  overview varchar
+  terms_conditions varchar
+  data_md varchar
+  data_format varchar
+  evaluation varchar
+  duplicate_threshhold float
+}
+
+Table team {
+  id integer [primary key, not null, increment]
+  name varchar [not null]
+  comp_id integer [not null]
+  user_ids json [null, note: 'array of user.id values']
+
+  indexes {
+    (name, comp_id) [unique]
+  }
+}
+
+Table phase_log {
+  id integer [primary key, not null, increment]
+  competition_id integer [not null]
+  phase_dates json [null, note: 'map of phase_name to date']
+  current_phase varchar [not null]
+}
+
+Table image {
+  id integer [primary key, not null, increment]
+  team_id integer [not null]
+  author_id integer [not null]
+  time timestamp [default: `now()`]
+  label varchar [null]
+  filepath varchar [unique, not null]
+  status enum('verified','onhold') [not null, default: 'onhold']
+
+  original_filename varchar [null]
+  old_extension varchar [null]
+  image_hash varchar [unique, not null]
+  old_size_mb float [null]
+  old_width float [null]
+  old_height float [null]
+  device varchar [null]
+}
+
+Table image_metadata {
+  id integer [primary key, not null, increment]
+  image_id integer [unique, not null]
+
+  GPSInfo varchar [null]
+  ImageWidth float [null]
+  ImageLength float [null]
+  ResolutionUnit varchar [null]
+  ExifOffset float [null]
+  Make varchar [null]
+  Model varchar [null]
+  Software varchar [null]
+  Orientation float [null]
+  DateTime datetime [null]
+  YCbCrPositioning varchar [null]
+  XResolution float [null]
+  YResolution float [null]
+  New_width float [null]
+  New_height float [null]
+  New_size_mb float [null]
+  Extra_subfolder varchar [null]
+  original_resolution varchar [null]
+  new_resolution varchar [null]
+  resizing_method varchar [null]
+  format_change varchar [null]
+  label varchar [null]
+  english_name varchar [null]
+  scientific_name varchar [null]
+}
+
+Table label {
+  id integer [primary key, not null, increment]
+  image_id integer [not null]
+  label varchar [not null]
+  validated bool [not null, default: false]
+}
+
+Table label_validations {
+  id integer [primary key, not null, increment]
+  label_id integer [not null]
+  validator_id integer [not null]
+  label varchar [not null]
+  validated_at timestamp [default: `now()`]
+}
+
+Table dataset {
+  id integer [primary key, not null, increment]
+  team_id integer [not null]
+  team_folderpath varchar
+}
+
+Table model {
+  id integer [primary key, not null, increment]
+  team_id integer [not null]
+  competition_id integer [not null]
+  docker_img_filepath varchar [not null]
+  submitted_at timestamp [default: `now()`]
+}
+
+Table evaluation {
+  id integer [primary key, not null, increment]
+  model_id integer [not null]
+  score float [not null]
+  evaluated_at timestamp [default: `now()`]
+}
+
+
+// --------------------------------
+// References
+// --------------------------------
+
+// role
+Ref: role.user_id - user.id
+Ref: role.competition_id > competition.id
+
+// competition
+
+// config
+Ref: config.competition_id - competition.id
+
+// team
+Ref: team.comp_id > competition.id
+
+// phase_log
+Ref: phase_log.competition_id > competition.id
+
+// image
+Ref: image.team_id > team.id
+Ref: image.author_id > user.id
+
+// image_metadata
+Ref: image_metadata.image_id - image.id
+
+// label
+Ref: label.image_id - image.id
+
+// label_validations
+Ref: label_validations.label_id > label.id
+Ref: label_validations.validator_id > user.id
+
+// dataset
+Ref: dataset.team_id - team.id
+
+// model
+Ref: model.team_id - team.id
+Ref: model.competition_id > competition.id
+
+// evaluation
+Ref: evaluation.model_id - model.id
+```
+
+### Core Entities Overview
+
+- **user**: Platform users with authentication credentials
+- **role**: Role-based access control (host, staff, participant) per competition
+- **competition**: Competition metadata and configuration
+- **config**: Detailed competition settings (labels, scoring, evaluation rules)
+- **team**: Team/participant groups with member lists
+- **phase_log**: Phase tracking and transitions for competition lifecycle
+- **image**: Agricultural field images with versioning and processing metadata
+- **image_metadata**: Detailed EXIF and processing information for images
+- **label**: Image labels with validation status
+- **label_validations**: Voting records for label validation workflow
+- **dataset**: Team dataset organization and storage paths
+- **model**: Model submissions with framework and versioning
+- **evaluation**: Model evaluation scores and results
 
 ### Relationships
 
 ```
-Teams (1) ──→ (N) Images
-Teams (1) ──→ (N) Models
-Models (1) ──→ (N) Evaluations
-Evaluations → Leaderboards
+user (1) ──→ (N) role
+competition (1) ──→ (N) role
+competition (1) ──→ (N) config
+competition (1) ──→ (N) phase_log
+competition (1) ──→ (N) team
+competition (1) ──→ (N) model
+
+team (1) ──→ (N) image
+team (1) ──→ (N) dataset
+team (1) ──→ (N) model
+
+user (1) ──→ (N) image (as author)
+user (1) ──→ (N) label_validations (as validator)
+
+image (1) ──→ (N) label
+image (1) ──→ (1) image_metadata
+label (1) ──→ (N) label_validations
+model (1) ──→ (N) evaluation
+```
+
+### Visual Database Schema (Entity Relationship Diagram)
+
+```mermaid
+erDiagram
+    USER ||--o{ ROLE : has
+    COMPETITION ||--o{ ROLE : assigns
+    COMPETITION ||--|| CONFIG : defines
+    COMPETITION ||--o{ PHASE_LOG : tracks
+    COMPETITION ||--o{ TEAM : contains
+    COMPETITION ||--o{ MODEL : receives
+    
+    TEAM ||--o{ IMAGE : uploads
+    TEAM ||--o{ DATASET : owns
+    TEAM ||--o{ MODEL : submits
+    
+    USER ||--o{ IMAGE : authors
+    USER ||--o{ LABEL_VALIDATIONS : validates
+    
+    IMAGE ||--|| IMAGE_METADATA : has_detailed
+    IMAGE ||--o{ LABEL : has
+    
+    LABEL ||--o{ LABEL_VALIDATIONS : votes_on
+    
+    MODEL ||--o{ EVALUATION : generates
+
+    USER {
+        int id PK
+        string fullname
+        string email UK
+        string password
+        string phone
+        timestamp created_at
+    }
+    
+    ROLE {
+        int user_id PK,FK
+        int competition_id PK,FK
+        enum role
+    }
+    
+    COMPETITION {
+        int id PK
+        string name
+        text description
+        date launch_date
+        json configjson
+        string invitation_link UK
+    }
+    
+    CONFIG {
+        int id PK
+        int competition_id UK,FK
+        json labels
+        string data_ex
+        string scoring_ex
+        string overview
+        string terms_conditions
+        string data_md
+        string data_format
+        string evaluation
+        float duplicate_threshold
+    }
+    
+    TEAM {
+        int id PK
+        string name
+        int comp_id FK
+        json user_ids
+    }
+    
+    PHASE_LOG {
+        int id PK
+        int competition_id FK
+        json phase_dates
+        string current_phase
+    }
+    
+    IMAGE {
+        int id PK
+        int team_id FK
+        int author_id FK
+        timestamp time
+        string label
+        string filepath UK
+        enum status
+        string original_filename
+        string old_extension
+        string image_hash UK
+        float old_size_mb
+        float old_width
+        float old_height
+        string device
+    }
+    
+    IMAGE_METADATA {
+        int id PK
+        int image_id UK,FK
+        string GPSInfo
+        float ImageWidth
+        float ImageLength
+        string ResolutionUnit
+        float ExifOffset
+        string Make
+        string Model
+        string Software
+        float Orientation
+        datetime DateTime
+        float XResolution
+        float YResolution
+        float New_width
+        float New_height
+        float New_size_mb
+        string original_resolution
+        string new_resolution
+        string resizing_method
+        string format_change
+        string label
+        string english_name
+        string scientific_name
+    }
+    
+    LABEL {
+        int id PK
+        int image_id FK
+        string label
+        bool validated
+    }
+    
+    LABEL_VALIDATIONS {
+        int id PK
+        int label_id FK
+        int validator_id FK
+        string label
+        timestamp validated_at
+    }
+    
+    DATASET {
+        int id PK
+        int team_id FK
+        string team_folderpath
+    }
+    
+    MODEL {
+        int id PK
+        int team_id FK
+        int competition_id FK
+        string docker_img_filepath
+        timestamp submitted_at
+    }
+    
+    EVALUATION {
+        int id PK
+        int model_id FK
+        float score
+        timestamp evaluated_at
+    }
 ```
 
 ## Data Sources
@@ -42,9 +412,7 @@ Evaluations → Leaderboards
    - Training logs and model checkpoints
    - Model metadata and hyperparameters
 
-3. **External APIs**
-   - Weather data: OpenWeatherMap or similar for enriching environmental context
-   - GPS validation: coordinate verification for field locations
+
 
 ### Data Storage
 
@@ -156,7 +524,7 @@ Model Upload (from team)
 | `latitude` | Float | ✓ | -90 to 90 | `35.7638` |
 | `longitude` | Float | ✓ | -180 to 180 | `139.7350` |
 | `timestamp` | ISO 8601 | ✓ | Within competition period | `2026-05-03T14:30:00Z` |
-| `growth_stage` | Enum | ✓ | {seedling, tillering, flowering, maturity} | `flowering` |
+| `growth_stage` | Enum | ✓ | `seedling`, `tillering`, `flowering`, `maturity` | `flowering` |
 | `notes` | String | ✗ | Max 500 chars | `Morning shot, cloudy` |
 
 ### Image Validation

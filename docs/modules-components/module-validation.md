@@ -1,4 +1,8 @@
-# Module Breakdown — Validation
+---
+sidebar_position: 9
+---
+
+# Validation
 
 ![Dashboard Diagram](../../static/diagrams/Validation.png)
 

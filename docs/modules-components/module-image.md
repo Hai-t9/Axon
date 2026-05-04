@@ -1,8 +1,8 @@
 ---
-sidebar_position: 1
+sidebar_position: 5
 ---
 
-# Module Breakdown - image
+# Image
 
 ![img.png](../../static/diagrams/image.png)
 

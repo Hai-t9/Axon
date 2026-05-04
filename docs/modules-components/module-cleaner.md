@@ -1,20 +1,18 @@
 ---
-sidebar_position: 1
+sidebar_position: 7
 ---
 
-# Module Breakdown - cleaner
-
-![img_1.png](../../static/diagrams/cleaner.png)
+# Cleaner
 
 ## Overview
 
-The Cleaner System maintains dataset integrity across competitions by automating deduplication, corruption detection, format normalization, metadata sanitization, and storage optimization. It operates at both the competition and team level, and coordinates with the Dataset service to rebuild affected datasets after cleaning runs.
+The **Cleaner Service** is a dedicated API service that maintains dataset integrity across competitions by automating deduplication, corruption detection, format normalization, metadata sanitization, and storage optimization. It operates at both competition and team levels, analyzing and cleaning image datasets to ensure quality before evaluation phases.
 
-## Example Module Structure
+---
 
 ### Responsibility
 
-Runs configurable cleaning pipelines against competition image sets, identifying and removing duplicates (via hash comparison), corrupted files, and policy violations (missing labels, invalid formats, imbalanced datasets). Normalizes image formats and sizes, strips sensitive metadata, and triggers dataset reconstruction and storage cleanup on completion.
+Runs configurable cleaning pipelines against competition image sets, identifying and removing duplicates (via hash comparison), corrupted files, and policy violations (missing labels, invalid formats, imbalanced datasets). Normalizes image formats and sizes, strips sensitive metadata, and updates metadata records on completion.
 
 ### Inputs / Outputs
 
@@ -123,7 +121,8 @@ Runs configurable cleaning pipelines against competition image sets, identifying
 
 ### Dependencies
 
-- **DatasetService** — `updatePath()` called during dataset rebuild after cleaning
-- **Image Module repository** — for reading and mutating image records in bulk
-- **Storage service** — for file-level removal and compression
-- **Auth middleware** — for request authentication and role enforcement
+- `image` table, `cleaning_job` table, `duplicate_group` table
+- **Data Ingestion Service** — accesses image storage
+- **Image module repository** — for bulk image operations and metadata updates
+- **Storage service** — for file-level analysis, removal, and compression
+- **Auth middleware** — for request authentication and role enforcement (host/staff only)

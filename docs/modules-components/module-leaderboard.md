@@ -1,4 +1,8 @@
-# Module Breakdown — Leaderboard
+---
+sidebar_position: 13
+---
+
+# Leaderboard
 
 ![Dashboard Diagram](../../static/diagrams/leaderboard.png)
 
