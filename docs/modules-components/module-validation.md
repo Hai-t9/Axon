@@ -22,6 +22,12 @@ Manages the full validation lifecycle: queue distribution, vote submission, and 
 
 ### APIs
 
+**Endpoints**
+- `GET    /competitions/:compId/validations/queue` — Returns images awaiting validation for a participant — 60% own team / 40% other teams, limit from config
+- `POST   /images/:imageId/validations` — Participant submits a validation vote for an image with their chosen label
+- `POST   /images/:imageId/finalizeLabel` — Computes the final label from all votes via majority logic, then calls Label PUT to update
+- `GET    /competitions/:compId/validations/pending` — Returns all images still pending final validation
+
 **Controller**
 - `handleGetValidationQueue(compId, participantId)`
 - `handleSubmitVote(imageId)`

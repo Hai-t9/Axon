@@ -22,6 +22,12 @@ Handles full CRUD on image labels. The `validateLabel` endpoint is restricted to
 
 ### APIs
 
+**Endpoints**
+- `POST   /images/:imageId/labels` — Creates a new label for an image — starts as unvalidated
+- `GET    /images/:imageId/labels` — Retrieves the current label and its validation status for an image
+- `PUT    /images/:imageId/labels` — Updates an existing label — also called internally by Validation when finalizing
+- `POST   /images/:imageId/labels/validate` — Marks a label as validated — staff and host only
+
 **Controller**
 - `handleCreateLabel(imageId)`
 - `handleGetLabel(imageId)`

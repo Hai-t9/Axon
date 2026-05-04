@@ -19,6 +19,9 @@ No writes to the DB. Joins evaluation scores to teams and sorts them into a rank
 
 ### APIs
 
+**Endpoints**
+- `GET    /competitions/:compId/leaderboard` — Returns ranked list of teams with score, submission time, and rank — supports optional limit
+
 **Controller**
 - `handleGetLeaderboard(compId)`
 
