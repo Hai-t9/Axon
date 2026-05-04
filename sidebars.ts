@@ -36,7 +36,13 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Modules & Components',
-      items: ['modules-components/module-breakdown'],
+      items: [
+        'modules-components/module-breakdown',
+        'modules-components/module-dashboard',
+        'modules-components/module-leaderboard',
+        'modules-components/module-label',
+        'modules-components/module-validation'
+      ],
     },
     {
       type: 'category',
