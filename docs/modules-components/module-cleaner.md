@@ -77,8 +77,8 @@ Runs configurable cleaning pipelines against competition image sets, identifying
 **Role:** host\|staff
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:compId` | integer path | ✅ | Competition ID |
+|---|---|----------|---|
+| `:compId` | integer path | yes      | Competition ID |
 
 **Output:** `duplicates_removed`, `corrupted_removed`, `images_normalized`, `images_resized`, `datasets_rebuilt` (boolean), `storage_freed_mb`, `completed_at`
 
@@ -90,8 +90,8 @@ Runs configurable cleaning pipelines against competition image sets, identifying
 **Role:** host\|staff
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:compId` | integer path | ✅ | Competition ID |
+|---|---|----------|---|
+| `:compId` | integer path | yes      | Competition ID |
 
 **Output:** `duplicate_groups` (`{ hash: string, image_ids: integer[] }[]`), `total_duplicates`
 
@@ -103,8 +103,8 @@ Runs configurable cleaning pipelines against competition image sets, identifying
 **Role:** host\|staff
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:teamId` | integer path | ✅ | Team ID |
+|---|---|----------|---|
+| `:teamId` | integer path | yes      | Team ID |
 
 **Output:** `images_processed`, `issues_found` (string[])
 
@@ -116,8 +116,8 @@ Runs configurable cleaning pipelines against competition image sets, identifying
 **Role:** host
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:compId` | integer path | ✅ | Competition ID |
+|---|---|----------|---|
+| `:compId` | integer path | yes      | Competition ID |
 
 **Output:** `freed_mb`, `files_removed`, `completed_at`
 

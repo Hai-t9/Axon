@@ -73,9 +73,9 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 **Auth:** true
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `file` | multipart/file | ✅ | Image binary |
-| `label` | string | ❌ | Optional label |
+|---|---|----------|---|
+| `file` | multipart/file | yes      | Image binary |
+| `label` | string | no       | Optional label |
 
 **Output:** `id`, `filepath`, `image_hash`, `status` (onhold\|verified), `metadata` (ImageMetadata)
 
@@ -86,8 +86,8 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 **Auth:** true
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:id` | integer path | ✅ | Image ID |
+|---|---|----------|---|
+| `:id` | integer path | yes      | Image ID |
 
 **Output:** `id`, `team_id`, `author_id`, `filepath`, `label`, `status` (onhold\|verified), `metadata` (ImageMetadata)
 
@@ -98,10 +98,10 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 **Auth:** true
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:teamId` | integer path | ✅ | Team ID |
-| `status` | enum query | ❌ | Filter by status |
-| `page` | integer query | ❌ | Pagination |
+|---|---|----------|---|
+| `:teamId` | integer path | yes      | Team ID |
+| `status` | enum query | no       | Filter by status |
+| `page` | integer query | no       | Pagination |
 
 **Output:** `images` (Image[]), `total`, `page`
 
@@ -112,9 +112,9 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 **Auth:** true
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:compId` | integer path | ✅ | Competition ID |
-| `status` | enum query | ❌ | Filter by status |
+|---|---|----------|---|
+| `:compId` | integer path | yes      | Competition ID |
+| `status` | enum query | no       | Filter by status |
 
 **Output:** `images` (Image[]), `total`
 
@@ -126,9 +126,9 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 **Role:** staff\|host
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:id` | integer path | ✅ | Image ID |
-| `status` | enum | ✅ | onhold\|verified |
+|---|---|----------|---|
+| `:id` | integer path | yes      | Image ID |
+| `status` | enum | yes      | onhold\|verified |
 
 **Output:** `id`, `status`
 
@@ -140,8 +140,8 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 **Role:** staff\|host
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:id` | integer path | ✅ | Image ID |
+|---|---|----------|---|
+| `:id` | integer path | yes      | Image ID |
 
 **Output:** `message`
 
@@ -152,8 +152,8 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 **Auth:** true
 
 | Field | Type | Required | Description |
-|---|---|---|---|
-| `:compId` | integer path | ✅ | Competition ID |
+|---|---|----------|---|
+| `:compId` | integer path | yes      | Competition ID |
 
 **Output:** `total`, `by_status` (`{ onhold: int, verified: int }`), `by_team` (`{ team_id, count }[]`), `by_label` (`{ label, count }[]`)
 
