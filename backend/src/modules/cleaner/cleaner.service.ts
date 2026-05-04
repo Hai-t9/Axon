@@ -41,14 +41,18 @@ export class CleanerService {
     return this.getDuplicateCandidates(images);
   }
 
-  getDuplicateCandidates(images: ImageRecord[]): ImageRecord[] {
-    this.compareHashes();
-    // mock logic identifying duplicates based on hash
-    return [];
-  }
+  async getDuplicateCandidates(images: ImageRecord[]): Promise<ImageRecord[]> {
+    const seen = new Map<string, ImageRecord>();
+    const duplicates: ImageRecord[] = [];
 
-  compareHashes() {
-    // mock hash comparison
+    for (const img of images) {
+      if (seen.has(img.image_hash)) {
+        duplicates.push(img); // keep the first one, flag the rest
+      } else {
+        seen.set(img.image_hash, img);
+      }
+    }
+    return duplicates;
   }
 
   async flagDuplicateImages(duplicates: ImageRecord[]) {

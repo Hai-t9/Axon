@@ -13,8 +13,10 @@ backend/**/*.d.ts
 backend/**/*.d.ts.map
 backend/.env
 
+# Exception : Prisma 7 requires this file
+!backend/prisma.config.js
+
 # Global ignores
 build/
 dist/
 .env
-
