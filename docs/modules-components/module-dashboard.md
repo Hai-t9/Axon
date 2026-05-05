@@ -1,4 +1,8 @@
-# Module Breakdown — Dashboard
+---
+sidebar_position: 12
+---
+
+# Dashboard
 
 ![Dashboard Diagram](../../static/diagrams/dashboard.png)
 

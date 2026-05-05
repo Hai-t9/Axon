@@ -1,4 +1,8 @@
-# Module Breakdown — Leaderboard
+---
+sidebar_position: 13
+---
+
+# Leaderboard
 
 ![Dashboard Diagram](../../static/diagrams/leaderboard.png)
 
@@ -9,7 +13,7 @@ Standalone read module that computes and returns team rankings from scores alrea
 ---
 
 ### Responsibility
-No writes to the DB. Joins evaluation scores to teams and sorts them into a ranked list. The `limit` query param lets the caller cap how many entries are returned.
+No writes to the DB. Joins evaluation scores to teams, picks the best score per team (since teams can have multiple submissions), and sorts them into a ranked list. The `limit` query param lets the caller cap how many entries are returned.
 
 ### Inputs / Outputs
 
@@ -26,10 +30,10 @@ No writes to the DB. Joins evaluation scores to teams and sorts them into a rank
 - `handleGetLeaderboard(compId)`
 
 **Service**
-- `getLeaderboard(compId, limit)` → `findRankedTeams(compId, limit)`
+- `getLeaderboard(compId, limit)` → `findBestScorePerTeam(compId, limit)`
 
 **Repository**
-- `findRankedTeams(compId, limit)` — joins `evaluation → model → team`, sorted by score descending, assigns ranks
+- `findBestScorePerTeam(compId, limit)` — joins `evaluation → model → team`, picks best score per team, sorted by score descending, assigns ranks
 
 ### Dependencies
 - `evaluation`, `model`, `team` tables

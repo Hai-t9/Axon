@@ -1,15 +1,18 @@
-# Module Breakdown — Label
+---
+sidebar_position: 6
+---
 
-![Dashboard Diagram](../../static/diagrams/Label.png)
+# Label
 
 ## Overview
 
-Manages image labels submitted by teams throughout the competition. Each image starts with an unvalidated label. The Validation module calls `updateLabel` internally when a label is finalized via majority vote.
+The **Label Service** is a dedicated API service that manages image labels throughout the competition lifecycle. Each image starts with an unvalidated label, which then goes through the voting workflow in the Validation module. The Label Service handles all label CRUD operations and is called by both the Data Validation Service and the Validation module for label management and finalization.
 
 ---
 
 ### Responsibility
-Handles full CRUD on image labels. The `validateLabel` endpoint is restricted to staff and host. The `updateLabel` endpoint is also called internally by the Validation module — not just by external clients.
+
+Handles full CRUD on image labels and label validation status. The `validateLabel` endpoint is restricted to staff and host roles. The `updateLabel` endpoint is called both externally (by Data Validation Service and teams) and internally (by Validation module when finalizing labels via majority vote).
 
 ### Inputs / Outputs
 
@@ -47,5 +50,8 @@ Handles full CRUD on image labels. The `validateLabel` endpoint is restricted to
 - `setLabelValidated(imageId)`
 
 ### Dependencies
+
 - `label` table
-- Called externally by **Validation module** (`finalizeLabel` → `LabelService.updateLabel`)
+- **Data Validation Service** — calls Label Service for label operations during validation workflow
+- **Validation module** — calls `updateLabel` when finalizing labels via majority voting
+- **Image module** — images have associated labels (1:1 relationship)
