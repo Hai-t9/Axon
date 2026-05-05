@@ -1,24 +1,18 @@
-/node_modules
-/.docusaurus
-/build
-/.cache
-__pycache__/
-**/__pycache__/
-backend/tests/.pytest_cache
-
 .vscode
 .idea
-/docs
 
-node_modules
+.dart_tool
+build
+dart_tool
+.packages
+.pub
+.pub-cache
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.flutter-android-plugins
+.flutter-android-plugins-dependencies
+.flutter-ios-plugins
 
 .docusaurus
-build
-.dart_tool/
-.packages
-.pub-cache/
-.pub/
-.pytest_cache/
-.pytype/
-.pyre/
-.mypy_cache/
+node_modules

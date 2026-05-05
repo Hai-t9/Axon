@@ -7,8 +7,16 @@ from app.services.leaderboard.controller import router as leaderboard_router
 from app.services.phase.controller import router as phase_router
 from app.services.register.controller import router as register_router
 from app.services.team.controller import router as team_router
+from app.services.image.controller import router as image_router
+from app.services.cleaner.controller import router as cleaner_router
+from app.core.database import engine, Base
+import app.models
 
 app = FastAPI()
+
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
 
 API_PREFIX = "/api/v1"
 
@@ -19,4 +27,5 @@ app.include_router(label_router, prefix=API_PREFIX)
 app.include_router(leaderboard_router, prefix=API_PREFIX)
 app.include_router(team_router, prefix=API_PREFIX)
 app.include_router(phase_router, prefix=API_PREFIX)
-
+app.include_router(image_router, prefix=API_PREFIX)
+app.include_router(cleaner_router, prefix=API_PREFIX)
