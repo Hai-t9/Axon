@@ -20,7 +20,7 @@ class UploadService {
           filePath,
           filename: filePath.split('/').last,
         ),
-        'label': jsonEncode(labelPayload), // Field name must match backend's Form(None) param
+        'label': labelPayload['tags'][0].toString(), // Send plain string directly
       });
 
       final response = await _dio.post(

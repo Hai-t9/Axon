@@ -4,6 +4,18 @@ from app.schemas.image import ImageResponse
 from app.services.image.service import ImageService
 from app.services.image.repository import ImageRepository
 from app.core.database import SessionLocal
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import List
+from pydantic import BaseModel
+
+security = HTTPBearer()
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    # This is a placeholder mock for Mustafa's AuthGuard. It assumes the token contains a sub or just defaults to 1.
+    token = credentials.credentials
+    if token.startswith("real_jwt_token_for_user_"):
+        return int(token.split("_")[-1])
+    return 1
 
 def get_db():
     db = SessionLocal()
@@ -11,8 +23,6 @@ def get_db():
         yield db
     finally:
         db.close()
-from typing import List
-from pydantic import BaseModel
 
 router = APIRouter(tags=["images"])
 
@@ -24,14 +34,14 @@ async def upload_image(
     team_id: int,
     file: UploadFile = File(...),
     label: str = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user)
 ):
     repo = ImageRepository(db)
     service = ImageService(repo)
-    user_id = 1 # mock auth
 
     try:
-        record = await service.upload_image(user_id, team_id, file, label)
+        record = await service.upload_image(current_user_id, team_id, file, label)
         return record
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

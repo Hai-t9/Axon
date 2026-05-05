@@ -7,8 +7,8 @@ class CleanerRepository:
         self.db = db
 
     def find_images_by_competition(self, comp_id: int) -> List[Image]:
-        # Using simple query, theoretically join with Team
-        return self.db.query(Image).all()
+        from app.models.model_team import Team
+        return self.db.query(Image).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id).all()
 
     def find_duplicates_by_hash(self, image_hash: str) -> List[Image]:
         return self.db.query(Image).filter(Image.image_hash == image_hash).all()
@@ -37,4 +37,3 @@ class CleanerRepository:
                 count += 1
         self.db.commit()
         return count
-

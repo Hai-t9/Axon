@@ -55,8 +55,8 @@ class ImageRepository:
         return images, total
 
     def find_by_competition(self, comp_id: int, status: str = None):
-        # MOCK comp logic for now
-        query = self.db.query(Image)
+        from app.models.model_team import Team
+        query = self.db.query(Image).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id)
         if status:
             query = query.filter(Image.status == status)
         total = query.count()
@@ -64,19 +64,24 @@ class ImageRepository:
 
     def get_stats(self, comp_id: int):
         from sqlalchemy import func
-        # MOCK comp logic for now, querying all images
-        total = self.db.query(Image).count()
+        from app.models.model_team import Team
         
-        status_counts = self.db.query(Image.status, func.count(Image.id)).group_by(Image.status).all()
+        base_query = self.db.query(Image).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id)
+        total = base_query.count()
+        
+        status_counts = self.db.query(Image.status, func.count(Image.id)).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id).group_by(Image.status).all()
         by_status = {str(status).split(".")[-1]: count for status, count in status_counts}
 
-        team_counts = self.db.query(Image.team_id, func.count(Image.id)).group_by(Image.team_id).all()
+        team_counts = self.db.query(Image.team_id, func.count(Image.id)).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id).group_by(Image.team_id).all()
         by_team = [{"team_id": tid, "count": count} for tid, count in team_counts]
         
         # Pull label stats from the dedicated label table (Danil's Label module)
         # instead of Image.label column, so the stats align with the validation workflow.
         label_counts = (
             self.db.query(Label.label, func.count(Label.id))
+            .join(Image, Label.image_id == Image.id)
+            .join(Team, Image.team_id == Team.id)
+            .filter(Team.comp_id == comp_id)
             .group_by(Label.label)
             .all()
         )

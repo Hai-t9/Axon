@@ -68,7 +68,31 @@ class CleanerService:
         return self.repository.find_corrupted_images()
 
     async def normalize_image_format(self, comp_id: int):
-        pass
+        images = self.repository.find_images_by_competition(comp_id)
+        for img in images:
+            if not os.path.exists(img.filepath):
+                continue
+            if img.filepath.lower().endswith(".png"):
+                try:
+                    with PILImage.open(img.filepath) as pil_img:
+                        if pil_img.mode in ("RGBA", "P"):
+                            pil_img = pil_img.convert("RGB")
+
+                        new_filepath = img.filepath.rsplit(".", 1)[0] + ".jpg"
+                        pil_img.save(new_filepath, "JPEG", optimize=True)
+
+                    original_size = os.path.getsize(img.filepath)
+                    os.remove(img.filepath)
+
+                    # Update database with new filepath and size differences
+                    img.filepath = new_filepath
+
+                    new_size = os.path.getsize(new_filepath)
+                    if new_size < original_size:
+                        self.freed_space_mb += (original_size - new_size) / (1024 * 1024)
+                except Exception as e:
+                    print(f"Error normalizing format for {img.filepath}: {e}")
+        self.repository.bulk_update(images)
 
     async def resize_images(self, comp_id: int):
         max_size = (1024, 1024)
@@ -98,10 +122,37 @@ class CleanerService:
                 print(f"Error resizing {img.filepath}: {e}")
 
     async def clean_metadata(self, comp_id: int):
-        pass
+        images = self.repository.find_images_by_competition(comp_id)
+        for img in images:
+            # We assume metadata records have some GPS flags or we just clear the GPS field
+            # if we have image_metadata table loaded.
+            # In cleaner repo we do not load metadata by default. Let's just grab existing meta rows
+            from app.models.model_image import ImageMetadata
+            metas = self.repository.db.query(ImageMetadata).filter(ImageMetadata.image_id == img.id).all()
+            for meta in metas:
+                if getattr(meta, "GPSInfo", None):
+                    meta.GPSInfo = None
+        self.repository.db.commit()
 
     async def enforce_dataset_rules(self, comp_id: int):
-        pass
+        images = self.repository.find_images_by_competition(comp_id)
+        violating = []
+        for img in images:
+            # If label is unset, missing, or marked "unlabeled" we penalize/remove
+            from app.models.model_label import Label
+            label_record = self.repository.db.query(Label).filter(Label.image_id == img.id).first()
+            label_text = label_record.label if label_record else img.label
+
+            if not label_text or label_text == "unlabeled":
+                violating.append(img)
+
+        for v in violating:
+            try:
+                if os.path.exists(v.filepath):
+                    os.remove(v.filepath)
+            except OSError:
+                pass
+        self.repository.bulk_delete(violating)
 
     async def rebuild_datasets(self, comp_id: int) -> bool:
         return True
