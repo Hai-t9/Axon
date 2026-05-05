@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from app.models.model_image import Image, ImageMetadata
+from app.models.model_label import Label
 
 class ImageRepository:
     def __init__(self, db: Session):
@@ -15,6 +16,21 @@ class ImageRepository:
         self.db.add(db_metadata)
         self.db.commit()
         return db_image
+
+    def create_label_record(self, image_id: int, label_text: str):
+        """Create a Label row in the label table tied to the uploaded image.
+
+        This bridges the Image module and Danil's Label/Validation modules so that
+        the voting workflow, stats, and data-validation features work correctly.
+        """
+        existing = self.db.query(Label).filter(Label.image_id == image_id).first()
+        if existing:
+            return existing
+        db_label = Label(image_id=image_id, label=label_text, validated=False)
+        self.db.add(db_label)
+        self.db.commit()
+        self.db.refresh(db_label)
+        return db_label
 
     def find_by_id(self, image_id: int):
         return self.db.query(Image).filter(Image.id == image_id).first()
@@ -39,8 +55,8 @@ class ImageRepository:
         return images, total
 
     def find_by_competition(self, comp_id: int, status: str = None):
-        # MOCK comp logic for now
-        query = self.db.query(Image)
+        from app.models.model_team import Team
+        query = self.db.query(Image).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id)
         if status:
             query = query.filter(Image.status == status)
         total = query.count()
@@ -48,17 +64,28 @@ class ImageRepository:
 
     def get_stats(self, comp_id: int):
         from sqlalchemy import func
-        # MOCK comp logic for now, querying all images
-        total = self.db.query(Image).count()
+        from app.models.model_team import Team
         
-        status_counts = self.db.query(Image.status, func.count(Image.id)).group_by(Image.status).all()
+        base_query = self.db.query(Image).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id)
+        total = base_query.count()
+        
+        status_counts = self.db.query(Image.status, func.count(Image.id)).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id).group_by(Image.status).all()
         by_status = {str(status).split(".")[-1]: count for status, count in status_counts}
 
-        team_counts = self.db.query(Image.team_id, func.count(Image.id)).group_by(Image.team_id).all()
+        team_counts = self.db.query(Image.team_id, func.count(Image.id)).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id).group_by(Image.team_id).all()
         by_team = [{"team_id": tid, "count": count} for tid, count in team_counts]
         
-        label_counts = self.db.query(Image.label, func.count(Image.id)).group_by(Image.label).all()
-        by_label = [{"label": lbl, "count": count} for lbl, count in label_counts if lbl is not None and lbl != "null"]
+        # Pull label stats from the dedicated label table (Danil's Label module)
+        # instead of Image.label column, so the stats align with the validation workflow.
+        label_counts = (
+            self.db.query(Label.label, func.count(Label.id))
+            .join(Image, Label.image_id == Image.id)
+            .join(Team, Image.team_id == Team.id)
+            .filter(Team.comp_id == comp_id)
+            .group_by(Label.label)
+            .all()
+        )
+        by_label = [{"label": lbl, "count": count} for lbl, count in label_counts if lbl]
 
         return {
             "total": total,
@@ -70,6 +97,7 @@ class ImageRepository:
     def delete(self, image_id: int):
         img = self.find_by_id(image_id)
         if img:
+            self.db.query(Label).filter(Label.image_id == image_id).delete()
             self.db.query(ImageMetadata).filter(ImageMetadata.image_id == image_id).delete()
             self.db.delete(img)
             self.db.commit()

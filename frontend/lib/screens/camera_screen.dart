@@ -20,7 +20,7 @@ class _CameraScreenState extends State<CameraScreen> {
     if (widget.cameras.isNotEmpty) {
       _controller = CameraController(
         widget.cameras.first,
-        ResolutionPreset.max, // High-res natively
+        ResolutionPreset.high, // Compressed resolution for speed/storing
         enableAudio: false,
       );
       _initializeControllerFuture = _controller.initialize();
@@ -56,23 +56,30 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Take a photo')),
+      appBar: AppBar(title: const Text('Capture Asset')),
       body: FutureBuilder<void>(
         future: _initializeControllerFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            return CameraPreview(_controller);
+            return SizedBox(
+              width: double.infinity,
+              height: double.infinity,
+              child: CameraPreview(_controller),
+            );
           } else {
             return const Center(child: CircularProgressIndicator());
           }
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.large(
         onPressed: _takePicture,
-        child: const Icon(Icons.camera_alt),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: const Icon(Icons.camera_alt, size: 36),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
-

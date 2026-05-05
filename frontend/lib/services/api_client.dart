@@ -1,11 +1,28 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+class AuthNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void setToken(String token) {
+    state = token;
+  }
+}
+
+final authProvider = NotifierProvider<AuthNotifier, String?>(AuthNotifier.new);
+
 class AuthInterceptor extends Interceptor {
+  final Ref ref;
+
+  AuthInterceptor(this.ref);
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    // Injecting a mock JWT for now
-    options.headers['Authorization'] = 'Bearer mock_jwt_token_12345';
+    final token = ref.read(authProvider);
+    if (token != null) {
+      options.headers['Authorization'] = 'Bearer $token';
+    }
     super.onRequest(options, handler);
   }
 
@@ -20,12 +37,12 @@ final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: 'http://192.168.135.205:8000', // Adjusted to Windows Machine IP
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 30),
     ),
   );
 
-  dio.interceptors.add(AuthInterceptor());
+  dio.interceptors.add(AuthInterceptor(ref));
   return dio;
 });
-
