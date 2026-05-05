@@ -5,6 +5,7 @@ from .competition import (
     CompetitionResponse,
     CompetitionUpdate,
 )
+from .label import LabelCreate, LabelResponse, LabelUpdate, LabelValidationResponse
 from .phase import (
     PhaseAdvanceResponse,
     PhaseDeadlineRequest,
@@ -37,6 +38,10 @@ __all__ = [
     "CompetitionListResponse",
     "CompetitionResponse",
     "CompetitionUpdate",
+    "LabelCreate",
+    "LabelResponse",
+    "LabelUpdate",
+    "LabelValidationResponse",
     "PhaseAdvanceResponse",
     "PhaseDeadlineRequest",
     "PhaseHistoryResponse",
