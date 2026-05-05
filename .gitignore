@@ -13,3 +13,6 @@ dart_tool
 .flutter-android-plugins
 .flutter-android-plugins-dependencies
 .flutter-ios-plugins
+
+.docusaurus
+node_modules
