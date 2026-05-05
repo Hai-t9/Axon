@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_client.dart';
@@ -19,7 +20,7 @@ class UploadService {
           filePath,
           filename: filePath.split('/').last,
         ),
-        'labels': labelPayload.toString(), // or encode as JSON
+        'label': jsonEncode(labelPayload), // Field name must match backend's Form(None) param
       });
 
       final response = await _dio.post(
@@ -34,8 +35,9 @@ class UploadService {
         return; // Success
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 409) {
-        throw Exception("Server Rejection: This image is a duplicate.");
+      if (e.response?.statusCode == 400) {
+        final detail = e.response?.data?['detail'] ?? 'Request rejected by server.';
+        throw Exception("Server Rejection: $detail");
       }
       throw Exception(e.message ?? "An error occurred during upload.");
     }

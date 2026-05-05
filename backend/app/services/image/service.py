@@ -2,16 +2,43 @@ from io import BytesIO
 from PIL import Image as PILImage
 import exifread
 import hashlib
+import json
 import os
 import uuid
 from fastapi import UploadFile
 from app.services.image.repository import ImageRepository
 
-import json
 
 class ImageService:
     def __init__(self, repository: ImageRepository):
         self.repository = repository
+
+    @staticmethod
+    def _parse_label(raw_label: str | None) -> str | None:
+        """Parse label from Flutter FormData.
+
+        Accepts:
+          - JSON: '{"tags": ["scratch"]}'  ->  "scratch"
+          - Plain string: 'scratch'        ->  "scratch"
+          - None / empty                   ->  None
+        """
+        if not raw_label or raw_label.strip() in ("", "null", "None"):
+            return None
+
+        try:
+            parsed = json.loads(raw_label)
+            if isinstance(parsed, dict):
+                tags = parsed.get("tags", [])
+                if tags and isinstance(tags, list):
+                    return str(tags[0])
+            # If it parsed as a plain string from JSON
+            if isinstance(parsed, str):
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # Fallback: treat the raw value as a plain string label
+        return str(raw_label).strip()
 
     async def upload_image(self, user_id: int, team_id: int, file: UploadFile, label: str = None):
         # Validate format
@@ -19,16 +46,7 @@ class ImageService:
         if file.content_type not in allowed:
             raise ValueError(f"Invalid format. Allowed: {', '.join(allowed)}")
 
-        # Parse stringified JSON label payload sent by Flutter FormData
-        parsed_label = None
-        if label:
-            try:
-                # Expecting '{"tags": ["scratch"]}' from Flutter
-                parsed_json = json.loads(label.replace("'", '"'))
-                tags = parsed_json.get("tags", [])
-                parsed_label = tags[0] if tags else str(label)
-            except Exception:
-                parsed_label = str(label)
+        parsed_label = self._parse_label(label)
 
         contents = await file.read()
         
@@ -84,6 +102,12 @@ class ImageService:
         }
 
         record = self.repository.create(image_data, metadata)
+
+        # Auto-create a Label record in the label table so the
+        # Validation / Data-Validation workflows have something to work with.
+        if parsed_label:
+            self.repository.create_label_record(record.id, parsed_label)
+
         return record
 
     def get_image_by_id(self, image_id: int):

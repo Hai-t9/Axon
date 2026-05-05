@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from app.models.model_image import Image, ImageMetadata
+from app.models.model_label import Label
 
 class ImageRepository:
     def __init__(self, db: Session):
@@ -15,6 +16,21 @@ class ImageRepository:
         self.db.add(db_metadata)
         self.db.commit()
         return db_image
+
+    def create_label_record(self, image_id: int, label_text: str):
+        """Create a Label row in the label table tied to the uploaded image.
+
+        This bridges the Image module and Danil's Label/Validation modules so that
+        the voting workflow, stats, and data-validation features work correctly.
+        """
+        existing = self.db.query(Label).filter(Label.image_id == image_id).first()
+        if existing:
+            return existing
+        db_label = Label(image_id=image_id, label=label_text, validated=False)
+        self.db.add(db_label)
+        self.db.commit()
+        self.db.refresh(db_label)
+        return db_label
 
     def find_by_id(self, image_id: int):
         return self.db.query(Image).filter(Image.id == image_id).first()
@@ -57,8 +73,14 @@ class ImageRepository:
         team_counts = self.db.query(Image.team_id, func.count(Image.id)).group_by(Image.team_id).all()
         by_team = [{"team_id": tid, "count": count} for tid, count in team_counts]
         
-        label_counts = self.db.query(Image.label, func.count(Image.id)).group_by(Image.label).all()
-        by_label = [{"label": lbl, "count": count} for lbl, count in label_counts if lbl is not None and lbl != "null"]
+        # Pull label stats from the dedicated label table (Danil's Label module)
+        # instead of Image.label column, so the stats align with the validation workflow.
+        label_counts = (
+            self.db.query(Label.label, func.count(Label.id))
+            .group_by(Label.label)
+            .all()
+        )
+        by_label = [{"label": lbl, "count": count} for lbl, count in label_counts if lbl]
 
         return {
             "total": total,
@@ -70,6 +92,7 @@ class ImageRepository:
     def delete(self, image_id: int):
         img = self.find_by_id(image_id)
         if img:
+            self.db.query(Label).filter(Label.image_id == image_id).delete()
             self.db.query(ImageMetadata).filter(ImageMetadata.image_id == image_id).delete()
             self.db.delete(img)
             self.db.commit()
