@@ -15,27 +15,21 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
-    {
-      type: 'category',
-      label: 'High-Level Overview',
-      items: ['high-level-overview/project-overview'],
-    },
-    {
-      type: 'category',
-      label: 'Requirements',
-      items: [
-        'requirements/functional-requirements',
-        'requirements/non-functional-requirements'
-      ],
-    },
+    'problem-definition',
+    'what-is-axon',
     {
       type: 'category',
       label: 'System Architecture',
-      items: ['system-architecture/architecture-overview'],
+      items: ['architecture/system-architecture'],
     },
     {
       type: 'category',
-      label: 'Modules & Components',
+      label: 'System Design',
+      items: ['architecture/system-design'],
+    },
+    {
+      type: 'category',
+      label: 'About Axon',
       items: [
         'modules-components/module-breakdown',
         'modules-components/module-authentication',
@@ -51,38 +45,34 @@ const sidebars: SidebarsConfig = {
         'modules-components/module-evaluation-orchestration',
         'modules-components/module-model-submission',
         'modules-components/module-phase',
-        'modules-components/module-teams'
+        'modules-components/module-teams',
+        'aboutaxon/problem-definition'
       ],
     },
     {
       type: 'category',
-      label: 'Data Layer',
-      items: ['data-layer/data-layer'],
+      label: 'Schema',
+      items: ['schema/database-schema'],
     },
     {
       type: 'category',
-      label: 'Development & Setup',
-      items: ['development-setup/setup-docs'],
+      label: 'Diagrams',
+      items: ['diagrams/use-case', 'diagrams/activity'],
     },
     {
       type: 'category',
-      label: 'API Documentation',
-      items: ['api-documentation/api-docs'],
+      label: 'API Contract',
+      items: ['reference/api-contract'],
     },
     {
       type: 'category',
-      label: 'Testing Strategy',
-      items: ['testing-strategy/testing-strategy'],
+      label: 'Tech Stack',
+      items: ['reference/tech-stack'],
     },
     {
       type: 'category',
-      label: 'Deployment & Operations',
-      items: ['deployment-operations/deployment-ops'],
-    },
-    {
-      type: 'category',
-      label: 'Decision Log',
-      items: ['decision-log/decision-log'],
+      label: 'Technical Reference',
+      items: ['reference/technical-reference'],
     },
   ],
 };
