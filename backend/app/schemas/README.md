@@ -136,31 +136,32 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-class LoginResponse(BaseModel):
+class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: UserResponse
 ```
 
 ## Using Schemas in Controllers
 
 ```python
-# services/auth/controller.py
+# services/register/controller.py
 from fastapi import APIRouter
-from schemas.user import UserCreate, UserResponse, LoginRequest, LoginResponse
+from schemas.user import SignupRequest, UserResponse, LoginRequest, AuthResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/register")
 
-# POST /users - Create user
-@router.post("/users", response_model=UserResponse)
-async def create_user(user: UserCreate):  # ← Schema validates request
-    user = auth_service.create_user(user)
-    return user  # ← Response formatted by UserResponse schema
+# POST /register/signup - Create user
+@router.post("/signup", response_model=AuthResponse)
+async def signup(payload: SignupRequest):  # ← Schema validates request
+    result = register_service.signup(payload)
+    return result  # ← Response formatted by AuthResponse schema
 
-# POST /login - Login
-@router.post("/login", response_model=LoginResponse)
+# POST /register/login - Login
+@router.post("/login", response_model=AuthResponse)
 async def login(credentials: LoginRequest):  # ← Schema validates
-    token = auth_service.login(credentials.email, credentials.password)
-    return LoginResponse(access_token=token)
+    result = register_service.login(credentials)
+    return result
 
 # GET /users/{id} - Get user
 @router.get("/users/{user_id}", response_model=UserResponse)

@@ -181,7 +181,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> login(String email, String password) async {
     try {
       final response = await ref.read(apiClientProvider).post(
-        '/auth/login',
+        '/register/login',
         data: {'email': email, 'password': password},
       );
       

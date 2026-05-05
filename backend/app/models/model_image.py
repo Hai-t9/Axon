@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, Stri
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from core.database import Base
+from app.core.database import Base
 from .model_enums import image_status_enum
 
 
@@ -68,3 +68,4 @@ class ImageMetadata(Base):
     scientific_name = Column(String, nullable=True)
 
     image = relationship("Image", back_populates="metadata_entry")
+

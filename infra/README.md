@@ -34,7 +34,7 @@ infra/
 - Port: 8000
 - Framework: FastAPI (Python)
 - Database: PostgreSQL
-- Routes: /api/auth, /api/teams, etc.
+- Routes: /api/register, /api/teams, etc.
 
 ### **2. PostgreSQL** (Database)
 - Port: 5432

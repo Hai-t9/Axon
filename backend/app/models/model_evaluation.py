@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from core.database import Base
+from app.core.database import Base
 
 
 class Evaluation(Base):
@@ -14,3 +14,4 @@ class Evaluation(Base):
     evaluated_at = Column(DateTime, server_default=func.now())
 
     model = relationship("Model", back_populates="evaluation")
+

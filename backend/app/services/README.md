@@ -1,13 +1,14 @@
 # Domain Services
 
 ## Overview
-The `services/` folder contains **11 independent domain services**, each responsible for one major feature of the Axon platform. Each service follows the **Repository-Service-Controller pattern**.
+The `services/` folder contains **12 independent domain services**, each responsible for one major feature of the Axon platform. Each service follows the **Repository-Service-Controller pattern**.
 
 ## Architecture
 
 ```
 services/
-├── auth/                # Authentication & User Management
+├── auth/                # Authentication middleware utilities
+├── register/            # Signup & Login (public)
 ├── competition/         # Competition Lifecycle Management
 ├── phase/               # Phase Management & Scheduling
 ├── team/                # Team Management & Membership
@@ -25,11 +26,11 @@ services/
 Each service follows the same **3-layer structure**:
 
 ```
-services/auth/
+services/register/
 ├── __init__.py
 ├── repository.py       # Database queries (CRUD)
 ├── service.py          # Business logic
-└── controller.py       # FastAPI routes
+└── controller.py       # /register/* endpoints
 ```
 
 ### **Layer 1: Repository** (`repository.py`)
@@ -43,10 +44,10 @@ services/auth/
 
 **Example:**
 ```python
-# services/auth/repository.py
+# services/register/repository.py
 from models import User
 
-class UserRepository:
+class RegisterRepository:
     def __init__(self, db):
         self.db = db
     
@@ -72,38 +73,34 @@ class UserRepository:
 
 **Example:**
 ```python
-# services/auth/service.py
+# services/register/service.py
 from core.security import hash_password, verify_password
 from core.auth import create_access_token
-from schemas.user import UserCreate
+from schemas.user import LoginRequest, SignupRequest
 
-class AuthService:
+class RegisterService:
     def __init__(self, repository):
         self.repository = repository
     
-    def create_user(self, user_data: UserCreate) -> User:
-        # Check if user already exists
-        if self.repository.get_by_email(user_data.email):
+    def signup(self, payload: SignupRequest) -> dict:
+        if self.repository.get_by_email(payload.email):
             raise ValueError("Email already registered")
         
-        # Hash password
-        hashed = hash_password(user_data.password)
-        
-        # Save to database
         user = self.repository.create({
-            "email": user_data.email,
-            "password_hash": hashed
+            "email": payload.email,
+            "password": hash_password(payload.password),
+            "fullname": payload.full_name or payload.email.split("@", 1)[0]
         })
-        return user
+        token = create_access_token(user.id)
+        return {"access_token": token, "token_type": "bearer", "user": user}
     
-    def authenticate(self, email: str, password: str) -> str:
-        user = self.repository.get_by_email(email)
-        if not user or not verify_password(password, user.password_hash):
+    def login(self, payload: LoginRequest) -> dict:
+        user = self.repository.get_by_email(payload.email)
+        if not user or not verify_password(payload.password, user.password):
             raise ValueError("Invalid credentials")
         
-        # Generate JWT token
         token = create_access_token(user.id)
-        return token
+        return {"access_token": token, "token_type": "bearer", "user": user}
 ```
 
 ### **Layer 3: Controller** (`controller.py`)
@@ -118,25 +115,23 @@ class AuthService:
 
 **Example:**
 ```python
-# services/auth/controller.py
+# services/register/controller.py
 from fastapi import APIRouter, HTTPException
-from schemas.user import UserCreate, UserResponse, LoginRequest, LoginResponse
+from schemas.user import AuthResponse, LoginRequest, SignupRequest
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/register", tags=["register"])
 
-@router.post("/register", response_model=UserResponse)
-async def register(user_data: UserCreate, service: AuthService = Depends()):
+@router.post("/signup", response_model=AuthResponse)
+async def register(payload: SignupRequest, service: RegisterService = Depends()):
     try:
-        user = service.create_user(user_data)
-        return user
+        return service.signup(payload)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/login", response_model=LoginResponse)
-async def login(credentials: LoginRequest, service: AuthService = Depends()):
+@router.post("/login", response_model=AuthResponse)
+async def login(payload: LoginRequest, service: RegisterService = Depends()):
     try:
-        token = service.authenticate(credentials.email, credentials.password)
-        return LoginResponse(access_token=token)
+        return service.login(payload)
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 ```
@@ -164,9 +159,9 @@ Controller returns to client
 ```
 Team Service needs to verify user permission
     ↓
-Calls AuthService.verify_token(token)
+Calls AuthService.get_current_user(token)
     ↓
-AuthService.repository.get_by_id(user_id)
+AuthService.repository.get_user_by_id(user_id)
     ↓
 Returns user object
     ↓
@@ -175,16 +170,17 @@ Team Service continues logic
 
 Services communicate through dependency injection in `main.py`.
 
-## The 11 Services
+## The Services
 
-### **1. Auth Service**
-**Manages:** User registration, login, JWT tokens, roles
+### **1. Auth Service (Middleware)**
+**Manages:** Token verification and role enforcement for protected routes
 
 **Key Operations:**
-- `register(email, password)` - Create new user
-- `authenticate(email, password)` - Generate JWT token
 - `verify_token(token)` - Validate JWT
 - `get_user(user_id)` - Retrieve user profile
+- `require_roles(token, competition_id, roles)` - Enforce role permissions
+
+**Register Service (public endpoints):** Handles signup/login and JWT issuance at `/register/*`.
 
 **Database:** Users table
 
@@ -325,7 +321,7 @@ from sqlalchemy.orm import Session
 from core.database import SessionLocal
 
 # Import all controllers
-from services.auth.controller import router as auth_router
+from services.register.controller import router as register_router
 from services.team.controller import router as team_router
 from services.competition.controller import router as competition_router
 # ... etc
@@ -333,7 +329,7 @@ from services.competition.controller import router as competition_router
 app = FastAPI()
 
 # Register routers
-app.include_router(auth_router)
+app.include_router(register_router)
 app.include_router(team_router)
 app.include_router(competition_router)
 # ... etc
@@ -391,7 +387,7 @@ Each service has corresponding tests:
 
 ```
 tests/services/
-├── auth/
+├── register/
 │   ├── test_repository.py
 │   ├── test_service.py
 │   └── test_controller.py

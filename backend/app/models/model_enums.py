@@ -16,3 +16,4 @@ class ImageStatus(str, PyEnum):
 
 role_type_enum = SqlEnum(RoleType, name="role_type")
 image_status_enum = SqlEnum(ImageStatus, name="image_status")
+
