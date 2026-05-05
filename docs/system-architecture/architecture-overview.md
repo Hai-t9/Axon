@@ -94,7 +94,8 @@ graph TB
   - Collect environmental metadata (GPS, timestamp, weather conditions)
   - Automatic metadata pre-filling to ensure data quality
   - Direct upload to backend with offline queueing support
-- **Technologies:** Cross-platform (iOS/Android)
+- **Technology:** Flutter/Dart (iOS/Android cross-platform)
+- **Features:** Native performance, Hive local storage for offline queue, image picker integration
 - **API Interactions:** Image upload endpoint, metadata validation, progress tracking
 
 #### Web Portal
@@ -106,7 +107,7 @@ graph TB
   - Cross-team validation protocol selection
   - Data validation interface for teams
   - Administrative dashboards for hosts and staff
-- **Technologies:** React/TypeScript frontend
+- **Technologies:** Flutter Web/Dart (Unified with mobile, 70%+ code reuse)
 - **API Interactions:** Model submission, leaderboard queries, team management, data validation
 
 ### 2. **API & Orchestration Layer**
@@ -118,15 +119,18 @@ graph TB
   - Rate limiting and throttling
   - Request/response logging and monitoring
   - CORS handling
-- **Protocol:** REST/GraphQL
+- **Technology:** FastAPI (built-in gateway with middleware)
+- **Protocol:** REST
 
 #### Authentication & Authorization Service
 - **Purpose:** Secure access control
 - **Responsibilities:**
-  - User authentication (JWT/OAuth)
+  - User authentication (JWT tokens)
   - Role-based access control (RBAC): Hosts, Staff, Participants
   - Token management and refresh
   - Audit logging for security events
+- **Technology:** FastAPI + Python-Jose JWT (custom implementation)
+- **Password Hashing:** bcrypt
 - **Roles:**
   - **Hosts (Organizers):** Full platform configuration and competition management
   - **Staff:** Data quality monitoring, team approvals, moderation
@@ -272,20 +276,22 @@ graph TB
   - Ensure reliable task delivery and retry logic
   - Load-balance tasks across worker pool
   - Maintain job status and history
-- **Technology:** RabbitMQ, Apache Kafka, or AWS SQS
+- **Technology:** Redis + Celery (for Python/FastAPI)
+- **Alternative (for school servers):** Database polling with status column
 - **Rationale:** Prevents UI blocking during computationally expensive model evaluations
 
 #### Evaluation Workers
 - **Purpose:** Execute model evaluations in parallel
 - **Responsibilities:**
-  - Consume evaluation tasks from queue
+  - Consume evaluation tasks from queue (via Celery or database polling)
   - Fetch model and dataset for evaluation
   - Execute model inference on assigned fold
-  - Collect prediction results and metrics
+  - Collect prediction results and metrics (accuracy, precision, recall, F1)
   - Handle GPU/resource management
-  - Report results back to database
-- **Scalability:** Horizontally scalable worker pool based on queue depth
-- **Resource Allocation:** GPU cluster, compute optimized instances
+  - Report results back to database with status updates
+- **Technology:** Python processes with Celery workers (or RQ)
+- **Scalability:** Horizontally scalable - run 1, 5, or 10+ workers on same/different servers
+- **Resource Allocation:** Can use GPU if available (NVIDIA CUDA)
 
 #### Data Validator & Label Manager
 - **Purpose:** Manage data quality and team label validations
@@ -448,61 +454,151 @@ Participants View Live Rankings
 
 ## Tech Stack Decisions
 
-### Backend API Framework
-- **Choice:** Node.js/Express or Python/FastAPI
+### Frontend (Web + Mobile)
+- **Choice:** Flutter/Dart
 - **Rationale:**
-  - Type safety with TypeScript
-  - Strong ecosystem for REST APIs
-  - Good integration with evaluation workers
-  - Horizontal scalability via containerization
+  - Single codebase for web, iOS, and Android (70%+ code reuse)
+  - Type-safe, beginner-friendly language for students
+  - Native performance on all platforms
+  - Material Design UI framework built-in
+  - Excellent for rapid development and learning
+
+### Backend API Framework
+- **Choice:** FastAPI (Python)
+- **Rationale:**
+  - Built-in API gateway, routing, and middleware
+  - Native integration with ML/AI libraries (scikit-learn, PyTorch, TensorFlow)
+  - Automatic API documentation (Swagger/OpenAPI)
+  - High performance (faster than Django for APIs)
+  - Easy for students to learn and extend
+  - Excellent async/await support for long-running tasks
 
 ### Message Queue / Broker
-- **Choice:** RabbitMQ or Apache Kafka
+- **Choice:** Redis + Celery (primary) or Database Polling (fallback)
 - **Rationale:**
+  - Celery: Standard Python task queue, easy scaling
+  - Redis: In-memory broker, doubles as caching layer
+  - Database Polling: Works without Redis if needed
   - Decouple long-running evaluations from API requests
-  - Enable horizontal scaling of workers
-  - Reliable job persistence
-  - Priority queuing for urgent evaluations
+  - Enable horizontal scaling of worker processes
+  - Reliable job persistence and retry logic
 
 ### Evaluation Environment
 - **Choice:** Docker containers for model execution
+- **Workers:** Python processes with Celery/RQ
 - **Rationale:**
   - Isolate model execution environments
-  - Version control of dependencies
-  - Support multiple frameworks (PyTorch, TensorFlow)
-  - GPU support via docker-compose/Kubernetes
+  - Version control of dependencies per model
+  - Support multiple frameworks (PyTorch, TensorFlow, scikit-learn)
+  - GPU support via docker-compose (NVIDIA runtime)
+  - Safe execution of untrusted user code
 
 ### Database
-- **Choice:** PostgreSQL for primary data
+- **Choice:** PostgreSQL with SQLAlchemy ORM
 - **Rationale:**
   - ACID compliance for consistency
   - Strong JSON support for flexible metadata
   - Full-text search for team/image discovery
   - Proven performance at scale
+  - Excellent Python integration via SQLAlchemy
 
 ### Caching
-- **Choice:** Redis for session and leaderboard caching
+- **Choice:** Redis
+- **Dual Purpose:** Task queue broker (Celery) + session/leaderboard caching
 - **Rationale:**
   - Sub-millisecond read latency
   - Atomic operations for rankings
   - Pub/Sub for real-time updates
-  - Easy horizontal scaling
+  - Single service eliminates complexity
+  - Easy to deploy in school environment
 
-### Object Storage
-- **Choice:** S3-compatible (AWS S3, MinIO, Azure Blob)
+### Object Storage (Images & Models)
+- **Choice:** MinIO (self-hosted S3-compatible)
+- **Development:** Local file system (instant, zero setup)
+- **Production:** MinIO on school server (unlimited, free)
+- **Alternative:** Supabase Storage (1GB free cloud tier)
 - **Rationale:**
-  - Infinite scalability for images
-  - Versioning built-in
-  - Cost-effective for large files
-  - CDN integration for fast retrieval
+  - MinIO: Full control, no vendor lock-in, unlimited storage, zero egress costs
+  - Local storage: Perfect for development, no dependencies
+  - S3-compatible API: Easy to migrate later if needed
+  - Cost-effective for school with large image/model datasets
 
 ### Deployment & Orchestration
-- **Choice:** Kubernetes or Docker Swarm
+- **Development:** Docker Compose (FastAPI + DB + Redis + MinIO + Workers)
+- **Production:** Docker containers on school server or cloud
+- **Scaling:** Multiple worker processes or containers
 - **Rationale:**
-  - Manage multiple services (API, workers, etc.)
-  - Auto-scaling based on queue depth
-  - Rolling updates without downtime
-  - Health checks and self-healing
+  - Simple, understandable setup for students
+  - All services run together in predictable environment
+  - No Kubernetes complexity
+  - Easy monitoring and debugging
+  - Scalable from laptop to multiple servers
+
+## Complete Tech Stack Summary
+
+| Component | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend (Web + Mobile)** | Flutter/Dart | Single codebase for web, iOS, Android |
+| **Backend API** | FastAPI (Python 3.10+) | REST API, all services in monolithic structure |
+| **API Gateway** | FastAPI middleware | Built-in routing, rate limiting, CORS |
+| **Authentication** | Custom JWT + FastAPI | Role-based access control (RBAC) |
+| **Password Hashing** | bcrypt | Secure password storage |
+| **Database** | PostgreSQL + SQLAlchemy ORM | Structured data, ACID transactions |
+| **Image Storage** | MinIO (S3-compatible) | Distributed object storage on school server |
+| **Model Storage** | MinIO (S3-compatible) | Versioned model files for evaluations |
+| **Task Queue** | Redis + Celery | Background job processing for evaluations |
+| **Caching** | Redis | Session & leaderboard caching, Celery broker |
+| **Evaluation Workers** | Python/Celery | Model evaluation execution, parallel processing |
+| **Deployment** | Docker Compose | Container orchestration for development/production |
+
+## Development Environment Setup
+
+**What you need to install:**
+
+1. **Docker + Docker Compose** - Runs all services (FastAPI, PostgreSQL, Redis, MinIO)
+2. **Python 3.10+** - For local FastAPI development and worker testing
+3. **Flutter SDK** - For frontend development
+4. **Git** - Version control
+5. **PostgreSQL client** (psql) - Optional, for direct database access
+
+**That's it!** No Kubernetes, no RabbitMQ, no complex DevOps. Everything runs with:
+
+```bash
+docker-compose up
+```
+
+## Key Architectural Decisions
+
+### Why This Stack?
+
+1. **Single Language (Python)** - Backend, workers, and scripts all in Python for consistency
+2. **Single Frontend (Flutter)** - Web + mobile from same codebase, 70% code reuse
+3. **No Microservices** - Monolithic FastAPI for simplicity and fast development
+4. **Self-Hosted Storage** - MinIO gives unlimited storage on school server (no cloud costs)
+5. **Built-in Solutions** - FastAPI handles API gateway, JWT, routing (no separate tools)
+6. **Simple Task Queue** - Celery + Redis, or fallback to database polling
+7. **Docker-First** - Everything containerized and reproducible
+
+### Why NOT These?
+
+- ❌ Kubernetes - Too complex for school project
+- ❌ Microservices - Overkill for fixed user count
+- ❌ AWS/Azure - Cloud costs unnecessary with school hardware
+- ❌ React/Next.js + Flutter - Would need 2 separate code bases
+- ❌ RabbitMQ/Kafka - Redis + Celery is simpler
+- ❌ Auth0/Supabase - Custom JWT gives full control, same complexity
+
+## Scalability Path
+
+If the project grows:
+
+1. **Phase 1 (Now):** Monolith + local workers
+2. **Phase 2 (If needed):** More workers, Redis on separate server
+3. **Phase 3 (Growth):** Split FastAPI services, keep same database/storage
+4. **Phase 4 (Scale):** Kubernetes orchestration (but not before needed)
+
+Each phase is backwards compatible - no rewrites needed.
+  - Scalable to multiple worker processes
 
 ## Key Architectural Principles
 
