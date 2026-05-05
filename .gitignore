@@ -5,3 +5,16 @@
 
 .vscode
 .idea
+
+.dart_tool
+build
+dart_tool
+.packages
+.pub
+.pub-cache
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.flutter-android-plugins
+.flutter-android-plugins-dependencies
+.flutter-ios-plugins
