@@ -43,7 +43,14 @@ const sidebars: SidebarsConfig = {
         'modules-components/module-label',
         'modules-components/module-validation',
         'modules-components/module-image',
-        'modules-components/module-cleaner'
+        'modules-components/module-cleaner',
+        'modules-components/module-competition',
+        'modules-components/module-data-ingestion',
+        'modules-components/module-data-validation',
+        'modules-components/module-evaluation-orchestration',
+        'modules-components/module-model-submission',
+        'modules-components/module-phase',
+        'modules-components/module-teams'
       ],
     },
     {
