@@ -1,0 +1,85 @@
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.models import Competition, Config, Role
+
+
+class CompetitionRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_by_id(self, competition_id: int) -> Competition | None:
+        return (
+            self.db.query(Competition)
+            .filter(Competition.id == competition_id)
+            .first()
+        )
+
+    def get_by_name(self, name: str) -> Competition | None:
+        return self.db.query(Competition).filter(Competition.name == name).first()
+
+    def list_competitions(self, offset: int, limit: int) -> list[Competition]:
+        return (
+            self.db.query(Competition)
+            .order_by(Competition.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    def count_competitions(self) -> int:
+        return int(self.db.query(func.count(Competition.id)).scalar() or 0)
+
+    def create(self, competition_data: dict) -> Competition:
+        competition = Competition(**competition_data)
+        self.db.add(competition)
+        self.db.commit()
+        self.db.refresh(competition)
+        return competition
+
+    def update(self, competition: Competition, updates: dict) -> Competition:
+        for key, value in updates.items():
+            setattr(competition, key, value)
+        self.db.commit()
+        self.db.refresh(competition)
+        return competition
+
+    def delete(self, competition: Competition) -> None:
+        self.db.delete(competition)
+        self.db.commit()
+
+    def get_config(self, competition_id: int) -> Config | None:
+        return (
+            self.db.query(Config)
+            .filter(Config.competition_id == competition_id)
+            .first()
+        )
+
+    def create_config(self, competition_id: int, config_data: dict) -> Config:
+        config = Config(competition_id=competition_id, **config_data)
+        self.db.add(config)
+        self.db.commit()
+        self.db.refresh(config)
+        return config
+
+    def update_config(self, config: Config, updates: dict) -> Config:
+        for key, value in updates.items():
+            setattr(config, key, value)
+        self.db.commit()
+        self.db.refresh(config)
+        return config
+
+    def get_role(self, user_id: int, competition_id: int) -> Role | None:
+        return (
+            self.db.query(Role)
+            .filter(Role.user_id == user_id, Role.competition_id == competition_id)
+            .first()
+        )
+
+    def create_role(self, user_id: int, competition_id: int, role) -> Role:
+        entry = Role(user_id=user_id, competition_id=competition_id, role=role)
+        self.db.add(entry)
+        self.db.commit()
+        self.db.refresh(entry)
+        return entry
+
