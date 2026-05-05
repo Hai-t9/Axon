@@ -17,7 +17,7 @@ The `tests/` folder contains all automated tests for the backend. Tests are orga
 tests/
 ├── conftest.py              # Pytest fixtures & configuration
 └── services/
-    ├── auth/
+    ├── register/
     │   ├── test_repository.py     # Test database queries
     │   ├── test_service.py        # Test business logic
     │   └── test_controller.py     # Test API endpoints
@@ -38,55 +38,55 @@ tests/
 Test business logic in isolation:
 
 ```python
-# tests/services/auth/test_service.py
+# tests/services/register/test_service.py
 import pytest
-from services.auth.service import AuthService
+from services.register.service import RegisterService
+from schemas.user import SignupRequest
 from core.exceptions import ValidationError
 
-def test_register_user_success(auth_service):
-    user = auth_service.register({
-        "email": "test@example.com",
-        "password": "secure123"
-    })
+def test_register_user_success(register_service):
+    user = register_service.signup(
+        SignupRequest(email="test@example.com", password="secure123")
+    )["user"]
     assert user.email == "test@example.com"
 
-def test_register_duplicate_email_fails(auth_service):
-    auth_service.register({
-        "email": "test@example.com",
-        "password": "secure123"
-    })
+def test_register_duplicate_email_fails(register_service):
+    register_service.signup(
+        SignupRequest(email="test@example.com", password="secure123")
+    )
     
     with pytest.raises(ValidationError):
-        auth_service.register({
-            "email": "test@example.com",
-            "password": "secure123"
-        })
+        register_service.signup(
+            SignupRequest(email="test@example.com", password="secure123")
+        )
 ```
 
 ### **2. Repository Tests** (test_repository.py)
 Test database operations:
 
 ```python
-# tests/services/auth/test_repository.py
+# tests/services/register/test_repository.py
 import pytest
-from services.auth.repository import UserRepository
+from services.register.repository import RegisterRepository
 from models import User
 
-def test_create_user(user_repository):
-    user = user_repository.create({
+def test_create_user(register_repository):
+    user = register_repository.create({
         "email": "test@example.com",
-        "password_hash": "hashed_password"
+        "password": "hashed_password",
+        "fullname": "Test User",
     })
     assert user.id is not None
     assert user.email == "test@example.com"
 
-def test_get_user_by_email(user_repository):
-    user_repository.create({
+def test_get_user_by_email(register_repository):
+    register_repository.create({
         "email": "test@example.com",
-        "password_hash": "hashed"
+        "password": "hashed",
+        "fullname": "Test User",
     })
     
-    found = user_repository.get_by_email("test@example.com")
+    found = register_repository.get_by_email("test@example.com")
     assert found is not None
 ```
 
@@ -94,21 +94,21 @@ def test_get_user_by_email(user_repository):
 Test complete API endpoints:
 
 ```python
-# tests/services/auth/test_controller.py
+# tests/services/register/test_controller.py
 import pytest
 from fastapi.testclient import TestClient
 
 def test_register_endpoint(client):
-    response = client.post("/auth/register", json={
+    response = client.post("/register/signup", json={
         "email": "test@example.com",
         "password": "secure123",
         "full_name": "John Doe"
     })
     assert response.status_code == 200
-    assert response.json()["email"] == "test@example.com"
+    assert response.json()["user"]["email"] == "test@example.com"
 
 def test_login_endpoint(client, user):
-    response = client.post("/auth/login", json={
+    response = client.post("/register/login", json={
         "email": user.email,
         "password": "secure123"
     })
@@ -128,8 +128,8 @@ from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 from app.main import app
 from core.database import Base
-from services.auth.repository import UserRepository
-from services.auth.service import AuthService
+from services.register.repository import RegisterRepository
+from services.register.service import RegisterService
 
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite:///./test.db"
@@ -147,14 +147,14 @@ def db():
     Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture
-def user_repository(db):
-    """User repository with test database"""
-    return UserRepository(db)
+def register_repository(db):
+    """Register repository with test database"""
+    return RegisterRepository(db)
 
 @pytest.fixture
-def auth_service(user_repository):
-    """Auth service with test repository"""
-    return AuthService(user_repository)
+def register_service(register_repository):
+    """Register service with test repository"""
+    return RegisterService(register_repository)
 
 @pytest.fixture
 def client():
@@ -178,10 +178,10 @@ def user(auth_service):
 pytest
 
 # Run specific test file
-pytest tests/services/auth/test_service.py
+pytest tests/services/register/test_service.py
 
 # Run specific test
-pytest tests/services/auth/test_service.py::test_register_user_success
+pytest tests/services/register/test_service.py::test_register_user_success
 
 # Run with verbose output
 pytest -v
@@ -279,23 +279,25 @@ def test_password_too_short_fails(auth_service):
 
 ### **Test database constraints**
 ```python
-def test_duplicate_email_fails(user_repository):
-    user_repository.create({
+def test_duplicate_email_fails(register_repository):
+    register_repository.create({
         "email": "test@example.com",
-        "password_hash": "hash1"
+        "password": "hash1",
+        "fullname": "Test User",
     })
     
     with pytest.raises(Exception):  # Database constraint
-        user_repository.create({
+        register_repository.create({
             "email": "test@example.com",  # Duplicate
-            "password_hash": "hash2"
+            "password": "hash2",
+            "fullname": "Test User",
         })
 ```
 
 ### **Test API response codes**
 ```python
 def test_login_with_invalid_credentials(client):
-    response = client.post("/auth/login", json={
+    response = client.post("/register/login", json={
         "email": "wrong@example.com",
         "password": "wrong"
     })

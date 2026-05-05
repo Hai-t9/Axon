@@ -100,10 +100,14 @@ Controller (return HTTP response)
 
 Each service in `services/` follows this pattern:
 ```
+services/register/
+├── repository.py   # Database queries for registration
+├── service.py      # Signup/login business logic
+└── controller.py   # /register/* endpoints
+
 services/auth/
-├── repository.py   # Database queries for auth
-├── service.py      # Authentication business logic
-└── controller.py   # /login, /register routes
+├── repository.py   # User + role lookups
+└── service.py      # Token verification / role enforcement
 ```
 
 Services use models from `models/` and schemas from `schemas/` - centralized!
@@ -112,9 +116,9 @@ Services use models from `models/` and schemas from `schemas/` - centralized!
 
 1. Define ORM models in `models/` (e.g., `models/user.py`)
 2. Define Pydantic schemas in `schemas/` (e.g., `schemas/user.py`)
-3. Create repositories in `services/auth/repository.py` (query operations)
-4. Implement business logic in `services/auth/service.py`
-5. Create FastAPI routes in `services/auth/controller.py`
+3. Create repositories in `services/register/repository.py` (query operations)
+4. Implement business logic in `services/register/service.py`
+5. Create FastAPI routes in `services/register/controller.py`
 6. Register routes in `main.py`
 
 ## Dependencies
