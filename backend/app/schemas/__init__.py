@@ -35,6 +35,12 @@ from .team import (
     TeamUpdate,
 )
 from .user import AuthResponse, LoginRequest, SignupRequest, UserResponse
+from .validation import (
+    ValidationBatchResponse,
+    ValidationPendingResponse,
+    ValidationVoteCreate,
+    ValidationVoteResponse,
+)
 
 __all__ = [
     "AuthResponse",
@@ -74,5 +80,9 @@ __all__ = [
     "TeamResponse",
     "TeamStatisticsResponse",
     "TeamUpdate",
+    "ValidationBatchResponse",
+    "ValidationPendingResponse",
+    "ValidationVoteCreate",
+    "ValidationVoteResponse",
 ]
 
