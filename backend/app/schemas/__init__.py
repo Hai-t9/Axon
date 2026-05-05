@@ -5,7 +5,13 @@ from .competition import (
     CompetitionResponse,
     CompetitionUpdate,
 )
-from .dashboard import DashboardImageStats, DashboardResponse, DashboardTeamInfo
+from .dashboard import (
+    DashboardCachedResponse,
+    DashboardCacheClearResponse,
+    DashboardImageStats,
+    DashboardResponse,
+    DashboardTeamInfo,
+)
 from .leaderboard import LeaderboardEntry, LeaderboardResponse, LeaderboardTeam
 from .label import LabelCreate, LabelResponse, LabelUpdate, LabelValidationResponse
 from .phase import (
@@ -40,6 +46,8 @@ __all__ = [
     "CompetitionListResponse",
     "CompetitionResponse",
     "CompetitionUpdate",
+    "DashboardCachedResponse",
+    "DashboardCacheClearResponse",
     "DashboardImageStats",
     "DashboardResponse",
     "DashboardTeamInfo",
