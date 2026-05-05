@@ -1,22 +1,15 @@
 .vscode
 .idea
-node_modules
-.docusaurus
 
-# Backend ignores
-backend/node_modules/
-backend/dist/
-backend/build/
-backend/**/*.js
-backend/**/*.js.map
-backend/**/*.d.ts
-backend/**/*.d.ts.map
-backend/.env
-
-# Exception : Prisma 7 requires this file
-!backend/prisma.config.js
-
-# Global ignores
-build/
-dist/
-.env
+.dart_tool
+build
+dart_tool
+.packages
+.pub
+.pub-cache
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.flutter-android-plugins
+.flutter-android-plugins-dependencies
+.flutter-ios-plugins
