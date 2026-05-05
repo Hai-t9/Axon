@@ -12,15 +12,16 @@ Instead of having models scattered in each service folder (which causes circular
 ```
 models/
 ├── __init__.py
-├── user.py              # User & Role models
-├── team.py              # Team & TeamMember models
-├── competition.py       # Competition model
-├── phase.py             # Phase model
-├── dataset.py           # Dataset model
-├── label.py             # Label model
-├── submission.py        # Submission model
-├── evaluation.py        # Evaluation & Result models
-└── leaderboard.py       # LeaderboardEntry model
+├── model_enums.py       # Enum definitions
+├── model_user.py        # User & Role models
+├── model_team.py        # Team model
+├── model_competition.py # Competition & Config models
+├── model_phase.py       # PhaseLog model
+├── model_dataset.py     # Dataset model
+├── model_label.py       # Label & LabelValidation models
+├── model_image.py       # Image & ImageMetadata models
+├── model_model.py       # Model submission model
+└── model_evaluation.py  # Evaluation model
 ```
 
 ## What Goes Here
@@ -30,7 +31,7 @@ models/
 - Related entities can be in the same file (User + Role)
 - Keep files focused and readable (~100-200 lines each)
 
-### **Example: user.py**
+### **Example: model_user.py**
 ```python
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from core.database import Base
@@ -72,7 +73,7 @@ All of ↑ goes in **services/** instead!
 ### **In Repositories**
 ```python
 # services/auth/repository.py
-from models.user import User
+from models import User
 
 class UserRepository:
     def get_by_email(self, email: str) -> User:
@@ -82,8 +83,7 @@ class UserRepository:
 ### **In Alembic Migrations**
 ```python
 # alembic/env.py
-from models.user import User
-from models.team import Team
+from models import Team, User
 # All models imported for auto-migration detection
 ```
 
@@ -98,7 +98,7 @@ from models.team import Team
 ## Relationships Example
 
 ```python
-# models/team.py
+# models/model_team.py
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from core.database import Base
@@ -133,26 +133,26 @@ In `__init__.py`, export all models for easy access:
 
 ```python
 # models/__init__.py
-from .user import User, Role
-from .team import Team, TeamMember
-from .competition import Competition
-from .phase import Phase
-from .dataset import Dataset
-from .label import Label
-from .submission import Submission
-from .evaluation import Evaluation, EvaluationResult
-from .leaderboard import LeaderboardEntry
+from .model_user import User, Role
+from .model_team import Team
+from .model_competition import Competition
+from .model_phase import PhaseLog
+from .model_dataset import Dataset
+from .model_label import Label, LabelValidation
+from .model_image import Image, ImageMetadata
+from .model_model import Model
+from .model_evaluation import Evaluation
 
 __all__ = [
     "User", "Role",
-    "Team", "TeamMember",
+    "Team",
     "Competition",
-    "Phase",
+    "PhaseLog",
     "Dataset",
-    "Label",
-    "Submission",
-    "Evaluation", "EvaluationResult",
-    "LeaderboardEntry",
+    "Label", "LabelValidation",
+    "Image", "ImageMetadata",
+    "Model",
+    "Evaluation",
 ]
 ```
 
@@ -195,7 +195,7 @@ Evaluation
 
 ## Adding New Models
 
-1. Create new file: `models/my_entity.py`
+1. Create new file: `models/model_my_entity.py`
 2. Define ORM class inheriting from Base
 3. Add relationships as needed
 4. Import in `models/__init__.py`
