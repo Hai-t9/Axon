@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import List
-from app.models.image import Image, ImageMetadata
+from app.models.model_image import Image, ImageMetadata
 
 class CleanerRepository:
     def __init__(self, db: Session):

@@ -14,8 +14,26 @@ class PreviewScreen extends ConsumerStatefulWidget {
 
 class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   bool _isUploading = false;
+  
+  // Hardcoded for now until backend config endpoint is wired into mobile
+  final List<String> _availableLabels = [
+    'damage',
+    'front-bumper',
+    'rear-bumper',
+    'left-door',
+    'right-door',
+    'scratch'
+  ];
+  String? _selectedLabel;
 
   Future<void> _uploadImage() async {
+    if (_selectedLabel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a label first!')),
+      );
+      return;
+    }
+
     setState(() {
       _isUploading = true;
     });
@@ -23,12 +41,12 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
     try {
       final uploadService = ref.read(uploadServiceProvider);
       
-      // Dummy label payload from Danil's context
-      final dummyLabels = {
-        'tags': ['damage', 'front-bumper'],
+      // Send the actual selected label instead of dummy labels
+      final labelPayload = {
+        'tags': [_selectedLabel],
       };
 
-      await uploadService.uploadImage(widget.imagePath, '1', dummyLabels);
+      await uploadService.uploadImage(widget.imagePath, '1', labelPayload);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -56,8 +74,41 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Preview Photo')),
-      body: Center(
-        child: Image.file(File(widget.imagePath)),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: Image.file(File(widget.imagePath)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select Label (Required):',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8.0,
+                  children: _availableLabels.map((label) {
+                    return ChoiceChip(
+                      label: Text(label),
+                      selected: _selectedLabel == label,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          _selectedLabel = selected ? label : null;
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomAppBar(
         child: Row(
@@ -83,4 +134,3 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
     );
   }
 }
-

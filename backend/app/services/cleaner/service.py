@@ -3,7 +3,7 @@ from typing import List
 import os
 from PIL import Image as PILImage
 from app.services.cleaner.repository import CleanerRepository
-from app.models.image import Image
+from app.models.model_image import Image
 
 class CleanerService:
     def __init__(self, repository: CleanerRepository):

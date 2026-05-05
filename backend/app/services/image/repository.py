@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models.image import Image, ImageMetadata
+from app.models.model_image import Image, ImageMetadata
 
 class ImageRepository:
     def __init__(self, db: Session):
@@ -45,6 +45,27 @@ class ImageRepository:
             query = query.filter(Image.status == status)
         total = query.count()
         return query.all(), total
+
+    def get_stats(self, comp_id: int):
+        from sqlalchemy import func
+        # MOCK comp logic for now, querying all images
+        total = self.db.query(Image).count()
+        
+        status_counts = self.db.query(Image.status, func.count(Image.id)).group_by(Image.status).all()
+        by_status = {str(status).split(".")[-1]: count for status, count in status_counts}
+
+        team_counts = self.db.query(Image.team_id, func.count(Image.id)).group_by(Image.team_id).all()
+        by_team = [{"team_id": tid, "count": count} for tid, count in team_counts]
+        
+        label_counts = self.db.query(Image.label, func.count(Image.id)).group_by(Image.label).all()
+        by_label = [{"label": lbl, "count": count} for lbl, count in label_counts if lbl is not None and lbl != "null"]
+
+        return {
+            "total": total,
+            "by_status": by_status,
+            "by_team": by_team,
+            "by_label": by_label
+        }
 
     def delete(self, image_id: int):
         img = self.find_by_id(image_id)

@@ -7,9 +7,16 @@ from app.schemas.cleaner import (
 )
 from app.services.cleaner.service import CleanerService
 from app.services.cleaner.repository import CleanerRepository
-from app.core.database import get_db
+from app.core.database import SessionLocal
 
-router = APIRouter(prefix="/api", tags=["cleaner"])
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+router = APIRouter(tags=["cleaner"])
 
 @router.post("/competitions/{comp_id}/cleaner/run", response_model=CleanerRunResponse)
 async def run_pipeline(comp_id: int, db: Session = Depends(get_db)):

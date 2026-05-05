@@ -3,11 +3,18 @@ from sqlalchemy.orm import Session
 from app.schemas.image import ImageResponse
 from app.services.image.service import ImageService
 from app.services.image.repository import ImageRepository
-from app.core.database import get_db
+from app.core.database import SessionLocal
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 from typing import List
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/api", tags=["images"])
+router = APIRouter(tags=["images"])
 
 class ImageUpdateStatus(BaseModel):
     status: str
@@ -67,6 +74,15 @@ def get_comp_images(
         "images": [ImageResponse.model_validate(img).model_dump() for img in images],
         "total": total
     }
+
+@router.get("/competitions/{comp_id}/images/stats", response_model=dict)
+def get_comp_image_stats(
+    comp_id: int,
+    db: Session = Depends(get_db)
+):
+    repo = ImageRepository(db)
+    service = ImageService(repo)
+    return service.get_image_stats(comp_id)
 
 @router.patch("/images/{image_id}/status", response_model=ImageResponse)
 def update_image_status(image_id: int, status_update: ImageUpdateStatus, db: Session = Depends(get_db)):

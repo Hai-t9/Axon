@@ -7,6 +7,8 @@ import uuid
 from fastapi import UploadFile
 from app.services.image.repository import ImageRepository
 
+import json
+
 class ImageService:
     def __init__(self, repository: ImageRepository):
         self.repository = repository
@@ -16,6 +18,17 @@ class ImageService:
         allowed = ["image/jpeg", "image/png", "image/jpg"]
         if file.content_type not in allowed:
             raise ValueError(f"Invalid format. Allowed: {', '.join(allowed)}")
+
+        # Parse stringified JSON label payload sent by Flutter FormData
+        parsed_label = None
+        if label:
+            try:
+                # Expecting '{"tags": ["scratch"]}' from Flutter
+                parsed_json = json.loads(label.replace("'", '"'))
+                tags = parsed_json.get("tags", [])
+                parsed_label = tags[0] if tags else str(label)
+            except Exception:
+                parsed_label = str(label)
 
         contents = await file.read()
         
@@ -47,10 +60,8 @@ class ImageService:
             width, height = 0, 0
 
         metadata = {
-            "ImageWidth": tags.get('EXIF ExifImageWidth', tags.get('Image ImageWidth', width)),
-            "ImageLength": tags.get('EXIF ExifImageLength', tags.get('Image ImageLength', height)),
-            "Make": str(tags.get('Image Make', 'Unknown')),
-            "Model": str(tags.get('Image Model', 'Unknown')),
+            "make": str(tags.get('Image Make', 'Unknown')),
+            "camera_model": str(tags.get('Image Model', 'Unknown')),
         }
         
         # Convert EXIF tags to plain values if they are ExifRead classes
@@ -63,13 +74,13 @@ class ImageService:
             "author_id": user_id,
             "filepath": filepath,
             "image_hash": image_hash,
-            "label": label,
+            "label": parsed_label,
             "original_filename": file.filename,
             "old_extension": ext,
             "old_size_mb": len(contents) / (1024 * 1024),
-            "old_width": float(metadata.get("ImageWidth", width)),
-            "old_height": float(metadata.get("ImageLength", height)),
-            "device": metadata.get("Make", "Unknown")
+            "old_width": float(width),
+            "old_height": float(height),
+            "device": metadata.get("make", "Unknown")
         }
 
         record = self.repository.create(image_data, metadata)
@@ -85,6 +96,9 @@ class ImageService:
 
     def get_images_by_competition(self, comp_id: int, status: str = None):
         return self.repository.find_by_competition(comp_id, status)
+
+    def get_image_stats(self, comp_id: int):
+        return self.repository.get_stats(comp_id)
 
     def update_image_status(self, image_id: int, status: str):
         valid_statuses = ["onhold", "verified"]
