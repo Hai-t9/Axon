@@ -9,3 +9,5 @@ backend/tests/.pytest_cache
 .vscode
 .idea
 /docs
+
+node_modules
