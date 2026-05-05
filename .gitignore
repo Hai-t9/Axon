@@ -2,6 +2,10 @@
 /.docusaurus
 /build
 /.cache
+__pycache__/
+**/__pycache__/
+backend/tests/.pytest_cache
 
 .vscode
 .idea
+/docs
