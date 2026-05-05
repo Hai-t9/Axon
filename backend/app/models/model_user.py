@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from core.database import Base
+from app.core.database import Base
 from .model_enums import role_type_enum
 
 
@@ -35,3 +35,4 @@ class Role(Base):
         Index("idx_role_user_id", "user_id"),
         Index("idx_role_competition_id", "competition_id"),
     )
+

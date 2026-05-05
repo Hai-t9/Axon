@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, St
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from core.database import Base
+from app.core.database import Base
 
 
 class Label(Base):
@@ -36,3 +36,4 @@ class LabelValidation(Base):
     __table_args__ = (
         Index("idx_label_validations_label_id", "label_id"),
     )
+

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Index, Integer, JSON, String
 from sqlalchemy.orm import relationship
 
-from core.database import Base
+from app.core.database import Base
 
 
 class PhaseLog(Base):
@@ -17,3 +17,4 @@ class PhaseLog(Base):
     __table_args__ = (
         Index("idx_phase_log_competition_id", "competition_id"),
     )
+

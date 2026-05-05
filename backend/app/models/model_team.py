@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from core.database import Base
+from app.core.database import Base
 
 
 class Team(Base):
@@ -20,3 +20,4 @@ class Team(Base):
     __table_args__ = (
         UniqueConstraint("name", "comp_id", name="uq_team_name_comp_id"),
     )
+

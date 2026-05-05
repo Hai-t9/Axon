@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from core.database import Base
+from app.core.database import Base
 
 
 class Model(Base):
@@ -24,3 +24,4 @@ class Model(Base):
         Index("idx_model_team_id", "team_id"),
         Index("idx_model_competition_id", "competition_id"),
     )
+

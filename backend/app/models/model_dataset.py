@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from core.database import Base
+from app.core.database import Base
 
 
 class Dataset(Base):
@@ -12,3 +12,4 @@ class Dataset(Base):
     team_folderpath = Column(String, nullable=True)
 
     team = relationship("Team", back_populates="dataset")
+

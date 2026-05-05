@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Date, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 
-from core.database import Base
+from app.core.database import Base
 
 
 class Competition(Base):
@@ -11,7 +11,6 @@ class Competition(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     launch_date = Column(Date, nullable=True)
-    configjson = Column(JSON, nullable=True)
     invitation_link = Column(String, unique=True, nullable=True)
 
     roles = relationship("Role", back_populates="competition", cascade="all, delete-orphan")
@@ -45,3 +44,4 @@ class Config(Base):
     max_validations = Column("maxValidations", Integer, nullable=True)
 
     competition = relationship("Competition", back_populates="config")
+
