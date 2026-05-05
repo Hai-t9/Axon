@@ -11,3 +11,7 @@ backend/tests/.pytest_cache
 /docs
 
 node_modules
+
+.docusaurus
+build
+.dart_tool/
