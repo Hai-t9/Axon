@@ -23,3 +23,12 @@ class DashboardResponse(BaseModel):
     config: CompetitionConfigResponse
     image_stats: DashboardImageStats
     team_info: DashboardTeamInfo
+
+
+class DashboardCachedResponse(BaseModel):
+    cached_at: str
+    data: DashboardResponse
+
+
+class DashboardCacheClearResponse(BaseModel):
+    cleared: bool
