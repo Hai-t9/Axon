@@ -72,10 +72,10 @@ All of ↑ goes in **services/** instead!
 
 ### **In Repositories**
 ```python
-# services/auth/repository.py
+# services/register/repository.py
 from models import User
 
-class UserRepository:
+class RegisterRepository:
     def get_by_email(self, email: str) -> User:
         return self.db.query(User).filter(User.email == email).first()
 ```
