@@ -5,6 +5,7 @@ from .competition import (
     CompetitionResponse,
     CompetitionUpdate,
 )
+from .leaderboard import LeaderboardEntry, LeaderboardResponse, LeaderboardTeam
 from .label import LabelCreate, LabelResponse, LabelUpdate, LabelValidationResponse
 from .phase import (
     PhaseAdvanceResponse,
@@ -38,6 +39,9 @@ __all__ = [
     "CompetitionListResponse",
     "CompetitionResponse",
     "CompetitionUpdate",
+    "LeaderboardEntry",
+    "LeaderboardResponse",
+    "LeaderboardTeam",
     "LabelCreate",
     "LabelResponse",
     "LabelUpdate",
