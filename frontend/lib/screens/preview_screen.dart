@@ -28,8 +28,8 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
         'tags': ['damage', 'front-bumper'],
       };
 
-      await uploadService.uploadImage(widget.imagePath, 'team_123', dummyLabels);
-      
+      await uploadService.uploadImage(widget.imagePath, '1', dummyLabels);
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Upload successful!')),

@@ -23,7 +23,7 @@ class UploadService {
       });
 
       final response = await _dio.post(
-        '/teams/$teamId/images',
+        '/api/teams/$teamId/images',
         data: formData,
         onSendProgress: (int sent, int total) {
           // Can hook up to Riverpod state for progress bar
