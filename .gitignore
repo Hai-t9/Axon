@@ -31,3 +31,7 @@ venv/
 # Environment Variables
 .env
 *.env
+
+#github
+
+/.github
