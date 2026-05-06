@@ -1,55 +1,88 @@
 # ============================================
-# AXON BACKEND DEPENDENCIES
+# AXON BACKEND DEPENDENCIES - COMPLETE LIST
 # ============================================
-# Production Dependencies
-
-# Web Framework & API
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-
-# Database & ORM
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-
-# Data Validation & Serialization
-pydantic==2.5.0
-pydantic[email]==2.5.0
-email-validator==2.1.0
-
-# Environment Variables
-python-dotenv==1.0.0
-
-# Image Processing
-Pillow==10.1.0
-
-# HTTP Client
-requests==2.31.0
-
-# Storage (MinIO)
-minio==7.2.0
-
-# Caching (Redis)
-redis==5.0.1
+# ALL DEPENDENCIES SCANNED FROM SOURCE CODE
+# Last Updated: 2026-05-06
 
 # ============================================
-# Development & Testing Dependencies
-
-# Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
+# CORE WEB FRAMEWORK
+# ============================================
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
 
 # ============================================
-# Optional: Development Tools
+# DATABASE & ORM
+# ============================================
+sqlalchemy>=2.0.20
+psycopg2-binary>=2.9.0
+
+# ============================================
+# DATA VALIDATION & SERIALIZATION
+# ============================================
+pydantic>=2.6.0
+email-validator>=2.1.0
+
+# ============================================
+# IMAGE PROCESSING & ANALYSIS
+# ============================================
+Pillow>=10.0.0
+exifread>=3.0.0
+ImageHash>=4.3.1
+
+# ============================================
+# ENVIRONMENT & CONFIGURATION
+# ============================================
+python-dotenv>=1.0.0
+
+# ============================================
+# HTTP & NETWORKING
+# ============================================
+requests>=2.31.0
+
+# ============================================
+# AWS S3 / MinIO STORAGE (Object Storage)
+# ============================================
+# Used for image storage via MinIO (S3-compatible)
+boto3>=1.28.0
+botocore>=1.31.0
+
+# ============================================
+# CACHING (Redis)
+# ============================================
+redis>=5.0.0
+
+# ============================================
+# TESTING & DEVELOPMENT
+# ============================================
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# ============================================
+# OPTIONAL: DEVELOPMENT TOOLS
+# ============================================
 # Uncomment if needed for development
 
-# Code Formatting & Linting
-# black==23.12.0
-# flake8==6.1.0
-# pylint==3.0.3
-# isort==5.13.2
+# Code Quality & Formatting
+# black>=23.12.0
+# flake8>=6.1.0
+# pylint>=3.0.0
+# isort>=5.13.0
+# ruff>=0.1.0
 
 # Type Checking
-# mypy==1.7.1
+# mypy>=1.7.0
 
-# Documentation
-# sphinx==7.2.6
+# API Documentation
+# swagger-ui>=5.1.0
+
+# Debugging & REPL
+# ipython>=8.19.0
+
+# ============================================
+# NOTES:
+# ============================================
+# - boto3/botocore: AWS SDK for S3-compatible storage (MinIO)
+# - redis: For caching dashboard data
+# - exifread: For reading EXIF metadata from images
+# - ImageHash: For image hashing and duplication detection
+# - All versions use >= to allow patch updates
