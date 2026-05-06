@@ -39,7 +39,19 @@ class ValidationService:
             comp_id, team.id, participant_id, threshold, count40
         )
 
-        return {"images": own_batch + other_batch}
+        batch = own_batch + other_batch
+        if len(batch) < 10:
+            batch.extend(
+                self.repository.find_additional_batch_images(
+                    comp_id,
+                    participant_id,
+                    threshold,
+                    [image["id"] for image in batch],
+                    10 - len(batch),
+                )
+            )
+
+        return {"images": batch[:10]}
 
     def submit_vote(self, image_id: int, validator_id: int, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)
