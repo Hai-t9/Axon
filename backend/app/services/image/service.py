@@ -91,12 +91,62 @@ class ImageService:
         metadata = {
             "make": str(tags.get('Image Make', 'Unknown')),
             "camera_model": str(tags.get('Image Model', 'Unknown')),
+            "softwares": str(tags.get('Image Software', '')),
+            "orientation": str(tags.get('Image Orientation', '')),
+            "date_time": str(tags.get('Image DateTime', '')),
+            "image_width": str(tags.get('Image ImageWidth', '')),
+            "image_length": str(tags.get('Image ImageLength', '')),
+            "gps_info": str(tags.get('GPS GPSLatitude', '')) + " " + str(tags.get('GPS GPSLongitude', '')),
+            "x_resolution": str(tags.get('Image XResolution', '')),
+            "y_resolution": str(tags.get('Image YResolution', '')),
+            "resolution_unit": str(tags.get('Image ResolutionUnit', '')),
+            "ycbcr_positioning": str(tags.get('Image YCbCrPositioning', ''))
         }
         
         # Convert EXIF tags to plain values if they are ExifRead classes
         for k, v in metadata.items():
             if hasattr(v, 'values'):
                 metadata[k] = v.values[0] if isinstance(v.values, list) and len(v.values) > 0 else str(v)
+            if metadata[k] == "None" or metadata[k].strip() == "":
+                metadata[k] = None
+
+        # Try to parse floats and dates specifically safely for db
+        def try_float(val):
+            if val is None: return None
+            try:
+                # Some come as ratios like '72/1'
+                if '/' in str(val):
+                    n, d = str(val).split('/')
+                    return float(n) / float(d)
+                return float(val)
+            except Exception:
+                return None
+
+        parsed_metadata = {
+            "make": metadata.get("make"),
+            "camera_model": metadata.get("camera_model"),
+            "software": metadata.get("softwares"),
+            "orientation": try_float(metadata.get("orientation")),
+            "image_width": try_float(metadata.get("image_width")),
+            "image_length": try_float(metadata.get("image_length")),
+            "x_resolution": try_float(metadata.get("x_resolution")),
+            "y_resolution": try_float(metadata.get("y_resolution")),
+            "resolution_unit": metadata.get("resolution_unit"),
+            "ycbcr_positioning": metadata.get("ycbcr_positioning"),
+            "gps_info": metadata.get("gps_info") if metadata.get("gps_info") and metadata.get("gps_info") != "None None" else None
+        }
+
+        # Date parsing
+        date_str = metadata.get("date_time")
+        parsed_date = None
+        if date_str:
+            try:
+                from datetime import datetime
+                # EXIF date format is usually YYYY:MM:DD HH:MM:SS
+                parsed_date = datetime.strptime(str(date_str), '%Y:%m:%d %H:%M:%S')
+            except Exception:
+                pass
+        parsed_metadata["date_time"] = parsed_date
 
         image_data = {
             "team_id": team_id,
@@ -109,10 +159,10 @@ class ImageService:
             "old_size_mb": len(contents) / (1024 * 1024),
             "old_width": float(width),
             "old_height": float(height),
-            "device": metadata.get("make", "Unknown")
+            "device": parsed_metadata.get("make") or "Unknown"
         }
 
-        record = self.repository.create(image_data, metadata)
+        record = self.repository.create(image_data, parsed_metadata)
 
         # Auto-create a Label record in the label table so the
         # Validation / Data-Validation workflows have something to work with.
