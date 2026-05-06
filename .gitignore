@@ -41,3 +41,6 @@ backend/.env
 build/
 dist/
 .env
+#github files
+
+/.github
