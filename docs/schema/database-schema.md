@@ -5,13 +5,9 @@ title: Database Schema
 
 # Database Schema
 
-<<<<<<< Updated upstream
-This ER diagram is generated to match the canonical DBML in `static/schema/schema.db.txt` (source-controlled). It reflects core tables used by competitions, teams, images, labels, models and evaluations.
-=======
 Database engine: PostgreSQL. Model artifacts and datasets are stored in object storage and referenced by URI.
 
-The following ER diagram models teams, submissions, evaluation jobs, and leaderboard ranking.
->>>>>>> Stashed changes
+This ER diagram is generated to match the canonical DBML in `static/schema/schema.db.txt` (source-controlled). It reflects core tables used by competitions, teams, images, labels, models and evaluations, including teams, submissions, evaluation jobs, and leaderboard ranking.
 
 ```mermaid
 %%{init: {'themeVariables': { 'fontSize':'20px', 'fontFamily':'Inter, Arial, sans-serif' }}}%%
