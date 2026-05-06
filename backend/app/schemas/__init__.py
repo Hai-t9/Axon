@@ -5,6 +5,15 @@ from .competition import (
     CompetitionResponse,
     CompetitionUpdate,
 )
+from .dashboard import (
+    DashboardCachedResponse,
+    DashboardCacheClearResponse,
+    DashboardImageStats,
+    DashboardResponse,
+    DashboardTeamInfo,
+)
+from .leaderboard import LeaderboardEntry, LeaderboardResponse, LeaderboardTeam
+from .label import LabelCreate, LabelResponse, LabelUpdate, LabelValidationResponse
 from .phase import (
     PhaseAdvanceResponse,
     PhaseDeadlineRequest,
@@ -26,6 +35,12 @@ from .team import (
     TeamUpdate,
 )
 from .user import AuthResponse, LoginRequest, SignupRequest, UserResponse
+from .validation import (
+    ValidationBatchResponse,
+    ValidationPendingResponse,
+    ValidationVoteCreate,
+    ValidationVoteResponse,
+)
 
 __all__ = [
     "AuthResponse",
@@ -37,6 +52,18 @@ __all__ = [
     "CompetitionListResponse",
     "CompetitionResponse",
     "CompetitionUpdate",
+    "DashboardCachedResponse",
+    "DashboardCacheClearResponse",
+    "DashboardImageStats",
+    "DashboardResponse",
+    "DashboardTeamInfo",
+    "LeaderboardEntry",
+    "LeaderboardResponse",
+    "LeaderboardTeam",
+    "LabelCreate",
+    "LabelResponse",
+    "LabelUpdate",
+    "LabelValidationResponse",
     "PhaseAdvanceResponse",
     "PhaseDeadlineRequest",
     "PhaseHistoryResponse",
@@ -53,5 +80,9 @@ __all__ = [
     "TeamResponse",
     "TeamStatisticsResponse",
     "TeamUpdate",
+    "ValidationBatchResponse",
+    "ValidationPendingResponse",
+    "ValidationVoteCreate",
+    "ValidationVoteResponse",
 ]
 

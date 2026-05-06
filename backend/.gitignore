@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Environments
+venv/
+.venv/
+env/
+.env
+
+# Databases
+*.db
+*.sqlite3
+axon.db
+dev.db
+
+# File Uploads
+uploads/
+/uploads/*
+!uploads/.gitkeep
+
+# Node.js (Legacy/Tools)
+node_modules/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

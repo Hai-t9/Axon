@@ -1,17 +1,49 @@
-/node_modules
-/.docusaurus
-/build
-/.cache
-__pycache__/
-**/__pycache__/
-backend/tests/.pytest_cache
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
 
-.vscode
-.idea
-/docs
+# Node.js / Docusaurus
+node_modules/
+.docusaurus/
+build/
+dist/
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.flutter-android-plugins
+.flutter-android-plugins-dependencies
+.flutter-ios-plugins
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+
+# C/C++ Header Files (as requested)
+*.h
 
 node_modules
 
 .docusaurus
 build
 .dart_tool/
+# Environment Variables
+.env
+*.env
+
+#github
+
+/.github
+
+docs
