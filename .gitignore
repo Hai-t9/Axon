@@ -25,8 +25,13 @@ dist/
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 venv/
 .venv/
+
+# C/C++ Header Files (as requested)
+*.h
 
 # Environment Variables
 .env
