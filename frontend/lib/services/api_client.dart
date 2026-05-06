@@ -34,12 +34,13 @@ class AuthInterceptor extends Interceptor {
 }
 
 final dioProvider = Provider<Dio>((ref) {
+  // Use the physical machine's IP address on the Wi-Fi network for a physical device.
   final dio = Dio(
     BaseOptions(
-      baseUrl: 'http://192.168.135.205:8000', // Adjusted to Windows Machine IP
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
+      baseUrl: 'http://192.168.135.205:8000',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      sendTimeout: const Duration(seconds: 10),
     ),
   );
 

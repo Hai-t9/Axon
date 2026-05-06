@@ -54,15 +54,52 @@ class CleanerService:
         return self.get_duplicate_candidates(images)
 
     def get_duplicate_candidates(self, images: List[Image]) -> List[Image]:
-        seen_hashes = set()
-        duplicates = []
+        from collections import defaultdict
+
+        hash_groups = defaultdict(list)
         for img in images:
-            if img.image_hash in seen_hashes:
-                duplicates.append(img)
-            else:
-                if img.image_hash is not None:
-                    seen_hashes.add(img.image_hash)
-        return duplicates
+            if img.image_hash:
+                hash_groups[img.image_hash].append(img)
+
+        duplicates_to_remove = []
+
+        for image_hash, group in hash_groups.items():
+            if len(group) == 1:
+                continue
+
+            # Sort group according to rules:
+            # 1. Largest size_mb
+            # 2. Highest resolution (width * height)
+            # 3. Known capture device
+            # 4. Team != "AI-4o"
+            # 5. First image as tiebreaker
+
+            def sort_key(img):
+                size = img.old_size_mb or 0.0
+                width = img.old_width or 0.0
+                height = img.old_height or 0.0
+                resolution = width * height
+                known_device = 1 if img.device and img.device.lower() != 'unknown' else 0
+
+                # Fetch team name safely if available
+                is_not_ai4o = 1
+                try:
+                    if img.team and img.team.name == 'AI-4o':
+                        is_not_ai4o = 0
+                except Exception:
+                    pass
+
+                return (size, resolution, known_device, is_not_ai4o)
+
+            # The best candidate will have the maximum tuple from sort_key
+            best_image = max(group, key=sort_key)
+
+            # All other images in this group are to be removed
+            for img in group:
+                if img.id != best_image.id:
+                    duplicates_to_remove.append(img)
+
+        return duplicates_to_remove
 
     async def detect_corrupted_images(self, comp_id: int) -> List[Image]:
         return self.repository.find_corrupted_images()
@@ -95,7 +132,7 @@ class CleanerService:
         self.repository.bulk_update(images)
 
     async def resize_images(self, comp_id: int):
-        max_size = (1024, 1024)
+        target_size = 336
         images = self.repository.find_images_by_competition(comp_id)
         self.resized_count = 0
         self.freed_space_mb = 0.0
@@ -106,14 +143,30 @@ class CleanerService:
             
             try:
                 with PILImage.open(img.filepath) as pil_img:
-                    # Skip if already small enough
-                    if pil_img.width <= max_size[0] and pil_img.height <= max_size[1]:
+                    w, h = pil_img.size
+
+                    # Skip if already correct size
+                    if w == target_size and h == target_size:
                         continue
                     
                     original_size = os.path.getsize(img.filepath)
-                    pil_img.thumbnail(max_size, PILImage.Resampling.LANCZOS)
-                    pil_img.save(img.filepath, optimize=True)
-                    
+
+                    if w == h:
+                        resized_img = pil_img.resize((target_size, target_size), PILImage.Resampling.BICUBIC)
+                    else:
+                        if w < h: # Portrait
+                            new_h = int(h * target_size / w)
+                            temp_img = pil_img.resize((target_size, new_h), PILImage.Resampling.BICUBIC)
+                            left, top = 0, (temp_img.height - target_size) / 2
+                        else: # Landscape
+                            new_w = int(w * target_size / h)
+                            temp_img = pil_img.resize((new_w, target_size), PILImage.Resampling.BICUBIC)
+                            left, top = (temp_img.width - target_size) / 2, 0
+
+                        resized_img = temp_img.crop((left, top, left + target_size, top + target_size))
+
+                    resized_img.save(img.filepath, optimize=True)
+
                     new_size = os.path.getsize(img.filepath)
                     
                     self.resized_count += 1

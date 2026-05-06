@@ -3,6 +3,11 @@ from typing import List, Optional
 from datetime import datetime
 
 class CleanerRunResponse(BaseModel):
+    job_id: str
+    status: str
+    message: str
+
+class CleanerResultResponse(BaseModel):
     duplicates_removed: int
     corrupted_removed: int
     images_normalized: int
@@ -27,4 +32,3 @@ class OptimizeStorageResponse(BaseModel):
     freed_mb: float
     files_removed: int
     completed_at: datetime
-

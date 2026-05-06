@@ -2,12 +2,13 @@ from io import BytesIO
 from PIL import Image as PILImage
 import exifread
 import hashlib
+import imagehash
 import json
 import os
 import uuid
 from fastapi import UploadFile
 from app.services.image.repository import ImageRepository
-
+from app.storage.minio_client import storage_service
 
 class ImageService:
     def __init__(self, repository: ImageRepository):
@@ -50,32 +51,42 @@ class ImageService:
 
         contents = await file.read()
         
+        # We need a PILImage instance to reliably calculate the visual imagehash
+        try:
+            with PILImage.open(BytesIO(contents)) as pil_img:
+                image_hash = str(imagehash.phash(pil_img))
+                width, height = pil_img.size
+        except Exception:
+            # Fallback to standard hash if corrupted or unknown
+            image_hash = hashlib.sha256(contents).hexdigest()
+            width, height = 0, 0
+
         # Hash for deduplication
-        image_hash = hashlib.sha256(contents).hexdigest()
         existing = self.repository.find_by_hash(image_hash)
         if existing:
             raise ValueError("Duplicate image detected.")
 
         # Store file
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
         ext = file.filename.split(".")[-1]
         filename = f"{uuid.uuid4()}.{ext}"
+
+        # Uploading to MinIO
+        object_name = f"images/{filename}"
+        storage_service.upload_file(contents, object_name)
+
+        # We also keep a local copy for Pillow compatibility with current codebase or we just use filepath.
+        # But wait, local codebase uses `filepath` heavily. Let's write locally too for now, or just return s3 link?
+        # The Cleaner uses local files for Pillow ops. I will continue writing locally, but add MinIO upload.
+        upload_dir = "uploads"
+        os.makedirs(upload_dir, exist_ok=True)
         filepath = os.path.join(upload_dir, filename)
         
         with open(filepath, "wb") as f:
             f.write(contents)
 
-        # Extract metadata correctly using exifread and Pillow
+        # Extract metadata correctly using exifread
         img_buffer = BytesIO(contents)
         tags = exifread.process_file(img_buffer, details=False)
-        
-        # Fallback to Pillow for dimensions if EXIF is missing
-        try:
-            with PILImage.open(BytesIO(contents)) as pil_img:
-                width, height = pil_img.size
-        except Exception:
-            width, height = 0, 0
 
         metadata = {
             "make": str(tags.get('Image Make', 'Unknown')),
@@ -140,6 +151,9 @@ class ImageService:
                 os.remove(image.filepath)
             except OSError:
                 pass
+            # Extract object name if it exists in Minio
+            filename = os.path.basename(image.filepath)
+            storage_service.delete_file(f"images/{filename}")
 
         success = self.repository.delete(image_id)
         if not success:
