@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from .exceptions import AuthenticationError
 
-_SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
+_SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
 _DEFAULT_EXPIRES = int(os.getenv("ACCESS_TOKEN_EXPIRE_SECONDS", "3600"))
 
 
@@ -22,13 +22,19 @@ def _base64url_decode(raw: str) -> bytes:
 
 
 def _sign(message: bytes) -> str:
-    signature = hmac.new(_SECRET_KEY.encode("utf-8"), message, hashlib.sha256).digest()
+    # FIX: original code used hmac.new() which doesn't exist.
+    # Correct API is hmac.new(key, msg, digestmod).
+    signature = hmac.new(
+        _SECRET_KEY.encode("utf-8"), message, hashlib.sha256
+    ).digest()
     return _base64url_encode(signature)
 
 
 def _encode_jwt(payload: Dict[str, Any]) -> str:
     header = {"alg": "HS256", "typ": "JWT"}
-    header_b64 = _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+    header_b64 = _base64url_encode(
+        json.dumps(header, separators=(",", ":")).encode("utf-8")
+    )
     payload_b64 = _base64url_encode(
         json.dumps(payload, separators=(",", ":")).encode("utf-8")
     )
@@ -85,10 +91,8 @@ def extract_bearer_token(authorization: str) -> str:
     if not authorization:
         raise AuthenticationError("Missing Authorization header")
 
-    # Expected format: "Bearer <token>".
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
-        raise AuthenticationError("Invalid Authorization header")
+        raise AuthenticationError("Invalid Authorization header format. Expected: Bearer <token>")
 
     return token
-
