@@ -1,0 +1,159 @@
+---
+sidebar_position: 1
+title: Use Case Diagram
+---
+
+# Use Case Diagram
+
+This page reproduces the use-case PNG at `static/diagrams/diagram.usecase.jpg` as a source-controlled Mermaid diagram. Read the diagram top-to-bottom: actors are on the left (Host, Staff) and right (Participant); the middle column groups use cases into functional areas (Registration, Competition setup, Team management, Data collection & cleaning, Validation & submission, Evaluation & results).
+
+Use the Mermaid source below as the canonical representation — update it when the process or responsibilities change.
+
+```mermaid
+%%{init: {'themeVariables': { 'fontSize':'20px', 'fontFamily':'Inter, Arial, sans-serif' }}}%%
+flowchart LR
+<<<<<<< Updated upstream
+  %% Actors (emoji used as lightweight stick-figure stand-ins)
+  Host(["👤\nHost (organiser)"])
+  Staff(["👥\nStaff (organiser)"])
+  Participant(["🧑‍🤝‍🧑\nParticipant"])
+
+  %% Functional areas (use-case ovals placed in center column)
+  subgraph REG[REGISTRATION]
+    direction TB
+    R1(("Register (organiser)"))
+    R2(("Register (participant)"))
+    R3(("View competition\n dashboard"))
+  end
+
+  subgraph SETUP[COMPETITION SETUP]
+    direction TB
+    S1(("Create competition\n(1 host)"))
+    S2(("Configure competition"))
+    S3(("Set phase\ntransition mode"))
+    S4(("Invite users\n(role per competition)"))
+  end
+
+  subgraph TEAM[TEAM MANAGEMENT]
+    direction TB
+    T1(("Create teams\n(manual / import)"))
+    T2(("Join via link / QR code"))
+    T3(("Define classes / file hierarchy"))
+    T4(("View team statistics"))
+    T5(("Jumpstart / advance phase"))
+  end
+
+  subgraph DATA[DATA COLLECTION & CLEANING]
+    direction TB
+    D1(("Take & upload photos\n(mobile)"))
+    D2(("Detect & remove duplicates"))
+    D3(("Classify photo with label"))
+    D4(("Resize / normalise images"))
+    D5(("Add / correct metadata"))
+    D6(("Export dataset"))
+    D7(("Monitor data anomalies"))
+    D8(("View data dump & metadata"))
+  end
+
+  subgraph VALID[VALIDATION & SUBMISSION]
+    direction TB
+    V1(("Curate validation display"))
+    V2(("Validate labels (mixed dataset)"))
+    V3(("Review model submissions"))
+    V4(("Submit Docker model image"))
+    V5(("Adjust phase deadline"))
+    V6(("View leaderboard (final phase)"))
+    V7(("Verify team eligibility"))
+  end
+
+  subgraph EVAL[EVALUATION & RESULTS]
+    direction TB
+    E1(("Run model evaluation"))
+    E2(("View final results"))
+    E3(("Rank teams on leaderboard"))
+    E4(("View accuracy & contribution"))
+    E5(("Announce final leaderboard"))
+  end
+
+  %% Actor connections (associations)
+  Host --> R1
+  Host --> S1
+  Host --> S2
+  Host --> S3
+  Host --> S4
+  Host --> T1
+  Host --> T5
+
+  Staff --> D1
+  Staff --> D2
+  Staff --> D4
+  Staff --> D7
+  Staff --> D8
+
+  Participant --> R2
+  Participant --> R3
+  Participant --> T2
+  Participant --> D1
+  Participant --> D3
+  Participant --> V2
+  Participant --> V4
+
+  %% Cross-functional flows (examples)
+  S4 --> T2
+  D6 --> V1
+  V3 --> E1
+  E1 --> E2 --> E3 --> E4 --> E5
+
+  %% Force vertical stacking: connect representative nodes between areas
+  R3 --> S1
+  S1 --> T1
+  T1 --> D1
+  D6 --> V1
+  V3 --> E1
+
+  %% Styling: larger type for actors and area headings
+  classDef area fill:#f7f7f7,stroke:#ddd,font-size:14px;
+  classDef actorStyle fill:#ffffff,stroke:#333,font-size:18px;
+
+  class REG,SETUP,TEAM,DATA,VALID,EVAL area;
+  class Host,Staff,Participant actorStyle;
+=======
+  TM[Team]
+  ADM[Admin]
+  DS[Data Steward]
+  EV[Evaluator]
+
+  subgraph AX[Axon Challenge Platform]
+    UC1([Register team])
+    UC2([Upload model artifact])
+    UC3([Submit for evaluation])
+    UC4([View leaderboard])
+    UC5([Manage datasets])
+    UC6([Configure phases and rules])
+    UC7([Review evaluation logs])
+  end
+
+  TM --> UC1
+  TM --> UC2
+  TM --> UC3
+  TM --> UC4
+  DS --> UC5
+  ADM --> UC6
+  ADM --> UC7
+  EV --> UC7
+>>>>>>> Stashed changes
+```
+
+## Modeling guidance
+
+- Actors are listed as simple labeled nodes for clarity; the diagram focuses on use-case grouping rather than detailed actor notation.
+- Keep use-case labels short and action-oriented; use `\\n` inside quoted node text to create line breaks when necessary.
+- Commit the Mermaid source as the canonical diagram and only regenerate PNGs when the source changes.
+- Add small explanatory text and Operational notes for accessibility and discoverability.
+
+## Operational notes
+
+- Group responsibilities into functional areas (Registration, Setup, Team management, Data, Validation, Evaluation) to make ownership clear.
+- Prefer one use case per oval; if a step grows complex, break it into smaller use cases and refer to them from the activity or sequence diagrams.
+- Use the same authoring patterns as other docs: quoted labels for multi-line nodes, keep `classDef` inside the code fence, and test locally with `npm run start` or `npm run build`.
+- When adding new pages, update `sidebars.ts` (or use an autogenerated sidebar) to avoid broken links during CI builds.
