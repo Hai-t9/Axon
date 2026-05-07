@@ -9,7 +9,7 @@ class AuthRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_user_by_id(self, user_id: int) -> Optional[User]:
+    def get_user_by_id(self, user_id) -> Optional[User]:
         return self.db.query(User).filter(User.id == user_id).first()
 
     def get_role(self, user_id: int, competition_id: int) -> Optional[Role]:

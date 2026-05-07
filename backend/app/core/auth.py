@@ -51,7 +51,7 @@ def _decode_jwt(token: str) -> Dict[str, Any]:
     return json.loads(payload_raw)
 
 
-def create_access_token(user_id: int, expires_in: Optional[int] = None) -> str:
+def create_access_token(user_id: Any, expires_in: Optional[int] = None) -> str:
     issued_at = int(time.time())
     expires_at = issued_at + (expires_in or _DEFAULT_EXPIRES)
     payload = {
@@ -62,7 +62,7 @@ def create_access_token(user_id: int, expires_in: Optional[int] = None) -> str:
     return _encode_jwt(payload)
 
 
-def verify_access_token(token: str) -> Optional[int]:
+def verify_access_token(token: str) -> Optional[Any]:
     try:
         payload = _decode_jwt(token)
     except ValueError:
@@ -75,10 +75,11 @@ def verify_access_token(token: str) -> Optional[int]:
     if not subject:
         return None
 
-    try:
+    if isinstance(subject, int):
+        return subject
+    if isinstance(subject, str) and subject.isdigit():
         return int(subject)
-    except ValueError:
-        return None
+    return str(subject)
 
 
 def extract_bearer_token(authorization: str) -> str:
