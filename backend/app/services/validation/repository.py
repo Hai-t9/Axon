@@ -1,14 +1,25 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.cache import ValidationCache
 from app.models import Config, Image, Label, LabelValidation, Team
 
 
 class ValidationRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, cache: ValidationCache | None = None):
         self.db = db
+        self.cache = cache
 
     def find_participant_team(self, comp_id: int, participant_id: int) -> Team | None:
+        if self.cache:
+            cached_team_id = self.cache.get_participant_team_id(comp_id, participant_id)
+            if cached_team_id:
+                return Team(
+                    id=cached_team_id,
+                    name="",
+                    comp_id=comp_id,
+                    user_ids=[],
+                )
         teams = (
             self.db.query(Team)
             .filter(Team.comp_id == comp_id)
@@ -17,10 +28,16 @@ class ValidationRepository:
         )
         for team in teams:
             if participant_id in (team.user_ids or []):
+                if self.cache:
+                    self.cache.set_participant_team_id(comp_id, participant_id, team.id)
                 return team
         return None
 
     def find_validation_threshold(self, comp_id: int) -> int | None:
+        if self.cache:
+            cached_threshold = self.cache.get_validation_threshold(comp_id)
+            if cached_threshold is not None:
+                return cached_threshold
         config = (
             self.db.query(Config)
             .filter(Config.competition_id == comp_id)
@@ -28,6 +45,8 @@ class ValidationRepository:
         )
         if not config:
             return None
+        if self.cache and config.max_validations is not None:
+            self.cache.set_validation_threshold(comp_id, config.max_validations)
         return config.max_validations
 
     def count_participant_validations(
@@ -71,45 +90,38 @@ class ValidationRepository:
             .subquery()
         )
 
-    def find_batch_from_own_team(
-        self,
-        comp_id: int,
-        team_id: int,
-        participant_id: int,
-        threshold: int,
-        count: int,
-    ) -> list[dict]:
+    def find_next_from_own_team(
+        self, comp_id: int, team_id: int, participant_id: int, threshold: int
+    ) -> dict | None:
         voted_subquery = self._build_voted_image_subquery(comp_id, participant_id)
         threshold_subquery = self._build_threshold_label_subquery(threshold)
 
-        rows = (
+        row = (
             self.db.query(Image.id, Image.filepath)
             .join(Label, Label.image_id == Image.id)
+            .join(Team, Team.id == Image.team_id)
             .filter(
+                Team.comp_id == comp_id,
                 Image.team_id == team_id,
                 Label.validated.is_(False),
                 ~Image.id.in_(voted_subquery),
                 ~Label.id.in_(threshold_subquery),
             )
             .order_by(Image.id.asc())
-            .limit(count)
-            .all()
+            .first()
         )
 
-        return [{"id": row.id, "filepath": row.filepath} for row in rows]
+        if not row:
+            return None
+        return {"id": row.id, "filepath": row.filepath}
 
-    def find_batch_from_other_teams(
-        self,
-        comp_id: int,
-        team_id: int,
-        participant_id: int,
-        threshold: int,
-        count: int,
-    ) -> list[dict]:
+    def find_next_from_other_teams(
+        self, comp_id: int, team_id: int, participant_id: int, threshold: int
+    ) -> dict | None:
         voted_subquery = self._build_voted_image_subquery(comp_id, participant_id)
         threshold_subquery = self._build_threshold_label_subquery(threshold)
 
-        rows = (
+        row = (
             self.db.query(Image.id, Image.filepath)
             .join(Label, Label.image_id == Image.id)
             .join(Team, Team.id == Image.team_id)
@@ -121,42 +133,12 @@ class ValidationRepository:
                 ~Label.id.in_(threshold_subquery),
             )
             .order_by(Image.id.asc())
-            .limit(count)
-            .all()
+            .first()
         )
 
-        return [{"id": row.id, "filepath": row.filepath} for row in rows]
-
-    def find_additional_batch_images(
-        self,
-        comp_id: int,
-        participant_id: int,
-        threshold: int,
-        excluded_ids: list[int],
-        count: int,
-    ) -> list[dict]:
-        if count <= 0:
-            return []
-
-        voted_subquery = self._build_voted_image_subquery(comp_id, participant_id)
-        threshold_subquery = self._build_threshold_label_subquery(threshold)
-
-        query = (
-            self.db.query(Image.id, Image.filepath)
-            .join(Label, Label.image_id == Image.id)
-            .join(Team, Team.id == Image.team_id)
-            .filter(
-                Team.comp_id == comp_id,
-                Label.validated.is_(False),
-                ~Image.id.in_(voted_subquery),
-                ~Label.id.in_(threshold_subquery),
-            )
-        )
-        if excluded_ids:
-            query = query.filter(~Image.id.in_(excluded_ids))
-
-        rows = query.order_by(Image.id.asc()).limit(count).all()
-        return [{"id": row.id, "filepath": row.filepath} for row in rows]
+        if not row:
+            return None
+        return {"id": row.id, "filepath": row.filepath}
 
     def insert_vote(self, image_id: int, validator_id: int, label: str) -> LabelValidation | None:
         label_entry = self.db.query(Label).filter(Label.image_id == image_id).first()
