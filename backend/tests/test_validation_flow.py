@@ -197,5 +197,59 @@ def test_validation_flow_batch_and_vote_finalize(client, db_session):
     assert label_entry.label == "cat"
 
 
+def test_validation_flow_batch_handles_short_pool(client, db_session):
+    signup_response = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "shortpool@example.com",
+            "password": "Secure1234",
+            "full_name": "Short Pool User",
+        },
+    )
+    assert signup_response.status_code == 200
+    payload = signup_response.json()
+    token = payload["access_token"]
+    user_id = payload["user"]["id"]
+
+    competition_response = client.post(
+        "/api/v1/competitions",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Short Batch Competition", "description": "Test"},
+    )
+    assert competition_response.status_code == 200
+    competition_id = competition_response.json()["id"]
+
+    own_team_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Own Team", "user_ids": [user_id]},
+    )
+    assert own_team_response.status_code == 200
+    own_team_id = own_team_response.json()["id"]
+
+    other_team_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Other Team", "user_ids": []},
+    )
+    assert other_team_response.status_code == 200
+    other_team_id = other_team_response.json()["id"]
+
+    for idx in range(2):
+        image = _create_image(db_session, own_team_id, user_id, f"short-own-{idx}")
+        _create_label(db_session, image.id, "cat")
+
+    image = _create_image(db_session, other_team_id, user_id, "short-other-0")
+    _create_label(db_session, image.id, "dog")
+
+    batch_response = client.get(
+        f"/api/v1/competitions/{competition_id}/validations/batch",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert batch_response.status_code == 200
+    batch_payload = batch_response.json()
+    assert len(batch_payload["images"]) == 3
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))

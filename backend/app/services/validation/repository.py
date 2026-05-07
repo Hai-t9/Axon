@@ -127,6 +127,37 @@ class ValidationRepository:
 
         return [{"id": row.id, "filepath": row.filepath} for row in rows]
 
+    def find_additional_batch_images(
+        self,
+        comp_id: int,
+        participant_id: int,
+        threshold: int,
+        excluded_ids: list[int],
+        count: int,
+    ) -> list[dict]:
+        if count <= 0:
+            return []
+
+        voted_subquery = self._build_voted_image_subquery(comp_id, participant_id)
+        threshold_subquery = self._build_threshold_label_subquery(threshold)
+
+        query = (
+            self.db.query(Image.id, Image.filepath)
+            .join(Label, Label.image_id == Image.id)
+            .join(Team, Team.id == Image.team_id)
+            .filter(
+                Team.comp_id == comp_id,
+                Label.validated.is_(False),
+                ~Image.id.in_(voted_subquery),
+                ~Label.id.in_(threshold_subquery),
+            )
+        )
+        if excluded_ids:
+            query = query.filter(~Image.id.in_(excluded_ids))
+
+        rows = query.order_by(Image.id.asc()).limit(count).all()
+        return [{"id": row.id, "filepath": row.filepath} for row in rows]
+
     def insert_vote(self, image_id: int, validator_id: int, label: str) -> LabelValidation | None:
         label_entry = self.db.query(Label).filter(Label.image_id == image_id).first()
         if not label_entry:
