@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
 from .model_enums import role_type_enum
 
 
@@ -19,6 +20,7 @@ class User(Base):
     roles = relationship("Role", back_populates="user", cascade="all, delete-orphan")
     images_authored = relationship("Image", back_populates="author")
     label_validations = relationship("LabelValidation", back_populates="validator")
+    submitted_models = relationship("Model", back_populates="submitted_by_user")
 
 
 class Role(Base):
@@ -35,4 +37,3 @@ class Role(Base):
         Index("idx_role_user_id", "user_id"),
         Index("idx_role_competition_id", "competition_id"),
     )
-
