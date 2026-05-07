@@ -11,8 +11,9 @@ class ValidationService:
         self.repository = repository
         self.label_service = label_service
 
-    def _compute_batch_counts(self, own_count: int, other_count: int) -> tuple[int, int]:
-        return 6, 4
+    def _should_pick_own_team(self, own_count: int, other_count: int) -> bool:
+        ratio = own_count / (own_count + other_count + 1)
+        return ratio < 0.6
 
     def _compute_majority_vote(self, votes: list[str]) -> str:
         if not votes:
@@ -20,7 +21,7 @@ class ValidationService:
         counts = Counter(votes)
         return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
-    def get_validation_batch(self, comp_id: int, participant_id: int) -> dict:
+    def get_next_image(self, comp_id: int, participant_id: int) -> dict:
         team = self.repository.find_participant_team(comp_id, participant_id)
         if not team:
             raise NotFoundError("Participant team not found")
@@ -29,17 +30,24 @@ class ValidationService:
         if not threshold:
             threshold = 5
 
-        counts = self.repository.count_participant_validations(comp_id, participant_id, team.id)
-        count60, count40 = self._compute_batch_counts(counts["ownCount"], counts["otherCount"])
-
-        own_batch = self.repository.find_batch_from_own_team(
-            comp_id, team.id, participant_id, threshold, count60
+        counts = self.repository.count_participant_validations(
+            comp_id, participant_id, team.id
         )
-        other_batch = self.repository.find_batch_from_other_teams(
-            comp_id, team.id, participant_id, threshold, count40
-        )
+        pick_own_team = self._should_pick_own_team(counts["ownCount"], counts["otherCount"])
 
-        return {"images": own_batch + other_batch}
+        if pick_own_team:
+            image = self.repository.find_next_from_own_team(
+                comp_id, team.id, participant_id, threshold
+            )
+        else:
+            image = self.repository.find_next_from_other_teams(
+                comp_id, team.id, participant_id, threshold
+            )
+
+        if not image:
+            raise NotFoundError("No eligible images found")
+
+        return image
 
     def submit_vote(self, image_id: int, validator_id: int, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)

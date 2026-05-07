@@ -44,7 +44,7 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           routeBasePath: 'docs',
           editUrl:
-            'https://github.com/mustapha/Axon/tree/main/',
+            'https://github.com/Hai-t9/Axon/tree/docs/',  // Changed: Hai-t9 instead of mustapha, docs branch
         },
         blog: false,
         theme: {
@@ -73,7 +73,7 @@ const config: Config = {
           label: 'Documentation',
         },
         {
-          href: 'https://github.com/mustapha/Axon',
+          href: 'https://github.com/Hai-t9/Axon',  // Changed: Hai-t9 instead of mustapha
           label: 'GitHub',
           position: 'right',
         },
@@ -109,7 +109,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/mustapha/Axon',
+              href: 'https://github.com/Hai-t9/Axon',  // Changed: Hai-t9 instead of mustapha
             },
           ],
         },

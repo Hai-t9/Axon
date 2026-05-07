@@ -10,6 +10,7 @@ from .dashboard import (
     DashboardCacheClearResponse,
     DashboardImageStats,
     DashboardResponse,
+    DashboardParticipantResponse,
     DashboardTeamInfo,
 )
 from .leaderboard import LeaderboardEntry, LeaderboardResponse, LeaderboardTeam
@@ -36,7 +37,7 @@ from .team import (
 )
 from .user import AuthResponse, LoginRequest, SignupRequest, UserResponse
 from .validation import (
-    ValidationBatchResponse,
+    ValidationNextResponse,
     ValidationPendingResponse,
     ValidationVoteCreate,
     ValidationVoteResponse,
@@ -56,6 +57,7 @@ __all__ = [
     "DashboardCacheClearResponse",
     "DashboardImageStats",
     "DashboardResponse",
+    "DashboardParticipantResponse",
     "DashboardTeamInfo",
     "LeaderboardEntry",
     "LeaderboardResponse",
@@ -80,7 +82,7 @@ __all__ = [
     "TeamResponse",
     "TeamStatisticsResponse",
     "TeamUpdate",
-    "ValidationBatchResponse",
+    "ValidationNextResponse",
     "ValidationPendingResponse",
     "ValidationVoteCreate",
     "ValidationVoteResponse",

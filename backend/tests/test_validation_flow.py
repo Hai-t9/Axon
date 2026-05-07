@@ -13,12 +13,13 @@ if ROOT_DIR not in sys.path:
 
 from app.core.database import Base
 from app.main import app
-from app.models import Image, Label
+from app.models import Competition, Config, Image, Label, Team
 from app.services.competition.controller import get_db as competition_get_db
 from app.services.phase.controller import get_db as phase_get_db
 from app.services.register.controller import get_db as register_get_db
 from app.services.team.controller import get_db as team_get_db
 from app.services.validation.controller import get_db as validation_get_db
+from app.services.validation.repository import ValidationRepository
 
 
 @pytest.fixture()
@@ -80,7 +81,7 @@ def _create_label(db_session, image_id: int, label: str) -> Label:
     return entry
 
 
-def test_validation_flow_batch_and_vote_finalize(client, db_session):
+def test_validation_flow_next_and_vote_finalize(client, db_session):
     signup_response = client.post(
         "/api/v1/register/signup",
         json={
@@ -130,13 +131,13 @@ def test_validation_flow_batch_and_vote_finalize(client, db_session):
         _create_label(db_session, image.id, "dog")
         other_images.append(image)
 
-    batch_response = client.get(
-        f"/api/v1/competitions/{competition_id}/validations/batch",
+    next_response = client.get(
+        f"/api/v1/competitions/{competition_id}/validations/next",
         headers={"Authorization": f"Bearer {host_token}"},
     )
-    assert batch_response.status_code == 200
-    batch_payload = batch_response.json()
-    assert len(batch_payload["images"]) == 10
+    assert next_response.status_code == 200
+    next_payload = next_response.json()
+    assert next_payload["id"] == own_images[0].id
 
     target_image = own_images[0]
 
@@ -195,6 +196,122 @@ def test_validation_flow_batch_and_vote_finalize(client, db_session):
     assert label_entry is not None
     assert label_entry.validated is True
     assert label_entry.label == "cat"
+
+
+def test_validation_flow_next_handles_short_pool(client, db_session):
+    signup_response = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "shortpool@example.com",
+            "password": "Secure1234",
+            "full_name": "Short Pool User",
+        },
+    )
+    assert signup_response.status_code == 200
+    payload = signup_response.json()
+    token = payload["access_token"]
+    user_id = payload["user"]["id"]
+
+    competition_response = client.post(
+        "/api/v1/competitions",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Short Batch Competition", "description": "Test"},
+    )
+    assert competition_response.status_code == 200
+    competition_id = competition_response.json()["id"]
+
+    own_team_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Own Team", "user_ids": [user_id]},
+    )
+    assert own_team_response.status_code == 200
+    own_team_id = own_team_response.json()["id"]
+
+    other_team_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Other Team", "user_ids": []},
+    )
+    assert other_team_response.status_code == 200
+    other_team_id = other_team_response.json()["id"]
+
+    own_images = []
+    for idx in range(2):
+        image = _create_image(db_session, own_team_id, user_id, f"short-own-{idx}")
+        _create_label(db_session, image.id, "cat")
+        own_images.append(image)
+
+    other_image = _create_image(db_session, other_team_id, user_id, "short-other-0")
+    _create_label(db_session, other_image.id, "dog")
+
+    next_response = client.get(
+        f"/api/v1/competitions/{competition_id}/validations/next",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert next_response.status_code == 200
+    next_payload = next_response.json()
+    assert next_payload["id"] in {image.id for image in own_images} | {other_image.id}
+
+
+class _FakeValidationCache:
+    def __init__(self):
+        self.team_ids: dict[tuple[int, int], int] = {}
+        self.thresholds: dict[int, int] = {}
+
+    def get_participant_team_id(self, comp_id: int, participant_id: int) -> int | None:
+        return self.team_ids.get((comp_id, participant_id))
+
+    def set_participant_team_id(self, comp_id: int, participant_id: int, team_id: int) -> bool:
+        self.team_ids[(comp_id, participant_id)] = team_id
+        return True
+
+    def get_validation_threshold(self, comp_id: int) -> int | None:
+        return self.thresholds.get(comp_id)
+
+    def set_validation_threshold(self, comp_id: int, threshold: int) -> bool:
+        self.thresholds[comp_id] = threshold
+        return True
+
+
+def test_validation_cache_threshold_and_team(db_session):
+    competition = Competition(name="Cache Competition", description="Test")
+    db_session.add(competition)
+    db_session.commit()
+    db_session.refresh(competition)
+
+    config = Config(competition_id=competition.id, max_validations=7)
+    db_session.add(config)
+    db_session.commit()
+
+    participant_id = 999
+    team = Team(name="Cache Team", comp_id=competition.id, user_ids=[participant_id])
+    db_session.add(team)
+    db_session.commit()
+    db_session.refresh(team)
+
+    cache = _FakeValidationCache()
+    repository = ValidationRepository(db_session, cache)
+
+    threshold_first = repository.find_validation_threshold(competition.id)
+    assert threshold_first == 7
+
+    config.max_validations = 12
+    db_session.commit()
+
+    threshold_cached = repository.find_validation_threshold(competition.id)
+    assert threshold_cached == 7
+
+    team_first = repository.find_participant_team(competition.id, participant_id)
+    assert team_first is not None
+    assert team_first.id == team.id
+
+    team.user_ids = []
+    db_session.commit()
+
+    team_cached = repository.find_participant_team(competition.id, participant_id)
+    assert team_cached is not None
+    assert team_cached.id == team.id
 
 
 if __name__ == "__main__":
