@@ -36,7 +36,7 @@ from .team import (
 )
 from .user import AuthResponse, LoginRequest, SignupRequest, UserResponse
 from .validation import (
-    ValidationBatchResponse,
+    ValidationNextResponse,
     ValidationPendingResponse,
     ValidationVoteCreate,
     ValidationVoteResponse,
@@ -80,7 +80,7 @@ __all__ = [
     "TeamResponse",
     "TeamStatisticsResponse",
     "TeamUpdate",
-    "ValidationBatchResponse",
+    "ValidationNextResponse",
     "ValidationPendingResponse",
     "ValidationVoteCreate",
     "ValidationVoteResponse",
