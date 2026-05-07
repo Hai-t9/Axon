@@ -10,6 +10,7 @@ from .dashboard import (
     DashboardCacheClearResponse,
     DashboardImageStats,
     DashboardResponse,
+    DashboardParticipantResponse,
     DashboardTeamInfo,
 )
 from .leaderboard import LeaderboardEntry, LeaderboardResponse, LeaderboardTeam
@@ -56,6 +57,7 @@ __all__ = [
     "DashboardCacheClearResponse",
     "DashboardImageStats",
     "DashboardResponse",
+    "DashboardParticipantResponse",
     "DashboardTeamInfo",
     "LeaderboardEntry",
     "LeaderboardResponse",

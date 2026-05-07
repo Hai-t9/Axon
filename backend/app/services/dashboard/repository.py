@@ -46,3 +46,28 @@ class DashboardRepository:
             .order_by(Team.id.asc())
             .all()
         )
+
+    def find_team_for_participant(self, comp_id: int, participant_id: int) -> Team | None:
+        teams = (
+            self.db.query(Team)
+            .filter(Team.comp_id == comp_id)
+            .order_by(Team.id.asc())
+            .all()
+        )
+        for team in teams:
+            if participant_id in (team.user_ids or []):
+                return team
+        return None
+
+    def find_team_image_stats(self, team_id: int) -> dict:
+        images = self.db.query(Image).filter(Image.team_id == team_id).all()
+
+        total = len(images)
+        verified = sum(1 for image in images if image.status == ImageStatus.verified)
+        on_hold = sum(1 for image in images if image.status == ImageStatus.onhold)
+
+        return {
+            "total": total,
+            "verified": verified,
+            "on_hold": on_hold,
+        }

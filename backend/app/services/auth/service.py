@@ -32,3 +32,7 @@ class AuthService:
 
         return user
 
+    def get_user_role(self, competition_id: int, user_id: int) -> RoleType | None:
+        role = self.repository.get_role(user_id, competition_id)
+        return role.role if role else None
+
