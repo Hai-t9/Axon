@@ -20,7 +20,7 @@ class LabelResponse(BaseModel):
     validated: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class LabelValidationResponse(BaseModel):
@@ -28,4 +28,4 @@ class LabelValidationResponse(BaseModel):
     validated: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True

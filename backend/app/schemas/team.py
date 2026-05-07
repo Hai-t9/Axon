@@ -22,7 +22,7 @@ class TeamResponse(BaseModel):
     user_ids: Optional[List[int]] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class TeamListResponse(BaseModel):
@@ -45,4 +45,3 @@ class TeamStatisticsResponse(BaseModel):
     total_members: int
     images_uploaded: int
     models_submitted: int
-
