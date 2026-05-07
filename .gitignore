@@ -33,6 +33,11 @@ venv/
 # C/C++ Header Files (as requested)
 *.h
 
+node_modules
+
+.docusaurus
+build
+.dart_tool/
 # Environment Variables
 .env
 *.env
