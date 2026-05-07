@@ -8,56 +8,73 @@ sidebar_position: 9
 
 ## Overview
 
-Handles the participant voting workflow for finalizing image labels. Each participant receives a batch of 10 images at a time to validate — 6 from their own team (60%) and 4 from other teams (40%), making the split invisible to them. The split is maintained dynamically across the participant's session by tracking their full validation history. Once an image reaches the vote threshold, it is automatically finalized via majority vote and marked as validated — no manual trigger needed.
+Handles the participant voting workflow for finalizing image labels. Each participant receives one image at a time to validate — the split is maintained dynamically at approximately 60% from their own team and 40% from other teams, making the split completely invisible to them. The pool is always fresh at the moment of each request. Once an image accumulates enough votes to reach the threshold, it is automatically finalized via majority vote and marked as validated — no manual trigger needed.
 
 ---
 
 ### Responsibility
-Manages the full validation lifecycle: batch image distribution, vote submission, and automatic label finalization.
+Manages the full validation lifecycle: one-at-a-time image serving, vote submission, and automatic label finalization.
 
-**Batch logic:**
-- Each batch is exactly 10 images: 6 from own team, 4 from other teams
-- The 60/40 ratio is computed from the participant's full history (`ownCount` & `otherCount`) and applied per batch
-- Both pool queries (`findBatchFromOwnTeam` and `findBatchFromOtherTeams`) apply all 3 exclusion filters in a single DB query each:
-  1. Images already voted on by this participant
-  2. Images whose vote count has reached or exceeded the threshold
-  3. Images already finalized (`label.validated = true`)
+**Why one image at a time:**
+- Every "next" click fetches a fresh image from the DB at that exact moment
+- Guarantees the participant never receives an already-finalized image
+- Threshold is respected at fetch time — no stale images, no wasted votes
+- 60/40 split is precise per image, not approximate per batch
+
+- `findParticipantTeam` and `findValidationThreshold` are cached in Redis since they never change during the competition — reducing effective DB queries per click from 4 to 2, cutting load in half
+
+**Image serving logic (per request):**
+1. Fetch participant's team — from Redis cache
+2. Fetch threshold from `config` — from Redis cache
+3. Count participant's validation history → `{ ownCount, otherCount }`
+4. Decide pool using ratio logic (pure logic, no DB):
+   ```
+   if ownCount / (ownCount + otherCount + 1) < 0.6 → pick from own team
+   else → pick from other teams
+   ```
+5. Fetch ONE image from chosen pool — single query applying all 3 exclusion filters:
+   - Not already voted on by this participant
+   - Vote count strictly less than threshold
+   - `label.validated = false` — not already finalized
 
 **Finalization logic:**
-- Triggered automatically inside `submitVote` — no separate endpoint
+- Triggered automatically inside `submitVote` — no separate endpoint needed
 - After every vote insert, the vote count is checked against the threshold
-- If reached: majority vote is computed (pure logic) and Label module is called to update and mark the label as validated
-- Minor threshold exceed of 1-2 votes is acceptable due to concurrent batching and does not affect the majority result
+- If reached: majority vote is computed (pure logic) and Label module is called to update the label and mark it as validated
+
 
 ### Inputs / Outputs
 
 | Function | Input | Output |
 |---|---|---|
-| `getValidationBatch` | `compId`, `participantId` | `{ images[ id, filepath ] }` |
+| `getNextImage` | `compId`, `participantId` | `{ id, filepath }` |
 | `submitVote` | `imageId`, `validatorId`, `label` | `{ validation_id, label }` |
 | `getPendingValidations` | `compId` | `{ images[ ], total }` |
 
 ### APIs
 
 **Endpoints**
-- `GET    /competitions/:compId/validations/batch` — Returns a batch of 10 images (6 own team + 4 others) — excludes already voted, threshold-reached, and finalized images
+- `GET    /competitions/:compId/validations/next` — Returns the next single eligible image for the participant — respects 60/40 split, threshold cap, and excludes finalized images
 - `POST   /images/:imageId/validations` — Participant submits a validation vote — automatically finalizes label if threshold is reached
 - `GET    /competitions/:compId/validations/pending` — Returns all images still pending final validation
 
 **Controller**
-- `handleGetValidationBatch(compId, participantId)`
+- `handleGetNextImage(compId, participantId)`
 - `handleSubmitVote(imageId)`
 - `handleGetPendingValidations(compId)`
 
 **Service**
-- `getValidationBatch(compId, participantId)`
-  - → `findParticipantTeam(compId, participantId)`
-  - → `findValidationThreshold(compId)` — reads max votes per image from `config`
-  - → `countParticipantValidations(participantId)` — gets `ownCount` & `otherCount` from `label_validations`
-  - → compute `count60 = 6`, `count40 = 4` (pure logic, no DB)
-  - → `findBatchFromOwnTeam(compId, teamId, participantId, threshold, count60)`
-  - → `findBatchFromOtherTeams(compId, teamId, participantId, threshold, count40)`
-  - → merge & return batch of 10
+- `getNextImage(compId, participantId)`
+  - → `findParticipantTeam(compId, participantId)` — cached in Redis
+  - → `findValidationThreshold(compId)` — cached in Redis
+  - → `countParticipantValidations(participantId)` — gets `{ ownCount, otherCount }` from `label_validations`
+  - → decide pool based on 60/40 ratio (pure logic, no DB):
+    ```
+    if ownCount / (ownCount + otherCount + 1) < 0.6 → own team
+    else → other teams
+    ```
+  - → `findNextFromOwnTeam(compId, teamId, participantId, threshold)` or `findNextFromOtherTeams(compId, teamId, participantId, threshold)`
+  - → return `{ id, filepath }`
 - `submitVote(imageId, validatorId, label)`
   - → `insertVote(imageId, validatorId, label)`
   - → `countVotesForImage(imageId)`
@@ -70,11 +87,11 @@ Manages the full validation lifecycle: batch image distribution, vote submission
 - `getPendingValidations(compId)` → `findPendingByComp(compId)`
 
 **Repository**
-- `findParticipantTeam(compId, participantId)`
-- `findValidationThreshold(compId)` — reads from `config`
+- `findParticipantTeam(compId, participantId)` — cached in Redis, never changes during competition
+- `findValidationThreshold(compId)` — cached in Redis, never changes during competition
 - `countParticipantValidations(participantId)` — returns `{ ownCount, otherCount }` from `label_validations` joined with `image` and `team`
-- `findBatchFromOwnTeam(compId, teamId, participantId, threshold, count)` — single query excluding: already voted by participant + vote count >= threshold + `label.validated = true`
-- `findBatchFromOtherTeams(compId, teamId, participantId, threshold, count)` — same single query exclusion logic
+- `findNextFromOwnTeam(compId, teamId, participantId, threshold)` — single query excluding: already voted by participant + vote count >= threshold + `label.validated = true`
+- `findNextFromOtherTeams(compId, teamId, participantId, threshold)` — same single query exclusion logic
 - `insertVote(imageId, validatorId, label)`
 - `countVotesForImage(imageId)`
 - `findLabelByImageId(imageId)`
@@ -83,4 +100,5 @@ Manages the full validation lifecycle: batch image distribution, vote submission
 
 ### Dependencies
 - `label`, `label_validations`, `image`, `team`, `config` tables
+- **Redis** — caches `findParticipantTeam` and `findValidationThreshold` to reduce DB load
 - **Label module** — `submitVote` automatically calls `LabelService.updateLabel` and `LabelService.setLabelValidated` when threshold is reached to persist and finalize the majority vote result
