@@ -10,7 +10,7 @@ class PhaseResponse(BaseModel):
     phase_dates: Dict[str, Any]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PhaseAdvanceResponse(BaseModel):
@@ -49,4 +49,3 @@ class PhaseValidateRequest(BaseModel):
 class PhaseValidationResponse(BaseModel):
     valid: bool
     message: str
-

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer
+from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -9,9 +10,10 @@ class Evaluation(Base):
     __tablename__ = "evaluation"
 
     id = Column(Integer, primary_key=True)
-    model_id = Column(Integer, ForeignKey("model.id"), unique=True, nullable=False)
+    model_id = Column(
+        PostgresUUID(as_uuid=True), ForeignKey("model.id"), unique=True, nullable=False
+    )
     score = Column(Float, nullable=False)
     evaluated_at = Column(DateTime, server_default=func.now())
 
     model = relationship("Model", back_populates="evaluation")
-

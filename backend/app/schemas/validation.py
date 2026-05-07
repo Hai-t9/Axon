@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 
@@ -12,8 +10,8 @@ class ValidationPendingImage(ValidationImage):
     label: str
 
 
-class ValidationBatchResponse(BaseModel):
-    images: List[ValidationImage]
+class ValidationNextResponse(ValidationImage):
+    pass
 
 
 class ValidationVoteCreate(BaseModel):
@@ -26,5 +24,5 @@ class ValidationVoteResponse(BaseModel):
 
 
 class ValidationPendingResponse(BaseModel):
-    images: List[ValidationPendingImage]
+    images: list[ValidationPendingImage]
     total: int
