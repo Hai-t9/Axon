@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/api_client.dart';
 import 'preview_screen.dart';
 import 'validation_screen.dart';
 
-class CameraScreen extends StatefulWidget {
+class CameraScreen extends ConsumerStatefulWidget {
   final List<CameraDescription> cameras;
   const CameraScreen({super.key, required this.cameras});
 
   @override
-  State<CameraScreen> createState() => _CameraScreenState();
+  ConsumerState<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> {
+class _CameraScreenState extends ConsumerState<CameraScreen> {
   late CameraController _controller;
   Future<void>? _initializeControllerFuture;
 
@@ -64,9 +66,10 @@ class _CameraScreenState extends State<CameraScreen> {
             icon: const Icon(Icons.rule),
             tooltip: 'Cross-Team Validation',
             onPressed: () {
+              final compId = ref.read(selectedCompetitionIdProvider) ?? 1;
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const ValidationScreen(compId: 1),
+                  builder: (context) => ValidationScreen(compId: compId),
                 ),
               );
             },
@@ -99,3 +102,4 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 }
+
