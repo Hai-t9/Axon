@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import JSON, Column, Date, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -13,25 +13,33 @@ class Competition(Base):
     launch_date = Column(Date, nullable=True)
     invitation_link = Column(String, unique=True, nullable=True)
 
-    roles = relationship("Role", back_populates="competition", cascade="all, delete-orphan")
+    roles = relationship(
+        "Role", back_populates="competition", cascade="all, delete-orphan"
+    )
     config = relationship(
         "Config",
         back_populates="competition",
         uselist=False,
         cascade="all, delete-orphan",
     )
-    teams = relationship("Team", back_populates="competition", cascade="all, delete-orphan")
+    teams = relationship(
+        "Team", back_populates="competition", cascade="all, delete-orphan"
+    )
     phase_logs = relationship(
         "PhaseLog", back_populates="competition", cascade="all, delete-orphan"
     )
-    models = relationship("Model", back_populates="competition", cascade="all, delete-orphan")
+    models = relationship(
+        "Model", back_populates="competition", cascade="all, delete-orphan"
+    )
 
 
 class Config(Base):
     __tablename__ = "config"
 
     id = Column(Integer, primary_key=True)
-    competition_id = Column(Integer, ForeignKey("competition.id"), unique=True, nullable=False)
+    competition_id = Column(
+        Integer, ForeignKey("competition.id"), unique=True, nullable=False
+    )
     labels = Column(JSON, nullable=True)
     data_ex = Column(String, nullable=True)
     scoring_ex = Column(String, nullable=True)
@@ -42,6 +50,17 @@ class Config(Base):
     evaluation = Column(String, nullable=True)
     duplicate_threshhold = Column(Float, nullable=True)
     max_validations = Column("maxValidations", Integer, nullable=True)
+    model_spec = Column(JSON, nullable=True)
+    # model_spec stores the organizer's Docker submission requirements, e.g.:
+    # {
+    #   "required_files": ["Dockerfile", "inference.py", "requirements.txt"],
+    #   "model_dir": "model",
+    #   "data_dir": "data",
+    #   "inference_function": "predict",
+    #   "allowed_model_formats": ["pytorch", "tensorflow", "sklearn", "keras", "onnx"],
+    #   "required_packages": ["numpy"],
+    #   "max_size_mb": 500,
+    #   "python_version_min": "3.9"
+    # }
 
     competition = relationship("Competition", back_populates="config")
-

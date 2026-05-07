@@ -4,13 +4,12 @@ from typing import List
 from pydantic import BaseModel
 
 
-
 class LeaderboardTeam(BaseModel):
     id: int
     name: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class LeaderboardEntry(BaseModel):
@@ -20,7 +19,7 @@ class LeaderboardEntry(BaseModel):
     submitted_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class LeaderboardResponse(BaseModel):

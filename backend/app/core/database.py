@@ -1,10 +1,26 @@
+"""
+Database Configuration Module
+
+ARCHITECTURE:
+- Mobile App (Flutter): Uses local SQLite database for offline-first functionality
+- Backend (FastAPI): Uses remote PostgreSQL on Supabase for data persistence
+- Sync Strategy: Mobile app syncs with Supabase backend when connection is available
+
+DATABASES:
+1. Remote (Production): PostgreSQL on Supabase (DATABASE_URL in .env)
+2. Local (Development/Offline): SQLite (fallback if DATABASE_URL not set)
+"""
 import os
+from dotenv import load_dotenv
 
 from dotenv import load_dotenv
 load_dotenv()
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+
+# Load environment variables from .env file
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./axon.db")
 

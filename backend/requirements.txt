@@ -1,0 +1,89 @@
+# ============================================
+# AXON BACKEND DEPENDENCIES - COMPLETE LIST
+# ============================================
+# ALL DEPENDENCIES SCANNED FROM SOURCE CODE
+# Last Updated: 2026-05-06
+
+# ============================================
+# CORE WEB FRAMEWORK
+# ============================================
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# ============================================
+# DATABASE & ORM
+# ============================================
+sqlalchemy>=2.0.20
+psycopg2-binary>=2.9.0
+alembic>=1.12.0
+
+# ============================================
+# DATA VALIDATION & SERIALIZATION
+# ============================================
+pydantic>=2.6.0
+email-validator>=2.1.0
+
+# ============================================
+# IMAGE PROCESSING & ANALYSIS
+# ============================================
+Pillow>=10.0.0
+exifread>=3.0.0
+ImageHash>=4.3.1
+
+# ============================================
+# ENVIRONMENT & CONFIGURATION
+# ============================================
+python-dotenv>=1.0.0
+
+# ============================================
+# HTTP & NETWORKING
+# ============================================
+requests>=2.31.0
+
+# ============================================
+# AWS S3 / MinIO STORAGE (Object Storage)
+# ============================================
+# Used for image storage via MinIO (S3-compatible)
+boto3>=1.28.0
+botocore>=1.31.0
+
+# ============================================
+# CACHING (Redis)
+# ============================================
+redis>=5.0.0
+
+# ============================================
+# TESTING & DEVELOPMENT
+# ============================================
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# ============================================
+# OPTIONAL: DEVELOPMENT TOOLS
+# ============================================
+# Uncomment if needed for development
+
+# Code Quality & Formatting
+# black>=23.12.0
+# flake8>=6.1.0
+# pylint>=3.0.0
+# isort>=5.13.0
+# ruff>=0.1.0
+
+# Type Checking
+# mypy>=1.7.0
+
+# API Documentation
+# swagger-ui>=5.1.0
+
+# Debugging & REPL
+# ipython>=8.19.0
+
+# ============================================
+# NOTES:
+# ============================================
+# - boto3/botocore: AWS SDK for S3-compatible storage (MinIO)
+# - redis: For caching dashboard data
+# - exifread: For reading EXIF metadata from images
+# - ImageHash: For image hashing and duplication detection
+# - All versions use >= to allow patch updates

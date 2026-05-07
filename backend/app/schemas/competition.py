@@ -4,6 +4,32 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class ModelSpec(BaseModel):
+    """
+    Organizer-defined specification for Docker-based model submissions.
+    Set this in competition config before the evaluation phase opens.
+    """
+
+    required_files: List[str] = [
+        "Dockerfile",
+        "inference.py",
+        "requirements.txt",
+    ]  # utils.py may be added
+    model_dir: str = "model"
+    data_dir: str = "data"
+    inference_function: str = "predict"
+    allowed_model_formats: List[str] = [
+        "pytorch",
+        "tensorflow",
+        "sklearn",
+        "keras",
+        "onnx",
+    ]
+    required_packages: List[str] = []
+    max_size_mb: float = 500.0
+    python_version_min: Optional[str] = None
+
+
 class CompetitionConfigBase(BaseModel):
     labels: Optional[dict] = None
     data_ex: Optional[str] = None
@@ -15,6 +41,7 @@ class CompetitionConfigBase(BaseModel):
     evaluation: Optional[str] = None
     duplicate_threshhold: Optional[float] = None
     max_validations: Optional[int] = None
+    model_spec: Optional[ModelSpec] = None
 
 
 class CompetitionConfigResponse(CompetitionConfigBase):
@@ -22,7 +49,7 @@ class CompetitionConfigResponse(CompetitionConfigBase):
     competition_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CompetitionCreate(BaseModel):
@@ -48,7 +75,7 @@ class CompetitionResponse(BaseModel):
     config: Optional[CompetitionConfigResponse] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CompetitionListResponse(BaseModel):
@@ -56,4 +83,3 @@ class CompetitionListResponse(BaseModel):
     total: int
     page: int
     limit: int
-
