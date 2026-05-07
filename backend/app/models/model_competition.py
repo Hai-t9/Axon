@@ -1,4 +1,8 @@
-from sqlalchemy import JSON, Column, Date, Float, ForeignKey, Integer, String, Text
+from uuid import uuid4
+
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -7,7 +11,7 @@ from app.core.database import Base
 class Competition(Base):
     __tablename__ = "competition"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     launch_date = Column(Date, nullable=True)
@@ -21,6 +25,7 @@ class Competition(Base):
         back_populates="competition",
         uselist=False,
         cascade="all, delete-orphan",
+        foreign_keys=[Config.competition_id],
     )
     teams = relationship(
         "Team", back_populates="competition", cascade="all, delete-orphan"
@@ -38,9 +43,12 @@ class Config(Base):
 
     id = Column(Integer, primary_key=True)
     competition_id = Column(
-        Integer, ForeignKey("competition.id"), unique=True, nullable=False
+        PostgresUUID(as_uuid=True),
+        ForeignKey("competition.id"),
+        unique=True,
+        nullable=False,
     )
-    labels = Column(JSON, nullable=True)
+    labels = Column(JSON, nullable=True)  # JSONB in database
     data_ex = Column(String, nullable=True)
     scoring_ex = Column(String, nullable=True)
     overview = Column(String, nullable=True)
@@ -50,7 +58,7 @@ class Config(Base):
     evaluation = Column(String, nullable=True)
     duplicate_threshhold = Column(Float, nullable=True)
     max_validations = Column("maxValidations", Integer, nullable=True)
-    model_spec = Column(JSON, nullable=True)
+    model_spec = Column(JSON, nullable=True)  # JSONB in database
     # model_spec stores the organizer's Docker submission requirements, e.g.:
     # {
     #   "required_files": ["Dockerfile", "inference.py", "requirements.txt"],
@@ -63,4 +71,6 @@ class Config(Base):
     #   "python_version_min": "3.9"
     # }
 
-    competition = relationship("Competition", back_populates="config")
+    competition = relationship(
+        "Competition", back_populates="config", foreign_keys=[competition_id]
+    )

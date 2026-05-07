@@ -1,8 +1,10 @@
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
 from .model_enums import image_status_enum
 
 
@@ -10,8 +12,10 @@ class Image(Base):
     __tablename__ = "image"
 
     id = Column(Integer, primary_key=True)
-    team_id = Column(Integer, ForeignKey("team.id"), nullable=False)
-    author_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    team_id = Column(PostgresUUID(as_uuid=True), ForeignKey("team.id"), nullable=False)
+    author_id = Column(
+        PostgresUUID(as_uuid=True), ForeignKey("user.id"), nullable=False
+    )
     time = Column(DateTime, server_default=func.now())
     label = Column(String, nullable=True)
     filepath = Column(String, unique=True, nullable=False)
@@ -27,7 +31,10 @@ class Image(Base):
     team = relationship("Team", back_populates="images")
     author = relationship("User", back_populates="images_authored")
     metadata_entry = relationship(
-        "ImageMetadata", back_populates="image", uselist=False, cascade="all, delete-orphan"
+        "ImageMetadata",
+        back_populates="image",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
     labels = relationship("Label", back_populates="image", cascade="all, delete-orphan")
 
@@ -68,4 +75,3 @@ class ImageMetadata(Base):
     scientific_name = Column(String, nullable=True)
 
     image = relationship("Image", back_populates="metadata_entry")
-

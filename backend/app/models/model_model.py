@@ -44,9 +44,13 @@ class Model(Base):
     __tablename__ = "model"
 
     id = Column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)
-    team_id = Column(Integer, ForeignKey("team.id"), nullable=False)
-    competition_id = Column(Integer, ForeignKey("competition.id"), nullable=False)
-    submitted_by = Column(Integer, ForeignKey("user.id"), nullable=False)
+    team_id = Column(PostgresUUID(as_uuid=True), ForeignKey("team.id"), nullable=False)
+    competition_id = Column(
+        PostgresUUID(as_uuid=True), ForeignKey("competition.id"), nullable=False
+    )
+    submitted_by = Column(
+        PostgresUUID(as_uuid=True), ForeignKey("user.id"), nullable=False
+    )
 
     filename = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
@@ -77,8 +81,6 @@ class Model(Base):
     )
 
     __table_args__ = (
-        Index("idx_model_team_id", "team_id"),
-        Index("idx_model_competition_id", "competition_id"),
         Index("idx_model_submitted_by", "submitted_by"),
         Index("idx_model_status", "status"),
         Index("idx_model_hash", "model_hash"),
