@@ -1,4 +1,7 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from uuid import uuid4
+
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String
+from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -10,7 +13,7 @@ from .model_enums import role_type_enum
 class User(Base):
     __tablename__ = "user"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)
     fullname = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
@@ -26,8 +29,12 @@ class User(Base):
 class Role(Base):
     __tablename__ = "role"
 
-    user_id = Column(Integer, ForeignKey("user.id"), primary_key=True)
-    competition_id = Column(Integer, ForeignKey("competition.id"), primary_key=True)
+    user_id = Column(
+        PostgresUUID(as_uuid=True), ForeignKey("user.id"), primary_key=True
+    )
+    competition_id = Column(
+        PostgresUUID(as_uuid=True), ForeignKey("competition.id"), primary_key=True
+    )
     role = Column(role_type_enum, nullable=False)
 
     user = relationship("User", back_populates="roles")
