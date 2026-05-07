@@ -32,6 +32,16 @@ class DashboardService:
             "max_validations": config.max_validations,
         }
 
+    def _serialize_config_participant(self, config) -> dict:
+        return {
+            "labels": config.labels,
+            "data_ex": config.data_ex,
+            "overview": config.overview,
+            "terms_conditions": config.terms_conditions,
+            "data_md": config.data_md,
+            "data_format": config.data_format,
+        }
+
     def _serialize_team(self, team) -> dict:
         return {
             "id": team.id,
@@ -62,6 +72,28 @@ class DashboardService:
             },
         }
 
+    def _build_participant_payload(self, comp_id: int, participant_id: int) -> dict:
+        phase_info = self.repository.find_phase_info(comp_id)
+        if not phase_info:
+            raise NotFoundError("Phase information not found")
+
+        config = self.repository.find_config(comp_id)
+        if not config:
+            raise NotFoundError("Competition config not found")
+
+        team = self.repository.find_team_for_participant(comp_id, participant_id)
+        if not team:
+            raise NotFoundError("Participant team not found")
+
+        image_stats = self.repository.find_team_image_stats(team.id)
+
+        return {
+            "phase_info": self._serialize_phase_info(phase_info),
+            "config": self._serialize_config_participant(config),
+            "image_stats": image_stats,
+            "team_info": self._serialize_team(team),
+        }
+
     def get_dashboard(self, comp_id: int) -> dict:
         # 1. Try cache first
         cached = self.cache.get_dashboard(comp_id)
@@ -74,6 +106,9 @@ class DashboardService:
         # 3. Store in cache
         self.cache.set_dashboard(comp_id, payload)
         return payload
+
+    def get_participant_dashboard(self, comp_id: int, participant_id: int) -> dict:
+        return self._build_participant_payload(comp_id, participant_id)
 
     def get_cached_dashboard(self, comp_id: int) -> dict:
         cached = self.cache.get_dashboard(comp_id)
