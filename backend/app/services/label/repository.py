@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models import Image, Label, Team
+from app.models.model_enums import ImageStatus
 
 
 class LabelRepository:
@@ -42,6 +43,11 @@ class LabelRepository:
         if not entry:
             return None
         entry.validated = True
+        
+        image = self.get_image_by_id(image_id)
+        if image:
+            image.status = ImageStatus.verified
+            
         self.db.commit()
         self.db.refresh(entry)
         return entry

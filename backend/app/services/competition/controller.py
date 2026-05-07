@@ -65,8 +65,8 @@ async def list_competitions(
 ):
     try:
         token = extract_bearer_token(authorization)
-        auth_service.get_current_user(token)
-        items, total = competition_service.list_competitions(page, limit)
+        user = auth_service.get_current_user(token)
+        items, total = competition_service.list_competitions(page, limit, user_id=user.id)
         return {
             "items": items,
             "total": total,
@@ -168,4 +168,22 @@ async def update_competition_config(
         raise HTTPException(status_code=401, detail=str(exc))
     except AuthorizationError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
+
+@router.get("/{competition_id}/my-role")
+async def get_my_role(
+    competition_id: int,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    db: Session = Depends(get_db)
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        
+        from app.models import Role
+        role_entry = db.query(Role).filter_by(user_id=user.id, competition_id=competition_id).first()
+        return {"role": role_entry.role.value if role_entry else "none"}
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
 

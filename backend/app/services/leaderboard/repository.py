@@ -26,13 +26,22 @@ class LeaderboardRepository:
             .all()
         )
 
+        from app.models import User
+        
         best_by_team: dict[int, dict] = {}
         for row in rows:
             if row.team_id not in best_by_team:
+                team = self.db.query(Team).filter(Team.id == row.team_id).first()
+                members = []
+                if team and team.user_ids:
+                    users = self.db.query(User).filter(User.id.in_(team.user_ids)).all()
+                    members = [{"id": u.id, "name": u.fullname, "link": f"/profile/{u.id}"} for u in users]
+                    
                 best_by_team[row.team_id] = {
                     "team": {
                         "id": row.team_id,
                         "name": row.team_name,
+                        "members": members,
                     },
                     "score": row.score,
                     "submitted_at": row.submitted_at,

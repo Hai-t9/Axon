@@ -79,9 +79,10 @@ class ImageService:
         # The Cleaner uses local files for Pillow ops. I will continue writing locally, but add MinIO upload.
         upload_dir = "uploads"
         os.makedirs(upload_dir, exist_ok=True)
-        filepath = os.path.join(upload_dir, filename)
+        local_filepath = os.path.join(upload_dir, filename)
+        db_filepath = f"uploads/{filename}"
         
-        with open(filepath, "wb") as f:
+        with open(local_filepath, "wb") as f:
             f.write(contents)
 
         # Extract metadata correctly using exifread
@@ -151,7 +152,7 @@ class ImageService:
         image_data = {
             "team_id": team_id,
             "author_id": user_id,
-            "filepath": filepath,
+            "filepath": db_filepath,
             "image_hash": image_hash,
             "label": parsed_label,
             "original_filename": file.filename,

@@ -17,7 +17,7 @@ class UserResponse(BaseModel):
 
 class SignupRequest(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=4)
     full_name: Optional[str] = None
     phone: Optional[str] = None
 

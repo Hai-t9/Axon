@@ -29,6 +29,16 @@ class CompetitionService:
 
         self.repository.create_role(host_id, competition.id, RoleType.host)
 
+        # Create initial phase log so dashboard works immediately
+        from app.models import PhaseLog
+        phase_log = PhaseLog(
+            competition_id=competition.id,
+            current_phase="creation",
+            phase_dates={},
+        )
+        self.repository.db.add(phase_log)
+        self.repository.db.commit()
+
         return competition
 
     def get_competition(self, competition_id: int):
@@ -37,10 +47,10 @@ class CompetitionService:
             raise NotFoundError("Competition not found")
         return competition
 
-    def list_competitions(self, page: int, limit: int):
+    def list_competitions(self, page: int, limit: int, user_id: int | None = None):
         offset = (page - 1) * limit
-        items = self.repository.list_competitions(offset, limit)
-        total = self.repository.count_competitions()
+        items = self.repository.list_competitions(offset, limit, user_id=user_id)
+        total = self.repository.count_competitions(user_id=user_id)
         return items, total
 
     def update_competition(self, competition_id: int, payload: CompetitionUpdate):

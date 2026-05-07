@@ -73,6 +73,13 @@ async def submit_model(
         token = extract_bearer_token(authorization)
         user = auth_service.get_current_user(token)
 
+        # Check if user is in the team
+        from app.models import Team
+        team = db.query(Team).filter(Team.id == team_id).first()
+        if not team or user.id not in (team.user_ids or []):
+            # Also allow host to submit for any team? No, only team members.
+            raise AuthorizationError("User is not a member of this team")
+
         service = ModelSubmissionService(ModelSubmissionRepository(db))
         model = await service.submit_model(
             team_id=team_id,

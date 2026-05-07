@@ -18,17 +18,23 @@ class CompetitionRepository:
     def get_by_name(self, name: str) -> Competition | None:
         return self.db.query(Competition).filter(Competition.name == name).first()
 
-    def list_competitions(self, offset: int, limit: int) -> list[Competition]:
+    def list_competitions(self, offset: int, limit: int, user_id: int | None = None) -> list[Competition]:
+        query = self.db.query(Competition)
+        if user_id is not None:
+            query = query.join(Role, Role.competition_id == Competition.id).filter(Role.user_id == user_id)
         return (
-            self.db.query(Competition)
+            query
             .order_by(Competition.id.desc())
             .offset(offset)
             .limit(limit)
             .all()
         )
 
-    def count_competitions(self) -> int:
-        return int(self.db.query(func.count(Competition.id)).scalar() or 0)
+    def count_competitions(self, user_id: int | None = None) -> int:
+        query = self.db.query(func.count(Competition.id))
+        if user_id is not None:
+            query = query.join(Role, Role.competition_id == Competition.id).filter(Role.user_id == user_id)
+        return int(query.scalar() or 0)
 
     def create(self, competition_data: dict) -> Competition:
         competition = Competition(**competition_data)

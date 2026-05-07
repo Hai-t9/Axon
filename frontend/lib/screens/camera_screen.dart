@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'preview_screen.dart';
+import 'validation_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -56,7 +57,22 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Capture Asset')),
+      appBar: AppBar(
+        title: const Text('Capture Image'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.rule),
+            tooltip: 'Cross-Team Validation',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ValidationScreen(compId: 1),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: FutureBuilder<void>(
         future: _initializeControllerFuture,
         builder: (context, snapshot) {

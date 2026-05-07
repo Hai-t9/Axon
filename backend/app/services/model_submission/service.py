@@ -21,6 +21,7 @@ _MAX_SIZE_BYTES = 500 * 1024 * 1024
 _ALLOWED_CONTENT_TYPES = {
     "application/octet-stream",
     "application/zip",
+    "application/x-zip-compressed",
     "application/x-tar",
     "application/gzip",
     "application/x-gzip",

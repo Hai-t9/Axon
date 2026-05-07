@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/upload_service.dart';
+import '../services/api_client.dart';
 
 class PreviewScreen extends ConsumerStatefulWidget {
   final String imagePath;
@@ -15,16 +16,38 @@ class PreviewScreen extends ConsumerStatefulWidget {
 class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   bool _isUploading = false;
   
-  // Hardcoded for now until backend config endpoint is wired into mobile
-  final List<String> _availableLabels = [
-    'damage',
-    'front-bumper',
-    'rear-bumper',
-    'left-door',
-    'right-door',
-    'scratch'
-  ];
+  // Labels will be fetched from backend config
+  List<String> _availableLabels = [];
   String? _selectedLabel;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchConfig();
+  }
+
+  Future<void> _fetchConfig() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final compId = ref.read(selectedCompetitionIdProvider);
+      final res = await dio.get('/api/v1/competitions/$compId/config');
+      final labels = res.data['labels'] as List<dynamic>? ?? [];
+      if (mounted) {
+        setState(() {
+          _availableLabels = labels.map((e) => e.toString()).toList();
+          if (_availableLabels.isEmpty) {
+            _availableLabels = ['Healthy', 'Blight', 'Rust', 'Weed'];
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _availableLabels = ['Healthy', 'Blight', 'Rust', 'Weed'];
+        });
+      }
+    }
+  }
 
   Future<void> _uploadImage() async {
     if (_selectedLabel == null) {
@@ -46,7 +69,8 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
         'tags': [_selectedLabel],
       };
 
-      await uploadService.uploadImage(widget.imagePath, '1', labelPayload);
+      final teamId = ref.read(selectedTeamIdProvider);
+      await uploadService.uploadImage(widget.imagePath, '$teamId', labelPayload);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

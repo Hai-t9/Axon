@@ -1,0 +1,739 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { ArrowLeft, Activity, Users, Image as ImageIcon, Upload, Play, Download } from 'lucide-react';
+
+export default function CompetitionDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [leaderboard, setLeaderboard] = useState<any>(null);
+  const [models, setModels] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('none');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  
+  // Cleaner state
+  const [cleanerStatus, setCleanerStatus] = useState<string>('Idle');
+  const [cleanerStats, setCleanerStats] = useState<any>(null);
+  
+  // Invite modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteTokenValue, setInviteTokenValue] = useState('');
+  
+  // Team management state
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [showAddMember, setShowAddMember] = useState<number | null>(null); // team_id or null
+  const [unassigned, setUnassigned] = useState<any[]>([]);
+  const [teamActionLoading, setTeamActionLoading] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, [id]);
+
+  const fetchData = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return navigate('/login');
+
+    try {
+      const [dashRes, leadRes, modelsRes, roleRes, teamsRes] = await Promise.all([
+        fetch(`http://localhost:8000/api/v1/competitions/${id}/dashboard`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`http://localhost:8000/api/v1/competitions/${id}/leaderboard`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`http://localhost:8000/api/v1/competitions/${id}/models`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => ({ ok: false, json: async () => ({ items: [] }) })),
+        fetch(`http://localhost:8000/api/v1/competitions/${id}/my-role`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`http://localhost:8000/api/v1/competitions/${id}/teams`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => ({ ok: false, json: async () => ({ items: [] }) }))
+      ]);
+
+      if (dashRes.ok) setDashboard(await dashRes.json());
+      if (leadRes.ok) setLeaderboard(await leadRes.json());
+      if (modelsRes && 'ok' in modelsRes && modelsRes.ok) {
+        const mods = await modelsRes.json();
+        setModels(mods.items || []);
+      }
+      if (roleRes.ok) {
+        const r = await roleRes.json();
+        setRole(r.role);
+      }
+      if (teamsRes && 'ok' in teamsRes && teamsRes.ok) {
+        const t = await teamsRes.json();
+        // For each team, fetch members
+        const teamsWithMembers = await Promise.all((t.items || []).map(async (team: any) => {
+          const mRes = await fetch(`http://localhost:8000/api/v1/teams/${team.id}/members`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (mRes.ok) {
+            const mData = await mRes.json();
+            return { ...team, members: mData.members };
+          }
+          return { ...team, members: [] };
+        }));
+        setTeams(teamsWithMembers);
+      }
+    } catch (err) {
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createTeam = async () => {
+    if (!newTeamName.trim()) return;
+    setTeamActionLoading(true);
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/teams`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTeamName })
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || 'Failed'); }
+      setShowCreateTeam(false);
+      setNewTeamName('');
+      fetchData();
+    } catch (e: any) {
+      alert(e.message);
+    } finally { setTeamActionLoading(false); }
+  };
+
+  const fetchUnassigned = async (teamId: number) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/participants/unassigned`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setUnassigned(data.participants || []);
+      setShowAddMember(teamId);
+    }
+  };
+
+  const addMemberToTeam = async (teamId: number, userId: number) => {
+    setTeamActionLoading(true);
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/teams/${teamId}/members`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || 'Failed'); }
+      setShowAddMember(null);
+      fetchData();
+    } catch (e: any) {
+      alert(e.message);
+    } finally { setTeamActionLoading(false); }
+  };
+
+  const removeMemberFromTeam = async (teamId: number, userId: number) => {
+    if (!confirm('Remove this member from the team?')) return;
+    const token = localStorage.getItem('token');
+    await fetch(`http://localhost:8000/api/v1/teams/${teamId}/members/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    fetchData();
+  };
+
+  const deleteTeam = async (teamId: number) => {
+    if (!confirm('Delete this team? This cannot be undone.')) return;
+    const token = localStorage.getItem('token');
+    await fetch(`http://localhost:8000/api/v1/teams/${teamId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    fetchData();
+  };
+
+  const runCleaner = async () => {
+    setCleanerStatus('Running Cleaner...');
+    const token = localStorage.getItem('token');
+    try {
+      await fetch(`http://localhost:8000/api/v1/competitions/${id}/cleaner/run`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setCleanerStatus('Cleaning complete. Checking optimization...');
+      
+      const statRes = await fetch(`http://localhost:8000/api/v1/competitions/${id}/cleaner/optimize-storage`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (statRes.ok) {
+        setCleanerStats(await statRes.json());
+        setCleanerStatus('Completed');
+      }
+    } catch (e) {
+      setCleanerStatus('Error running cleaner');
+    }
+  };
+
+  const advancePhase = async () => {
+    const token = localStorage.getItem('token');
+    await fetch(`http://localhost:8000/api/v1/competitions/${id}/phase/advance`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    fetchData();
+  };
+
+  const uploadModel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // Assuming team ID 1 for testing
+      const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/teams/1/models`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        alert('Upload failed: ' + (err.detail || 'Unknown error'));
+      } else {
+        alert('Model submitted successfully!');
+        fetchData();
+      }
+    } catch (err) {
+      alert('Upload error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const evaluateModel = async (modelId: number) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/models/${modelId}/evaluate`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ protocol: 'standard', folds: 5 })
+      });
+      if (res.ok) {
+        alert('Evaluation scheduled!');
+        fetchData();
+      } else {
+        alert('Evaluation failed: ' + await res.text());
+      }
+    } catch (err) {
+      alert('Evaluation error');
+    }
+  };
+
+  if (loading) return <div style={{ padding: '40px', color: 'white' }}>Loading...</div>;
+  if (error) return <div className="error-msg">{error}</div>;
+  if (!dashboard) return <div style={{ padding: '40px', color: 'white' }}>No data found.</div>;
+
+  const imageStatsData = [
+    { name: 'Verified', value: dashboard.image_stats.verified },
+    { name: 'On Hold', value: dashboard.image_stats.on_hold },
+  ];
+  const COLORS = ['#00C49F', '#FFBB28'];
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button 
+          onClick={() => navigate('/dashboard')}
+          style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <ArrowLeft size={20} /> Back
+        </button>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          <button 
+            className={activeTab === 'dashboard' ? 'btn-primary' : 'btn-secondary'}
+            onClick={() => setActiveTab('dashboard')}
+            style={{ padding: '8px 16px' }}
+          >
+            Dashboard
+          </button>
+          <button 
+            className={activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}
+            onClick={() => setActiveTab('teams')}
+            style={{ padding: '8px 16px' }}
+          >
+            Teams
+          </button>
+          {role === 'host' && (
+            <button 
+              className={activeTab === 'cleaner' ? 'btn-primary' : 'btn-secondary'}
+              onClick={() => setActiveTab('cleaner')}
+              style={{ padding: '8px 16px' }}
+            >
+              Dataset Cleaner
+            </button>
+          )}
+          <button 
+            className={activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}
+            onClick={() => setActiveTab('models')}
+            style={{ padding: '8px 16px' }}
+          >
+            Models & Evaluation
+          </button>
+        </div>
+        <div style={{ width: 100 }}></div>
+      </header>
+
+      <div className="dashboard-container">
+        {activeTab === 'dashboard' ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+              <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <Activity size={32} color="var(--primary)" />
+                  <div>
+                    <div style={{ color: 'var(--text-muted)' }}>Current Phase</div>
+                    <h2 style={{ margin: 0, textTransform: 'capitalize' }}>{dashboard.phase_info?.current_phase || 'Setup'}</h2>
+                  </div>
+                </div>
+                {role === 'host' && dashboard.phase_info?.current_phase !== 'evaluation' && (
+                  <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={advancePhase}>
+                    Advance Phase
+                  </button>
+                )}
+              </div>
+              <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <ImageIcon size={32} color="var(--primary)" />
+                  <div>
+                    <div style={{ color: 'var(--text-muted)' }}>Total Images</div>
+                    <h2 style={{ margin: 0 }}>{dashboard.image_stats.total}</h2>
+                  </div>
+                </div>
+                {dashboard.image_stats.total > 0 && (
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => {
+                      const token = localStorage.getItem('token');
+                      window.open(`http://localhost:8000/api/v1/competitions/${id}/dataset/export?token=${token}`, '_blank');
+                    }}
+                  >
+                    <Download size={14} /> Export
+                  </button>
+                )}
+              </div>
+              <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <Users size={32} color="var(--primary)" />
+                  <div>
+                    <div style={{ color: 'var(--text-muted)' }}>Registered Teams</div>
+                    <h2 style={{ margin: 0 }}>{dashboard.team_info?.total || dashboard.team_info?.total_teams || 0}</h2>
+                  </div>
+                </div>
+                {role === 'host' && (
+                  <button 
+                    className="btn-secondary" 
+                    style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }}
+                    onClick={async () => {
+                      const token = localStorage.getItem('token');
+                      try {
+                        const res = await fetch(`http://localhost:8000/api/v1/invitations/competitions/${id}/generate`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          const url = new URL(data.invitation_link);
+                          const tokenParam = url.searchParams.get('token') || '';
+                          setInviteTokenValue(tokenParam);
+                          setShowInviteModal(true);
+                        }
+                      } catch (e) {
+                        setError('Failed to generate invite token');
+                      }
+                    }}
+                  >
+                    Generate Invite
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+              <div className="glass-panel">
+                <h3 style={{ marginBottom: '20px' }}>Validation Status</h3>
+                <div style={{ height: 300 }}>
+                  {dashboard.image_stats.total > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={imageStatsData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} fill="#8884d8" paddingAngle={5} dataKey="value">
+                          {imageStatsData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                      No images submitted yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="glass-panel">
+                <h3 style={{ marginBottom: '20px' }}>Leaderboard Scores</h3>
+                <div style={{ height: 300 }}>
+                  {leaderboard?.entries?.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={leaderboard.entries}>
+                        <XAxis dataKey="team.name" stroke="rgba(255,255,255,0.5)" />
+                        <YAxis stroke="rgba(255,255,255,0.5)" />
+                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.1)' }} contentStyle={{ backgroundColor: '#252536', border: 'none' }} />
+                        <Bar dataKey="score" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                      No models evaluated yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px', marginTop: '40px' }}>
+              <div className="glass-panel">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h3>Detailed Leaderboard</h3>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <span style={{ padding: '4px 12px', background: 'var(--primary)', color: 'black', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>Public</span>
+                    <span style={{ padding: '4px 12px', background: 'rgba(255,255,255,0.1)', color: 'white', borderRadius: '12px', fontSize: '12px' }}>Private (Hidden)</span>
+                  </div>
+                </div>
+                {leaderboard?.entries?.length > 0 ? (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+                        <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Rank</th>
+                        <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Team</th>
+                        <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Members</th>
+                        <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaderboard.entries.map((entry: any) => (
+                        <tr key={entry.team.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ padding: '16px 8px', fontWeight: 'bold', fontSize: '18px' }}>#{entry.rank}</td>
+                          <td style={{ padding: '16px 8px' }}>{entry.team.name}</td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {entry.team.members?.map((m: any) => (
+                                <a key={m.id} href={m.link} style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '14px', background: 'rgba(0,196,159,0.1)', padding: '2px 8px', borderRadius: '12px' }}>
+                                  @{m.name}
+                                </a>
+                              ))}
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 8px', color: 'var(--primary)', fontWeight: 'bold' }}>{entry.score.toFixed(4)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    No evaluations completed yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        ) : activeTab === 'teams' ? (
+          <div className="glass-panel" style={{ minHeight: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+              <h2>Team Management</h2>
+              {role === 'host' && (
+                <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', width: 'auto' }} onClick={() => setShowCreateTeam(true)}>
+                  + Create Team
+                </button>
+              )}
+            </div>
+            {teams.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                No teams created yet. {role === 'host' ? 'Create one to get started!' : ''}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {teams.map((t) => (
+                  <div key={t.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '18px' }}>{t.name}</h3>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Team ID: {t.id} • {t.members?.length || 0} member(s)</span>
+                      </div>
+                      {role === 'host' && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={() => fetchUnassigned(t.id)}>
+                            + Add Member
+                          </button>
+                          <button style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', cursor: 'pointer' }} onClick={() => deleteTeam(t.id)}>
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {/* Members list */}
+                    {t.members && t.members.length > 0 ? (
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {t.members.map((m: any) => (
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,196,159,0.1)', padding: '4px 12px', borderRadius: '20px', fontSize: '14px' }}>
+                            <span style={{ color: 'var(--primary)' }}>@{m.fullname || m.name || m.email || m.id}</span>
+                            {role === 'host' && (
+                              <span style={{ color: '#ef4444', cursor: 'pointer', fontSize: '16px', marginLeft: '4px' }} onClick={() => removeMemberFromTeam(t.id, m.id)} title="Remove member">×</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No members yet — add participants to this team</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'cleaner' ? (
+          <div className="glass-panel" style={{ minHeight: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+              <h2>Dataset Cleaner</h2>
+            </div>
+            
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '8px', marginBottom: '24px' }}>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Run the dataset cleaning pipeline to scan for duplicates, clean metadata, and optimize storage across all competition datasets before evaluating models.</p>
+              
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <button 
+                  className="btn-primary" 
+                  style={{ width: 'auto', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  onClick={runCleaner}
+                  disabled={cleanerStatus === 'Running Cleaner...'}
+                >
+                  <Activity size={18} />
+                  Trigger Pipeline
+                </button>
+                <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{cleanerStatus}</span>
+              </div>
+            </div>
+
+            {cleanerStats && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                <div style={{ background: 'rgba(0,196,159,0.1)', border: '1px solid #00C49F', padding: '24px', borderRadius: '8px' }}>
+                  <div style={{ color: '#00C49F', fontSize: '14px', marginBottom: '8px' }}>Storage Freed</div>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'white' }}>{cleanerStats.freed_mb?.toFixed(2) || 0} MB</div>
+                </div>
+                <div style={{ background: 'rgba(0,196,159,0.1)', border: '1px solid #00C49F', padding: '24px', borderRadius: '8px' }}>
+                  <div style={{ color: '#00C49F', fontSize: '14px', marginBottom: '8px' }}>Files Optimized/Removed</div>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'white' }}>{cleanerStats.files_removed || 0}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="glass-panel" style={{ minHeight: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+              <h2>Model Submissions</h2>
+              {role === 'participant' && (
+                <div>
+                  <input 
+                    type="file" 
+                    id="model-upload" 
+                    style={{ display: 'none' }} 
+                    onChange={uploadModel} 
+                    accept=".zip,.tar,.gz,.h5"
+                  />
+                  <label 
+                    htmlFor="model-upload" 
+                    className="btn-primary" 
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 20px', width: 'auto' }}
+                  >
+                    <Upload size={18} />
+                    {uploading ? 'Uploading...' : 'Submit New Model'}
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {role === 'participant' && dashboard.phase_info?.current_phase !== 'evaluation' && (
+              <div style={{ background: 'rgba(255,187,40,0.1)', border: '1px solid #FFBB28', color: '#FFBB28', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+                Note: The competition is currently in the <strong>{dashboard.phase_info?.current_phase}</strong> phase. Models can only be submitted during the <strong>evaluation</strong> phase.
+              </div>
+            )}
+            {role === 'host' && dashboard.phase_info?.current_phase !== 'evaluation' && (
+              <div style={{ background: 'rgba(255,187,40,0.1)', border: '1px solid #FFBB28', color: '#FFBB28', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
+                Note: The competition is currently in the <strong>{dashboard.phase_info?.current_phase}</strong> phase. Advance to the evaluation phase on the Dashboard tab to enable team submissions.
+              </div>
+            )}
+
+            {models.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                No models have been submitted yet.
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+                    <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Version</th>
+                    <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Filename</th>
+                    <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Status</th>
+                    {role === 'host' && <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {models.map((m, index) => (
+                    <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '16px 8px' }}>v{index + 1}</td>
+                      <td style={{ padding: '16px 8px' }}>{m.docker_img_filepath?.split('/').pop() || 'model.zip'}</td>
+                      <td style={{ padding: '16px 8px' }}>
+                        <span style={{ 
+                          background: 'rgba(255,255,255,0.1)', 
+                          color: 'white',
+                          padding: '4px 8px', 
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          textTransform: 'uppercase'
+                        }}>
+                          SUBMITTED
+                        </span>
+                      </td>
+                      {role === 'host' && (
+                        <td style={{ padding: '16px 8px' }}>
+                          <button 
+                            onClick={() => evaluateModel(m.id)}
+                            style={{ 
+                              background: 'transparent', 
+                              border: '1px solid var(--primary)', 
+                              color: 'var(--primary)', 
+                              padding: '6px 12px', 
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            <Play size={14} /> Evaluate
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Create Team Modal */}
+      {showCreateTeam && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
+            <h3 style={{ marginBottom: '24px' }}>Create New Team</h3>
+            <div style={{ marginBottom: '24px' }}>
+              <label>Team Name</label>
+              <input type="text" className="input-field" placeholder="e.g., Alpha Team" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <button className="btn-secondary" onClick={() => setShowCreateTeam(false)}>Cancel</button>
+              <button className="btn-primary" disabled={teamActionLoading} onClick={createTeam}>
+                {teamActionLoading ? 'Creating...' : 'Create Team'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {showAddMember !== null && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '450px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Add Member to Team</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
+              Select an unassigned participant to add to this team.
+            </p>
+            {unassigned.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                All participants are already assigned to teams.
+              </div>
+            ) : (
+              <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '16px' }}>
+                {unassigned.map((u: any) => (
+                  <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>{u.fullname}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{u.email}</div>
+                    </div>
+                    <button className="btn-primary" style={{ padding: '4px 14px', fontSize: '12px', width: 'auto' }} disabled={teamActionLoading} onClick={() => addMemberToTeam(showAddMember, u.id)}>
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button className="btn-secondary" onClick={() => setShowAddMember(null)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Token Modal */}
+      {showInviteModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Invitation Token Generated</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '16px', fontSize: '14px' }}>
+              Share this token with participants. They can paste it in "Join via Invite" on their Dashboard.
+            </p>
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <input
+                type="text"
+                className="input-field"
+                value={inviteTokenValue}
+                readOnly
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+                style={{ paddingRight: '80px', fontFamily: 'monospace', fontSize: '13px' }}
+              />
+              <button
+                className="btn-primary"
+                style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', padding: '6px 14px', fontSize: '12px', width: 'auto' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteTokenValue);
+                }}
+              >
+                Copy
+              </button>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '24px' }}>
+              In production, an email with this link would be dispatched automatically to the invitees.
+            </p>
+            <button className="btn-secondary" onClick={() => setShowInviteModal(false)}>Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

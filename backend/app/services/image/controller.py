@@ -205,3 +205,66 @@ def delete_image(
         raise HTTPException(status_code=401, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/competitions/{comp_id}/dataset/export")
+def export_dataset(
+    comp_id: int,
+    authorization: str = Header(None),
+    token: str = None,
+    db: Session = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """Export a competition's dataset as a ZIP containing images and a labels.csv."""
+    import io, csv, zipfile, os
+    from fastapi.responses import StreamingResponse
+    from app.models import Image, Team, Label
+
+    try:
+        # Support both header-based and query-param-based auth (for browser downloads)
+        jwt_token = None
+        if authorization:
+            jwt_token = extract_bearer_token(authorization)
+        elif token:
+            jwt_token = token
+        if not jwt_token:
+            raise AuthenticationError("No token provided")
+        auth_service.get_current_user(jwt_token)
+
+        # Get all images for this competition
+        images = (
+            db.query(Image)
+            .join(Team, Team.id == Image.team_id)
+            .filter(Team.comp_id == comp_id)
+            .all()
+        )
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # Write labels.csv
+            csv_buf = io.StringIO()
+            writer = csv.writer(csv_buf)
+            writer.writerow(['filename', 'label', 'team_id', 'status'])
+
+            for img in images:
+                # Try to get label from label table first, fallback to image.label
+                label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                label_text = label_record.label if label_record else (img.label or 'unlabeled')
+
+                filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                writer.writerow([filename, label_text, img.team_id, img.status.value if img.status else 'unknown'])
+
+                # Add image file if it exists
+                if img.filepath and os.path.exists(img.filepath):
+                    zf.write(img.filepath, f"images/{filename}")
+
+            zf.writestr("labels.csv", csv_buf.getvalue())
+
+        buf.seek(0)
+        return StreamingResponse(
+            buf,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=competition_{comp_id}_dataset.zip"}
+        )
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))

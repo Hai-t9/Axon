@@ -217,3 +217,50 @@ async def get_team_statistics(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
+
+@router.get("/competitions/{comp_id}/participants/unassigned")
+async def get_unassigned_participants(
+    comp_id: int,
+    authorization: str = Header(...),
+    db: Session = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+    team_service: TeamService = Depends(get_team_service),
+):
+    """List participants in a competition who are not assigned to any team."""
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.require_roles(token, comp_id, {RoleType.host, RoleType.staff})
+
+        from app.models import Role, Team, User
+
+        # Get all participants in this competition
+        roles = db.query(Role).filter(
+            Role.competition_id == comp_id,
+            Role.role == RoleType.participant,
+        ).all()
+
+        # Get all user_ids already assigned to teams
+        teams = db.query(Team).filter(Team.comp_id == comp_id).all()
+        assigned_ids = set()
+        for t in teams:
+            if t.user_ids:
+                for uid in t.user_ids:
+                    assigned_ids.add(int(uid))
+
+        # Filter unassigned
+        unassigned = []
+        for r in roles:
+            if r.user_id not in assigned_ids:
+                user = db.query(User).filter(User.id == r.user_id).first()
+                if user:
+                    unassigned.append({
+                        "id": user.id,
+                        "fullname": user.fullname,
+                        "email": user.email,
+                    })
+
+        return {"participants": unassigned, "total": len(unassigned)}
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))

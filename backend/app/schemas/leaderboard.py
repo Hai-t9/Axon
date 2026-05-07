@@ -5,9 +5,15 @@ from pydantic import BaseModel
 
 
 
+class LeaderboardMember(BaseModel):
+    id: int
+    name: str
+    link: str
+
 class LeaderboardTeam(BaseModel):
     id: int
     name: str
+    members: List[LeaderboardMember] = []
 
     class Config:
         orm_mode = True

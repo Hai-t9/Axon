@@ -1,11 +1,11 @@
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
 
 class CompetitionConfigBase(BaseModel):
-    labels: Optional[dict] = None
+    labels: Optional[Union[dict, list]] = None
     data_ex: Optional[str] = None
     scoring_ex: Optional[str] = None
     overview: Optional[str] = None

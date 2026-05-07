@@ -51,12 +51,18 @@ def on_startup():
     Base.metadata.create_all(bind=engine)
 
 
+from fastapi.staticfiles import StaticFiles
+
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 @app.get("/health", tags=["meta"])
 def health():
     return {"status": "ok"}
+
+import os
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 # ---------------------------------------------------------------------------

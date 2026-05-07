@@ -12,6 +12,19 @@ class AuthNotifier extends Notifier<String?> {
 
 final authProvider = NotifierProvider<AuthNotifier, String?>(AuthNotifier.new);
 
+// Selected competition & team after login
+class SelectedIdNotifier extends Notifier<int?> {
+  @override
+  int? build() => null;
+
+  void set(int? value) {
+    state = value;
+  }
+}
+
+final selectedCompetitionIdProvider = NotifierProvider<SelectedIdNotifier, int?>(SelectedIdNotifier.new);
+final selectedTeamIdProvider = NotifierProvider<SelectedIdNotifier, int?>(SelectedIdNotifier.new);
+
 class AuthInterceptor extends Interceptor {
   final Ref ref;
 

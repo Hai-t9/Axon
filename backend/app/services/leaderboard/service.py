@@ -12,7 +12,11 @@ class LeaderboardService:
     def get_leaderboard(self, comp_id: int, limit: int | None = None) -> dict:
         entries = self.repository.find_best_score_per_team(comp_id, limit)
         if not entries:
-            raise NotFoundError("Leaderboard not found")
+            return {
+                "entries": [],
+                "total_teams": 0,
+                "last_updated": datetime.utcnow(),
+            }
 
         ranked_entries = []
         current_rank = 0

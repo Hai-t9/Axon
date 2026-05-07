@@ -4,6 +4,8 @@ import '../services/api_client.dart';
 import 'camera_screen.dart';
 import '../main.dart'; // for cameras
 
+import 'team_selection_screen.dart';
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -17,19 +19,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
 
   void _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) return;
+
     setState(() => _isLoading = true);
-    // Mock login logic
-    await Future.delayed(const Duration(seconds: 1));
 
-    // Provide a mocked JWT
-    ref.read(authProvider.notifier).setToken('real_jwt_token_for_user_123');
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.post('/api/v1/register/login', data: {
+        'email': email,
+        'password': password,
+      });
 
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => CameraScreen(cameras: cameras),
-      ),
-    );
+      final token = response.data['access_token'];
+      if (token != null) {
+        ref.read(authProvider.notifier).setToken(token);
+
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const TeamSelectionScreen(),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login failed: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
