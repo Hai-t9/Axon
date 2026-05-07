@@ -64,7 +64,7 @@ class Model(Base):
     team = relationship("Team", back_populates="models")
     competition = relationship("Competition", back_populates="models")
     submitted_by_user = relationship("User", back_populates="submitted_models")
-    metadata = relationship(
+    model_metadata = relationship(
         "ModelMetadata",
         uselist=False,
         cascade="all, delete-orphan",

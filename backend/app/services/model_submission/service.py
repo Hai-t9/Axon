@@ -49,6 +49,8 @@ class ModelSubmissionService:
         └── data/                 ← empty; dataset is injected here at evaluation time
     """
 
+    DEFAULT_MODEL_SPEC = DEFAULT_MODEL_SPEC
+
     def __init__(self, repository: ModelSubmissionRepository):
         self.repository = repository
 
