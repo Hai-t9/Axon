@@ -4,12 +4,19 @@ from botocore.exceptions import ClientError
 from botocore.config import Config
 from io import BytesIO
 
+def _env_or_default(name: str, default: str) -> str:
+    value = os.environ.get(name)
+    if value is None or value.strip() == "":
+        return default
+    return value
+
+
 class MinioStorageService:
     def __init__(self):
-        self.endpoint = os.environ.get("MINIO_ENDPOINT", "http://localhost:9000")
-        self.access_key = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
-        self.secret_key = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
-        self.bucket_name = os.environ.get("MINIO_BUCKET_NAME", "axon-uploads")
+        self.endpoint = _env_or_default("MINIO_ENDPOINT", "http://localhost:9000")
+        self.access_key = _env_or_default("MINIO_ACCESS_KEY", "minioadmin")
+        self.secret_key = _env_or_default("MINIO_SECRET_KEY", "minioadmin")
+        self.bucket_name = _env_or_default("MINIO_BUCKET_NAME", "axon-uploads")
         self.minio_available = True
 
         # Configure boto3 to fail fast instead of retrying multiple times
