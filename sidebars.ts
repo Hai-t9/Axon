@@ -38,6 +38,7 @@ const sidebars: SidebarsConfig = {
       label: 'Modules & Components',
       items: [
         'modules-components/module-breakdown',
+        'modules-components/module-authentication',
         'modules-components/module-dashboard',
         'modules-components/module-leaderboard',
         'modules-components/module-label',
