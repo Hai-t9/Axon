@@ -12,12 +12,16 @@ except ImportError:  # pragma: no cover - optional dependency during scaffold st
 
 class DashboardCache:
     def __init__(self):
-        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        raw_url = os.getenv("REDIS_URL")
+        # treat empty string as not configured
+        self.redis_url = raw_url.strip() if raw_url and raw_url.strip() else None
         self.ttl_seconds = int(os.getenv("DASHBOARD_CACHE_TTL_SECONDS", "900"))
         self.client = self._build_client()
 
     def _build_client(self):
         if redis is None:
+            return None
+        if not self.redis_url:
             return None
         try:
             client = redis.Redis.from_url(self.redis_url, decode_responses=True)
