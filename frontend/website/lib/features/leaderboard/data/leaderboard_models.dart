@@ -14,10 +14,11 @@ class LeaderboardEntry {
   });
 
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) {
+    final teamMap = json['team'] as Map<String, dynamic>?;
     return LeaderboardEntry(
       rank: (json['rank'] as num?)?.toInt() ?? 0,
-      teamName: (json['team'] ?? json['team_name'] ?? 'Unknown') as String,
-      teamId: json['team_id']?.toString(),
+      teamName: teamMap?['name'] as String? ?? 'Unknown',
+      teamId: teamMap?['id']?.toString(),
       score: (json['score'] as num?)?.toDouble() ?? 0.0,
       submittedAt: json['submitted_at'] as String?,
     );
