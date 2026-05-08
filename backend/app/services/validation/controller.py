@@ -5,8 +5,10 @@ from uuid import UUID
 from app.core.auth import extract_bearer_token
 from app.core.cache import get_validation_cache
 from app.core.database import SessionLocal
-from app.core.exceptions import AuthenticationError, NotFoundError, ValidationError
+from app.core.exceptions import AuthenticationError, AuthorizationError, NotFoundError, ValidationError
 from app.schemas.validation import (
+    ValidationImage,
+    ValidationListResponse,
     ValidationNextResponse,
     ValidationPendingResponse,
     ValidationVoteCreate,
@@ -14,6 +16,7 @@ from app.schemas.validation import (
 )
 from app.services.auth.repository import AuthRepository
 from app.services.auth.service import AuthService
+from app.models import RoleType
 from app.services.label.repository import LabelRepository
 from app.services.label.service import LabelService
 
@@ -39,6 +42,46 @@ def get_validation_service(db: Session = Depends(get_db)) -> ValidationService:
     repository = ValidationRepository(db, get_validation_cache())
     label_service = LabelService(LabelRepository(db))
     return ValidationService(repository, label_service)
+
+
+@router.post("/competitions/{comp_id}/validations/generate")
+async def handle_generate_assignments(
+    comp_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    validation_service: ValidationService = Depends(get_validation_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.require_roles(token, comp_id, [RoleType.host])
+        return validation_service.generate_assignments(comp_id)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/competitions/{comp_id}/validations/list", response_model=ValidationListResponse)
+async def handle_get_validation_list(
+    comp_id: UUID,
+    participant_id: UUID | None = None,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    validation_service: ValidationService = Depends(get_validation_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        target_participant_id = participant_id or user.id
+        return validation_service.get_validation_list(comp_id, target_participant_id)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/competitions/{comp_id}/validations/next", response_model=ValidationNextResponse)

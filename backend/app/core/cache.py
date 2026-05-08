@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from functools import lru_cache
 from typing import Any
+from uuid import UUID
 
 try:
     import redis
@@ -107,7 +108,10 @@ class ValidationCache:
         try:
             return int(raw)
         except (TypeError, ValueError):
-            return None
+            try:
+                return UUID(str(raw))
+            except (TypeError, ValueError, AttributeError):
+                return raw  # type: ignore[return-value]
 
     def set_participant_team_id(self, comp_id: int, participant_id: int, team_id: int) -> bool:
         if not self.client:
