@@ -32,35 +32,14 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
   final _descriptionController = TextEditingController();
   final _dateController = TextEditingController();
   DateTime? _launchDate;
-  late final ProviderSubscription _subscription;
 
   @override
   void initState() {
     super.initState();
-    _subscription = ref.listenManual(
-      competitionCreateProvider,
-      (previous, next) {
-        next.whenOrNull(
-          error: (error, _) {
-            if (!mounted) return;
-            _showMessage(error.toString(), isError: true);
-          },
-          data: (competition) {
-            if (!mounted) return;
-            if (competition != null && previous?.isLoading == true) {
-              _showMessage('Competition created.');
-              ref.read(competitionListProvider.notifier).refreshList();
-              context.go(CompetitionDashboardPage.routeForId(competition.id));
-            }
-          },
-        );
-      },
-    );
   }
 
   @override
   void dispose() {
-    _subscription.close();
     _nameController.dispose();
     _descriptionController.dispose();
     _dateController.dispose();
@@ -96,16 +75,31 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() != true) {
       return;
     }
-    ref.read(competitionCreateProvider.notifier).createCompetition(
-          name: _nameController.text,
-          description: _descriptionController.text,
-          launchDate: _launchDate,
-        );
+    try {
+      final competition =
+          await ref.read(competitionCreateProvider.notifier).createCompetition(
+                name: _nameController.text,
+                description: _descriptionController.text,
+                launchDate: _launchDate,
+              );
+      if (!mounted) return;
+      if (competition == null) return;
+      _showMessage('Competition created.');
+      context.go(CompetitionDashboardPage.routeForId(competition.id));
+      Future.microtask(() async {
+        try {
+          await ref.read(competitionListProvider.notifier).refreshList();
+        } catch (_) {}
+      });
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(error.toString(), isError: true);
+    }
   }
 
   @override

@@ -8,14 +8,15 @@ class AuthUser {
     this.phone,
   });
 
-  final int? id;
+  final String? id;
   final String fullname;
   final String email;
   final String? phone;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'];
     return AuthUser(
-      id: json['id'] as int?,
+      id: rawId == null ? null : rawId.toString(),
       fullname: (json['fullname'] ?? '') as String,
       email: (json['email'] ?? '') as String,
       phone: json['phone'] as String?,
