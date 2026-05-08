@@ -82,6 +82,32 @@ async def schedule_evaluation(
 
 
 @router.get(
+    "/competitions/{comp_id}/models/{model_id}/evaluate/status",
+    response_model=EvaluationStatusResponse,
+    summary="Get evaluation status for a model (by model ID within competition)",
+)
+async def get_model_evaluation_status(
+    comp_id: str,
+    model_id: str,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    eval_service: EvaluationOrchestrationService = Depends(get_eval_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.get_current_user(token)
+
+        result = eval_service.getEvaluationStatusByModel(UUID(model_id))
+        return EvaluationStatusResponse(**result)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format.")
+
+
+@router.get(
     "/evaluations/{evaluation_id}",
     response_model=EvaluationStatusResponse,
     summary="Get evaluation status and progress",

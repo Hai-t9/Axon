@@ -128,6 +128,12 @@ class EvaluationOrchestrationService:
             "completed_at": job.completed_at,
         }
 
+    def getEvaluationStatusByModel(self, model_id: UUID) -> dict:
+        job = self.repository.find_evaluation_by_model_id(model_id)
+        if not job:
+            raise NotFoundError(f"No evaluation found for model {model_id}.")
+        return self.getEvaluationStatus(UUID(str(job.id)))
+
     def getEvaluationResults(self, evaluation_id: UUID) -> dict:
         job = self.repository.find_evaluation_by_id(evaluation_id)
         if not job:
