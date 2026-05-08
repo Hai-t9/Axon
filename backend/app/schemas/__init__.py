@@ -13,6 +13,17 @@ from .dashboard import (
     DashboardParticipantResponse,
     DashboardTeamInfo,
 )
+from .evaluation_orchestration import (
+    CompetitionEvaluationsResponse,
+    CompetitionResultsResponse,
+    EvaluationJobResponse,
+    EvaluationResultsResponse,
+    EvaluationStatusResponse,
+    FoldResultResponse,
+    RetryEvaluationResponse,
+    ScheduleEvaluationRequest,
+    TeamScoreEntry,
+)
 from .leaderboard import LeaderboardEntry, LeaderboardResponse, LeaderboardTeam
 from .label import LabelCreate, LabelResponse, LabelUpdate, LabelValidationResponse
 from .phase import (
@@ -53,6 +64,15 @@ __all__ = [
     "CompetitionListResponse",
     "CompetitionResponse",
     "CompetitionUpdate",
+    "CompetitionEvaluationsResponse",
+    "CompetitionResultsResponse",
+    "EvaluationJobResponse",
+    "EvaluationResultsResponse",
+    "EvaluationStatusResponse",
+    "FoldResultResponse",
+    "RetryEvaluationResponse",
+    "ScheduleEvaluationRequest",
+    "TeamScoreEntry",
     "DashboardCachedResponse",
     "DashboardCacheClearResponse",
     "DashboardImageStats",

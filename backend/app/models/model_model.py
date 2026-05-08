@@ -79,6 +79,12 @@ class Model(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    evaluation_job = relationship(
+        "EvaluationJob",
+        back_populates="model",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("idx_model_submitted_by", "submitted_by"),
