@@ -2,7 +2,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from app.models import Competition, Config, Role
+from app.models import Competition, Config, Role, User
 
 
 class CompetitionRepository:
@@ -19,17 +19,24 @@ class CompetitionRepository:
     def get_by_name(self, name: str) -> Competition | None:
         return self.db.query(Competition).filter(Competition.name == name).first()
 
-    def list_competitions(self, offset: int, limit: int) -> list[Competition]:
+    def list_competitions_for_user(self, user_id: UUID, offset: int, limit: int) -> list[Competition]:
         return (
             self.db.query(Competition)
+            .join(Role, Role.competition_id == Competition.id)
+            .filter(Role.user_id == user_id)
             .order_by(Competition.id.desc())
             .offset(offset)
             .limit(limit)
             .all()
         )
 
-    def count_competitions(self) -> int:
-        return int(self.db.query(func.count(Competition.id)).scalar() or 0)
+    def count_competitions_for_user(self, user_id: UUID) -> int:
+        return int(
+            self.db.query(func.count(Competition.id))
+            .join(Role, Role.competition_id == Competition.id)
+            .filter(Role.user_id == user_id)
+            .scalar() or 0
+        )
 
     def create(self, competition_data: dict) -> Competition:
         competition = Competition(**competition_data)
