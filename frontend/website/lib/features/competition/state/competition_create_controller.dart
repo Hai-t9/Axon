@@ -18,6 +18,18 @@ class CompetitionCreateController extends AsyncNotifier<Competition?> {
     required String name,
     String? description,
     DateTime? launchDate,
+    String? overview,
+    String? dataFormat,
+    String? evaluation,
+    String? termsConditions,
+    String? dataMarkdown,
+    String? dataExample,
+    String? scoringExample,
+    int? maxValidations,
+    double? duplicateThreshold,
+    Map<String, dynamic>? labels,
+    Map<String, dynamic>? modelSpec,
+    Map<String, List<String>>? teamsData,
   }) async {
     state = const AsyncLoading();
     try {
@@ -26,7 +38,26 @@ class CompetitionCreateController extends AsyncNotifier<Competition?> {
                 name: name,
                 description: description,
                 launchDate: launchDate,
+                overview: overview,
+                dataFormat: dataFormat,
+                evaluation: evaluation,
+                termsConditions: termsConditions,
+                dataMarkdown: dataMarkdown,
+                dataExample: dataExample,
+                scoringExample: scoringExample,
+                maxValidations: maxValidations,
+                duplicateThreshold: duplicateThreshold,
+                labels: labels,
+                modelSpec: modelSpec,
               );
+
+      if (teamsData != null && teamsData.isNotEmpty) {
+        await ref.read(competitionRepositoryProvider).bulkCreateTeams(
+              competitionId: competition.id,
+              teamsData: teamsData,
+            );
+      }
+
       state = AsyncData(competition);
       return competition;
     } catch (error, stackTrace) {

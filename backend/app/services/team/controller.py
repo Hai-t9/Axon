@@ -60,6 +60,32 @@ async def create_team(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/competitions/{comp_id}/teams/bulk")
+async def bulk_create_teams(
+    comp_id: UUID,
+    payload: dict,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    team_service: TeamService = Depends(get_team_service),
+):
+    """
+    Bulk-create teams from a dict of {team_name: [email1, email2, ...]}.
+    Emails are resolved to user IDs.
+    """
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.require_roles(token, comp_id, {RoleType.host, RoleType.staff})
+        teams_data = payload.get("teams", {})
+        result = team_service.bulk_create_teams(comp_id, teams_data)
+        return result
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("/competitions/{comp_id}/teams", response_model=TeamListResponse)
 async def list_teams(
     comp_id: UUID,

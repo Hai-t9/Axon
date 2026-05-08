@@ -86,3 +86,33 @@ class TeamService:
             "models_submitted": models_submitted,
         }
 
+    def bulk_create_teams(self, comp_id: UUID, teams_data: dict) -> dict:
+        """Create multiple teams from a dict of {team_name: [email1, email2, ...]}"""
+        created = []
+        errors = []
+        for team_name, member_emails in teams_data.items():
+            if self.repository.get_by_name(comp_id, team_name):
+                errors.append(f"Team '{team_name}' already exists")
+                continue
+
+            user_ids = []
+            for email in member_emails:
+                clean = email.strip().lstrip("@")
+                user = self.repository.get_user_by_email(clean)
+                if user:
+                    user_ids.append(str(user.id))
+                else:
+                    errors.append(f"User '{clean}' not found")
+
+            team = self.repository.create(
+                {"comp_id": comp_id, "name": team_name, "user_ids": user_ids}
+            )
+            created.append({
+                "id": str(team.id),
+                "name": team.name,
+                "comp_id": str(team.comp_id),
+                "user_ids": team.user_ids
+            })
+
+        return {"created": created, "errors": errors}
+
