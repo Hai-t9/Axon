@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.services.competition.controller import router as competition_router
@@ -26,17 +26,6 @@ app.add_middleware(
 )
 
 
-@app.middleware("http")
-async def add_cors_headers(request: Request, call_next):
-    if request.method == "OPTIONS":
-        response = Response(status_code=200)
-    else:
-        response = await call_next(request)
-
-    response.headers.setdefault("Access-Control-Allow-Origin", "*")
-    response.headers.setdefault("Access-Control-Allow-Methods", "*")
-    response.headers.setdefault("Access-Control-Allow-Headers", "*")
-    return response
 
 @app.on_event("startup")
 def on_startup():
