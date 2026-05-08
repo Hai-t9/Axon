@@ -21,30 +21,49 @@ class ValidationRepository {
   final ApiClient _apiClient;
   final AuthSession? _session;
 
-  Future<ValidationBatch> getValidationList(String competitionId) async {
+  /// Fetches the full list of image IDs assigned for validation.
+  /// GET /competitions/:compId/validations/list
+  Future<ValidationListResponse> getValidationList(String competitionId) async {
     final response = await _apiClient.getJson(
       '/competitions/$competitionId/validations/list',
       headers: _authHeaders(),
     );
-    return ValidationBatch.fromJson(response);
+    return ValidationListResponse.fromJson(response);
   }
 
-  Future<void> submitVote(String imageId, String label) async {
-    await _apiClient.postJson(
+  /// Fetches a single image's details (filepath, label, etc.)
+  /// GET /images/:imageId
+  Future<ValidationImage> getImageDetails(int imageId) async {
+    final response = await _apiClient.getJson(
+      '/images/$imageId',
+      headers: _authHeaders(),
+    );
+    return ValidationImage.fromJson(response);
+  }
+
+  /// Submits a validation vote for a specific image.
+  /// POST /images/:imageId/validations
+  Future<ValidationVoteResponse> submitVote(int imageId, String label) async {
+    final response = await _apiClient.postJson(
       '/images/$imageId/validations',
       {'label': label},
       headers: _authHeaders(),
     );
+    return ValidationVoteResponse.fromJson(response);
   }
 
-  Future<List<ValidationImage>> getPendingValidations(String competitionId) async {
+  /// Fetches images still pending validation.
+  /// GET /competitions/:compId/validations/pending
+  Future<List<ValidationPendingImage>> getPendingValidations(
+      String competitionId) async {
     final response = await _apiClient.getJson(
       '/competitions/$competitionId/validations/pending',
       headers: _authHeaders(),
     );
     final raw = response['images'] as List<dynamic>? ?? [];
     return raw
-        .map((e) => ValidationImage.fromJson(e as Map<String, dynamic>))
+        .map((e) =>
+            ValidationPendingImage.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
