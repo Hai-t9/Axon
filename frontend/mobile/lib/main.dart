@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:camera/camera.dart';
-import 'screens/login_screen.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'screens/splash_screen.dart';
 
 List<CameraDescription> cameras = [];
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Hive.initFlutter();
+  await Hive.openBox('uploadQueue');
 
   try {
     cameras = await availableCameras();
@@ -92,7 +96,8 @@ class AxonApp extends StatelessWidget {
           backgroundColor: const Color(0xFF1C1C28),
           selectedColor: const Color(0xFF5F75EE),
           labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          secondaryLabelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          secondaryLabelStyle: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.bold),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -100,7 +105,7 @@ class AxonApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

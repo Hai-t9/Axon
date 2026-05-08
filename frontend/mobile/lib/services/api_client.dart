@@ -1,16 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AuthNotifier extends Notifier<String?> {
+class TokenNotifier extends Notifier<String?> {
   @override
   String? build() => null;
 
-  void setToken(String token) {
+  void setToken(String? token) {
     state = token;
   }
 }
 
-final authProvider = NotifierProvider<AuthNotifier, String?>(AuthNotifier.new);
+final authTokenProvider = NotifierProvider<TokenNotifier, String?>(TokenNotifier.new);
+
+class ApiConfig {
+  static String baseUrl = 'http://192.168.135.205:8000';
+}
 
 class AuthInterceptor extends Interceptor {
   final Ref ref;
@@ -19,7 +23,7 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final token = ref.read(authProvider);
+    final token = ref.read(authTokenProvider);
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -28,22 +32,19 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    // Add logic here to catch specific status codes like 401/409
     super.onError(err, handler);
   }
 }
 
 final dioProvider = Provider<Dio>((ref) {
-  // Use the physical machine's IP address on the Wi-Fi network for a physical device.
   final dio = Dio(
     BaseOptions(
-      baseUrl: 'http://192.168.135.205:8000',
+      baseUrl: ApiConfig.baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       sendTimeout: const Duration(seconds: 10),
     ),
   );
-
   dio.interceptors.add(AuthInterceptor(ref));
   return dio;
 });

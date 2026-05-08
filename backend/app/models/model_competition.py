@@ -41,7 +41,7 @@ class Competition(Base):
 class Config(Base):
     __tablename__ = "config"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid4)
     competition_id = Column(
         PostgresUUID(as_uuid=True),
         ForeignKey("competition.id"),
