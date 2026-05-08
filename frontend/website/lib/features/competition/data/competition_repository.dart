@@ -113,6 +113,17 @@ class CompetitionRepository {
     return Competition.fromJson(response);
   }
 
+  Future<void> updateConfig({
+    required String competitionId,
+    required Map<String, dynamic> configData,
+  }) async {
+    await _apiClient.putJson(
+      '/competitions/$competitionId/config',
+      configData,
+      headers: _authHeaders(),
+    );
+  }
+
   Future<void> deleteCompetition(String competitionId) async {
     await _apiClient.delete(
       '/competitions/$competitionId',
