@@ -11,6 +11,7 @@ class PreviewScreen extends ConsumerStatefulWidget {
   final String teamId;
   final String competitionId;
   final ImageMetadata? capturedMetadata;
+  final List<String>? availableLabels;
 
   const PreviewScreen({
     super.key,
@@ -18,6 +19,7 @@ class PreviewScreen extends ConsumerStatefulWidget {
     required this.teamId,
     required this.competitionId,
     this.capturedMetadata,
+    this.availableLabels,
   });
 
   @override
@@ -27,10 +29,15 @@ class PreviewScreen extends ConsumerStatefulWidget {
 class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   bool _isUploading = false;
   String? _selectedLabel;
+  late final List<String> _availableLabels;
 
-  final List<String> _availableLabels = [
-    'seedling', 'tillering', 'flowering', 'maturity', 'disease', 'pest'
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _availableLabels = widget.availableLabels ?? [
+      'seedling', 'tillering', 'flowering', 'maturity', 'disease', 'pest'
+    ];
+  }
 
   Future<void> _uploadImage({bool forceOnline = false}) async {
     if (_selectedLabel == null) {
