@@ -1,8 +1,11 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
+import logging
 
 from app.models import Image, Model, Team, User
+
+logger = logging.getLogger(__name__)
 
 
 class TeamRepository:
@@ -57,7 +60,13 @@ class TeamRepository:
         return self.db.query(User).filter(User.id == user_id).first()
 
     def get_user_by_email(self, email: str) -> User | None:
-        return self.db.query(User).filter(User.email == email).first()
+        logger.info(f"Looking up user by email: '{email}'")
+        user = self.db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
+        if user:
+            logger.info(f"Found user: {user.id} ({user.email})")
+        else:
+            logger.warning(f"No user found for email: '{email}'")
+        return user
 
     def set_team_members(self, team: Team, user_ids: list[str]) -> Team:
         team.user_ids = user_ids

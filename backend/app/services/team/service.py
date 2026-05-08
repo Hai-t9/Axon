@@ -1,8 +1,11 @@
 from app.core.exceptions import NotFoundError, ValidationError
 from uuid import UUID
+import logging
 from app.schemas.team import TeamCreate, TeamUpdate
 
 from .repository import TeamRepository
+
+logger = logging.getLogger(__name__)
 
 
 class TeamService:
@@ -88,9 +91,12 @@ class TeamService:
 
     def bulk_create_teams(self, comp_id: UUID, teams_data: dict) -> dict:
         """Create multiple teams from a dict of {team_name: [email1, email2, ...]}"""
+        logger.info(f"bulk_create_teams called for comp {comp_id} with {len(teams_data)} teams")
+        logger.info(f"teams_data: {teams_data}")
         created = []
         errors = []
         for team_name, member_emails in teams_data.items():
+            logger.info(f"Processing team '{team_name}' with emails: {member_emails}")
             if self.repository.get_by_name(comp_id, team_name):
                 errors.append(f"Team '{team_name}' already exists")
                 continue
@@ -98,11 +104,14 @@ class TeamService:
             user_ids = []
             for email in member_emails:
                 clean = email.strip().lstrip("@")
+                logger.info(f"Resolving email '{email}' -> cleaned '{clean}'")
                 user = self.repository.get_user_by_email(clean)
                 if user:
                     user_ids.append(str(user.id))
+                    logger.info(f"Resolved '{clean}' -> user {user.id}")
                 else:
                     errors.append(f"User '{clean}' not found")
+                    logger.warning(f"User '{clean}' not found in database")
 
             team = self.repository.create(
                 {"comp_id": comp_id, "name": team_name, "user_ids": user_ids}
