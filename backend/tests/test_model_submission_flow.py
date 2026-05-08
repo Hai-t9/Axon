@@ -145,7 +145,7 @@ def competition(test_db: Session, host_user: User) -> Competition:
 def team(test_db: Session, competition: Competition, participant_user: User) -> Team:
     """Create a test team."""
     team = Team(
-        name="Test Team", comp_id=competition.id, user_ids=[participant_user.id]
+        name="Test Team", comp_id=competition.id, user_ids=[str(participant_user.id)]
     )
     test_db.add(team)
 
