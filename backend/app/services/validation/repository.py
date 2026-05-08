@@ -92,17 +92,6 @@ class ValidationRepository:
             .all()
         )
         return [int(row.id) for row in rows]
-        team = self.db.query(Team).filter(Team.id == team_id).first()
-        if not team or not team.user_ids:
-            return []
-
-        participants: list[UUID] = []
-        for raw_user_id in team.user_ids:
-            try:
-                participants.append(_normalize_uuid(raw_user_id))
-            except (TypeError, ValueError):
-                continue
-        return participants
 
     def store_team_assignments(self, team_id: UUID, image_ids: list[int]) -> bool:
         return self._set_assignment_list(

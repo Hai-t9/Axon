@@ -2,45 +2,77 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_client.dart';
+import 'offline_queue_service.dart';
+import 'metadata_service.dart';
 
 final uploadServiceProvider = Provider<UploadService>((ref) {
-  final dio = ref.watch(dioProvider);
-  return UploadService(dio);
+  return UploadService(
+    dio: ref.read(dioProvider),
+    ref: ref,
+  );
 });
 
 class UploadService {
   final Dio _dio;
+  final Ref _ref;
 
-  UploadService(this._dio);
+  UploadService({required Dio dio, required Ref ref})
+      : _dio = dio,
+        _ref = ref;
 
-  Future<void> uploadImage(String filePath, String teamId, Map<String, dynamic> labelPayload) async {
+  Future<void> uploadImage({
+    required String filePath,
+    required String teamId,
+    required String label,
+    ImageMetadata? metadata,
+  }) async {
     try {
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(
           filePath,
           filename: filePath.split('/').last,
         ),
-        'label': labelPayload['tags'][0].toString(), // Send plain string directly
+        'label': label,
+        if (metadata != null) 'metadata': jsonEncode(metadata.toJson()),
       });
 
-      final response = await _dio.post(
+      await _dio.post(
         '/api/v1/teams/$teamId/images',
         data: formData,
-        onSendProgress: (int sent, int total) {
-          // Can hook up to Riverpod state for progress bar
-        },
+        onSendProgress: (int sent, int total) {},
       );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return; // Success
-      }
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
-        final detail = e.response?.data?['detail'] ?? 'Request rejected by server.';
+        final detail = e.response?.data?['detail'] ?? 'Request rejected.';
         throw Exception("Server Rejection: $detail");
       }
-      throw Exception(e.message ?? "An error occurred during upload.");
+      throw Exception(e.message ?? "Upload failed.");
+    }
+  }
+
+  Future<void> uploadOrQueue({
+    required String filePath,
+    required String teamId,
+    required String label,
+    ImageMetadata? metadata,
+  }) async {
+    try {
+      await uploadImage(
+        filePath: filePath,
+        teamId: teamId,
+        label: label,
+        metadata: metadata,
+      );
+    } catch (_) {
+      _ref.read(offlineQueueProvider.notifier).addToQueue(
+        QueuedUpload(
+          filePath: filePath,
+          teamId: teamId,
+          label: label,
+          metadata: metadata?.toJson() ?? {},
+        ),
+      );
+      throw Exception('Saved to offline queue. Will upload when online.');
     }
   }
 }
-
