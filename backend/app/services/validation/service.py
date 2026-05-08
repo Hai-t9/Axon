@@ -1,5 +1,4 @@
 from collections import Counter
-from math import floor
 import random
 from uuid import UUID
 
@@ -14,10 +13,6 @@ class ValidationService:
         self.repository = repository
         self.label_service = label_service
 
-    def _should_pick_own_team(self, own_count: int, other_count: int) -> bool:
-        ratio = own_count / (own_count + other_count + 1)
-        return ratio < 0.6
-
     def _compute_majority_vote(self, votes: list[str]) -> str:
         if not votes:
             raise ValidationError("No votes to compute majority")
@@ -30,44 +25,35 @@ class ValidationService:
         return shuffled
 
     def generate_assignments(self, comp_id: UUID) -> dict:
+        """
+        Round-Robin assignment ensures every image reaches exactly the threshold.
+        Cycles through teams, assigning each image repeatedly until it has been
+        assigned threshold times in total.
+        """
         teams = self.repository.fetch_all_teams(comp_id)
         if not teams:
             raise NotFoundError("No teams found for competition")
 
-        assigned_counts: dict[int, int] = {}
+        images = self.repository.fetch_all_competition_images(comp_id)
+        if not images:
+            raise NotFoundError("No images found for competition")
 
+        threshold = self.repository.find_validation_threshold(comp_id) or 5
+
+        # Initialize per-team buckets
+        team_assignments: dict[UUID, list[int]] = {team.id: [] for team in teams}
+
+        # Round-Robin: for each image, assign it threshold times across teams
+        team_index = 0
+        for image_id in images:
+            for _ in range(threshold):
+                team = teams[team_index % len(teams)]
+                team_assignments[team.id].append(image_id)
+                team_index += 1
+
+        # Store each team's list in Redis
         for team in teams:
-            threshold = self.repository.find_validation_threshold(comp_id) or 5
-            team_own_images = self.repository.count_team_images(comp_id, team.id)
-            available_own = self.repository.fetch_available_own_images(
-                comp_id,
-                team.id,
-                assigned_counts,
-                threshold,
-            )
-
-            own_quota = floor(min(team_own_images, available_own) * 0.6)
-            other_quota = floor(own_quota / 0.6 * 0.4) if own_quota > 0 else 0
-
-            own_images = self.repository.fetch_own_images(
-                comp_id,
-                team.id,
-                own_quota,
-                assigned_counts,
-                threshold,
-            )
-            other_images = self.repository.fetch_other_images(
-                comp_id,
-                team.id,
-                other_quota,
-                assigned_counts,
-                threshold,
-            )
-
-            master_image_ids = own_images + other_images
-            # Store only the team master list in Redis. Per-participant shuffling
-            # happens at retrieval time to keep storage minimal.
-            self.repository.store_team_assignments(team.id, master_image_ids)
+            self.repository.store_team_assignments(team.id, team_assignments[team.id])
 
         return {"success": True}
 
