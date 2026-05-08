@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.schemas.image import ImageResponse
 from app.services.image.service import ImageService
@@ -24,7 +24,7 @@ def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
 
 
 def get_current_user_id(
-    authorization: str = Depends(lambda x: x),
+    authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> UUID:
     token = extract_bearer_token(authorization)
@@ -45,6 +45,7 @@ async def upload_image(
     team_id: UUID,
     file: UploadFile = File(...),
     label: str = Form(None),
+    metadata: str = Form(None),
     db: Session = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id)
 ):
