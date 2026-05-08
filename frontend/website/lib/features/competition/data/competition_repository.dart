@@ -40,12 +40,37 @@ class CompetitionRepository {
     required String name,
     String? description,
     DateTime? launchDate,
+    String? overview,
+    String? dataFormat,
+    String? evaluation,
+    String? termsConditions,
+    String? dataMarkdown,
+    String? dataExample,
+    String? scoringExample,
+    int? maxValidations,
+    double? duplicateThreshold,
+    Map<String, dynamic>? labels,
+    Map<String, dynamic>? modelSpec,
   }) async {
+    final config = <String, dynamic>{};
+    if (overview != null && overview.trim().isNotEmpty) config['overview'] = overview.trim();
+    if (dataFormat != null && dataFormat.trim().isNotEmpty) config['data_format'] = dataFormat.trim();
+    if (evaluation != null && evaluation.trim().isNotEmpty) config['evaluation'] = evaluation.trim();
+    if (termsConditions != null && termsConditions.trim().isNotEmpty) config['terms_conditions'] = termsConditions.trim();
+    if (dataMarkdown != null && dataMarkdown.trim().isNotEmpty) config['data_md'] = dataMarkdown.trim();
+    if (dataExample != null && dataExample.trim().isNotEmpty) config['data_ex'] = dataExample.trim();
+    if (scoringExample != null && scoringExample.trim().isNotEmpty) config['scoring_ex'] = scoringExample.trim();
+    if (maxValidations != null) config['max_validations'] = maxValidations;
+    if (duplicateThreshold != null) config['duplicate_threshhold'] = duplicateThreshold;
+    if (labels != null && labels.isNotEmpty) config['labels'] = labels;
+    if (modelSpec != null && modelSpec.isNotEmpty) config['model_spec'] = modelSpec;
+
     final payload = <String, dynamic>{
       'name': name.trim(),
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
       if (launchDate != null) 'launch_date': _formatDate(launchDate),
+      if (config.isNotEmpty) 'config': config,
     };
     final response = await _apiClient.postJson(
       '/competitions',
@@ -53,6 +78,18 @@ class CompetitionRepository {
       headers: _authHeaders(),
     );
     return Competition.fromJson(response);
+  }
+
+  Future<Map<String, dynamic>> bulkCreateTeams({
+    required String competitionId,
+    required Map<String, List<String>> teamsData,
+  }) async {
+    final response = await _apiClient.postJson(
+      '/competitions/$competitionId/teams/bulk',
+      {'teams': teamsData},
+      headers: _authHeaders(),
+    );
+    return response;
   }
 
   Future<Competition> updateCompetition({
