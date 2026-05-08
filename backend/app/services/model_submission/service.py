@@ -165,13 +165,13 @@ class ModelSubmissionService:
         if not team:
             raise ValidationError(f"Team {team_id} does not exist.")
 
-        if int(team.comp_id) != competition_id:  # type: ignore[arg-type]
+        if team.comp_id != competition_id:
             raise ValidationError(
                 f"Team {team_id} does not belong to competition {competition_id}."
             )
 
         member_ids = team.user_ids or []
-        if user_id not in member_ids:
+        if str(user_id) not in [str(mid) for mid in member_ids]:
             raise ValidationError(
                 f"You are not a member of team {team_id}. "
                 "Only team members may submit models."
