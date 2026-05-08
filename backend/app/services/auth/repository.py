@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -9,10 +10,10 @@ class AuthRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_user_by_id(self, user_id) -> Optional[User]:
+    def get_user_by_id(self, user_id: UUID) -> Optional[User]:
         return self.db.query(User).filter(User.id == user_id).first()
 
-    def get_role(self, user_id: int, competition_id: int) -> Optional[Role]:
+    def get_role(self, user_id: UUID, competition_id: UUID) -> Optional[Role]:
         return (
             self.db.query(Role)
             .filter(Role.user_id == user_id, Role.competition_id == competition_id)

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -9,7 +10,7 @@ class LeaderboardRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def find_best_score_per_team(self, comp_id: int, limit: int | None = None) -> list[dict]:
+    def find_best_score_per_team(self, comp_id: UUID, limit: int | None = None) -> list[dict]:
         rows = (
             self.db.query(
                 Team.id.label("team_id"),

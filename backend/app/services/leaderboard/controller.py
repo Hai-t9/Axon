@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.auth import extract_bearer_token
 from app.core.database import SessionLocal
@@ -32,7 +33,7 @@ def get_leaderboard_service(db: Session = Depends(get_db)) -> LeaderboardService
 
 @router.get("", response_model=LeaderboardResponse)
 async def get_leaderboard(
-    comp_id: int,
+    comp_id: UUID,
     authorization: str = Header(...),
     limit: int | None = Query(None, ge=1, le=100),
     auth_service: AuthService = Depends(get_auth_service),

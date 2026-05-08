@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.auth import extract_bearer_token
 from app.core.cache import get_validation_cache
@@ -42,7 +43,7 @@ def get_validation_service(db: Session = Depends(get_db)) -> ValidationService:
 
 @router.get("/competitions/{comp_id}/validations/next", response_model=ValidationNextResponse)
 async def get_next_image(
-    comp_id: int,
+    comp_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     validation_service: ValidationService = Depends(get_validation_service),
@@ -79,7 +80,7 @@ async def submit_vote(
 
 @router.get("/competitions/{comp_id}/validations/pending", response_model=ValidationPendingResponse)
 async def get_pending_validations(
-    comp_id: int,
+    comp_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     validation_service: ValidationService = Depends(get_validation_service),

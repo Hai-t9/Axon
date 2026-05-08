@@ -7,6 +7,7 @@ from app.core.database import SessionLocal
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List
 from pydantic import BaseModel
+from uuid import UUID
 
 security = HTTPBearer()
 
@@ -14,8 +15,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     # This is a placeholder mock for Mustafa's AuthGuard. It assumes the token contains a sub or just defaults to 1.
     token = credentials.credentials
     if token.startswith("real_jwt_token_for_user_"):
-        return int(token.split("_")[-1])
-    return 1
+        raw_id = token.split("_")[-1]
+        try:
+            return UUID(raw_id)
+        except (TypeError, ValueError):
+            return UUID(int=0)
+    return UUID(int=0)
 
 def get_db():
     db = SessionLocal()
@@ -31,11 +36,11 @@ class ImageUpdateStatus(BaseModel):
 
 @router.post("/teams/{team_id}/images", response_model=ImageResponse)
 async def upload_image(
-    team_id: int,
+    team_id: UUID,
     file: UploadFile = File(...),
     label: str = Form(None),
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(get_current_user)
+    current_user_id: UUID = Depends(get_current_user)
 ):
     repo = ImageRepository(db)
     service = ImageService(repo)
@@ -57,7 +62,7 @@ def get_image(image_id: int, db: Session = Depends(get_db)):
 
 @router.get("/teams/{team_id}/images", response_model=dict)
 def get_team_images(
-    team_id: int,
+    team_id: UUID,
     status: str = None,
     page: int = 1,
     db: Session = Depends(get_db)
@@ -73,7 +78,7 @@ def get_team_images(
 
 @router.get("/competitions/{comp_id}/images", response_model=dict)
 def get_comp_images(
-    comp_id: int,
+    comp_id: UUID,
     status: str = None,
     db: Session = Depends(get_db)
 ):
@@ -87,7 +92,7 @@ def get_comp_images(
 
 @router.get("/competitions/{comp_id}/images/stats", response_model=dict)
 def get_comp_image_stats(
-    comp_id: int,
+    comp_id: UUID,
     db: Session = Depends(get_db)
 ):
     repo = ImageRepository(db)

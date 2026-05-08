@@ -2,6 +2,7 @@ import os
 import sys
 
 import pytest
+from uuid import UUID
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -59,10 +60,10 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def _create_image(db_session, team_id: int, author_id: int, status: ImageStatus):
+def _create_image(db_session, team_id: str, author_id: str, status: ImageStatus):
     image = Image(
-        team_id=team_id,
-        author_id=author_id,
+        team_id=UUID(team_id),
+        author_id=UUID(author_id),
         filepath=f"/tmp/dashboard-role-{team_id}-{author_id}-{status.value}.jpg",
         image_hash=f"dashboard-role-hash-{team_id}-{author_id}-{status.value}",
         status=status,
@@ -107,7 +108,11 @@ def test_dashboard_role_based_response(client, db_session):
     competition_id = competition_response.json()["id"]
 
     db_session.add(
-        Role(user_id=participant_id, competition_id=competition_id, role=RoleType.participant)
+        Role(
+            user_id=UUID(participant_id),
+            competition_id=UUID(competition_id),
+            role=RoleType.participant,
+        )
     )
     db_session.commit()
 
@@ -129,7 +134,7 @@ def test_dashboard_role_based_response(client, db_session):
 
     db_session.add(
         PhaseLog(
-            competition_id=competition_id,
+            competition_id=UUID(competition_id),
             current_phase="active",
             phase_dates={"timeline": [], "history": []},
         )
@@ -140,7 +145,11 @@ def test_dashboard_role_based_response(client, db_session):
     _create_image(db_session, team_one_id, participant_id, ImageStatus.onhold)
     _create_image(db_session, team_two_id, host_id, ImageStatus.verified)
 
-    config = db_session.query(Config).filter(Config.competition_id == competition_id).first()
+    config = (
+        db_session.query(Config)
+        .filter(Config.competition_id == UUID(competition_id))
+        .first()
+    )
     assert config is not None
     config.labels = {"cat": 1}
     config.data_ex = "data_ex"
