@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import tempfile
 from datetime import datetime
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from app.models.model_enums import EvaluationStatus, TaskStatus
 from app.services.evaluation_orchestration.repository import (
     EvaluationOrchestrationRepository,
 )
+from app.storage.minio_client import storage_service
 
 from .celery_app import celery_app
 from .executor import compute_metrics, prepare_fold_data, run_docker_evaluation
@@ -41,17 +43,24 @@ def run_evaluation_task(self, task_id: str):
         if not model:
             raise ValueError(f"Model {job.model_id} not found")
 
-        teams = repo.find_teams_by_competition(job.competition_id)
+        teams = repo.find_teams_by_competition(UUID(str(job.competition_id)))
         images_by_team = {}
         for team in teams:
-            images = repo.find_images_by_team(team.id)
-            images_by_team[team.id] = images
+            team_id = UUID(str(team.id))
+            images = repo.find_images_by_team(team_id)
+            images_by_team[team_id] = images
 
         images_dir, gt_path = prepare_fold_data(job, task, images_by_team, teams)
         temp_root = os.path.dirname(images_dir)
 
+        model_dir = None
         try:
-            model_zip_path = model.storage_path  # type: ignore[assignment]
+            model_dir = tempfile.mkdtemp(prefix="axon_model_")
+            model_zip_path = os.path.join(model_dir, "model.zip")
+            model_bytes = storage_service.get_file(str(model.storage_path))  # type: ignore[arg-type]
+            with open(model_zip_path, "wb") as f:
+                f.write(model_bytes)
+
             timeout = int(os.getenv("EVAL_DOCKER_TIMEOUT", "600"))
             memory_limit = os.getenv("EVAL_DOCKER_MEMORY_LIMIT", "4g")
             cpu_limit = os.getenv("EVAL_DOCKER_CPU_LIMIT", "2")
@@ -74,9 +83,9 @@ def run_evaluation_task(self, task_id: str):
             metrics = compute_metrics(ground_truth, predictions)
 
             repo.record_evaluation_result(
-                evaluation_id=job.id,
+                evaluation_id=UUID(str(job.id)),
                 task_id=task_uuid,
-                fold_number=task.task_number,
+                fold_number=int(str(task.task_number)),
                 metrics=metrics,
             )
 
@@ -84,10 +93,12 @@ def run_evaluation_task(self, task_id: str):
             task.completed_at = datetime.utcnow()  # type: ignore[assignment]
             db.flush()
 
-            _check_job_completion(job.id, repo, db)
+            _check_job_completion(UUID(str(job.id)), repo, db)
 
         finally:
             shutil.rmtree(temp_root, ignore_errors=True)
+            if model_dir:
+                shutil.rmtree(model_dir, ignore_errors=True)
 
     except Exception as exc:
         logger.error(f"Evaluation task {task_id} failed: {exc}")
@@ -100,7 +111,7 @@ def run_evaluation_task(self, task_id: str):
                 db.flush()
 
                 repo = EvaluationOrchestrationRepository(db)
-                _check_job_completion(task.evaluation_id, repo, db)
+                _check_job_completion(UUID(str(task.evaluation_id)), repo, db)
         except Exception:
             logger.exception("Failed to update task failure status")
         finally:
@@ -123,19 +134,19 @@ def _check_job_completion(
     if not job:
         return
 
-    if completed_folds >= job.total_folds:
+    if completed_folds >= getattr(job, 'total_folds', 0):
         results = repo.find_completed_results(evaluation_id)
         if results:
-            accuracies = [r.accuracy for r in results]
+            accuracies = [getattr(r, 'accuracy') for r in results]
             mean_accuracy = sum(accuracies) / len(accuracies)
-            repo.write_final_score(job.model_id, mean_accuracy)
+            repo.write_final_score(UUID(str(job.model_id)), mean_accuracy)
 
         repo.update_evaluation_status(evaluation_id, EvaluationStatus.completed)
         repo.update_evaluation_timestamps(
             evaluation_id, completed_at=datetime.utcnow()
         )
 
-        model = db.query(Model).filter(Model.id == job.model_id).first()
+        model = db.query(Model).filter(Model.id == UUID(str(job.model_id))).first()
         if model:
             from app.models.model_model import ModelStatus
             model.status = ModelStatus.COMPLETED  # type: ignore[assignment]
