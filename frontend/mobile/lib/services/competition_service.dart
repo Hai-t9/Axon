@@ -21,7 +21,7 @@ class CompetitionService {
   Future<List<TeamModel>> getTeams(String competitionId) async {
     final response = await _dio.get('/api/v1/competitions/$competitionId/teams');
     final data = response.data as Map<String, dynamic>;
-    final items = data['teams'] as List<dynamic>;
+    final items = data['items'] as List<dynamic>;
     return items
         .map((item) => TeamModel.fromJson(item as Map<String, dynamic>))
         .toList();

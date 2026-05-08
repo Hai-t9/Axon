@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/upload_service.dart';
 import '../services/metadata_service.dart';
+import '../services/offline_queue_service.dart';
+import '../widgets/location_status_widget.dart';
 
 class PreviewScreen extends ConsumerStatefulWidget {
   final String imagePath;
@@ -92,6 +94,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final metadata = widget.capturedMetadata;
+    final connectivity = ref.watch(connectivityProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF12121A),
@@ -106,6 +109,35 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
       ),
       body: Column(
         children: [
+          connectivity.when(
+            data: (isOnline) {
+              if (isOnline) return const SizedBox.shrink();
+              return Container(
+                width: double.infinity,
+                color: const Color(0xFFE5A53C),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: const SafeArea(
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      Icon(Icons.wifi_off, size: 18, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Offline — image will be queued for upload',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -123,6 +155,10 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
             ),
           ),
           if (metadata != null) _buildMetadataChips(metadata),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: LocationStatusWidget(),
+          ),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
+import 'signup_confirmation_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -65,6 +66,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (state.error != null) {
         _showError(state.error!);
         ref.read(authProvider.notifier).clearError();
+      }
+      if (state.isSignupSuccess) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SignupConfirmationScreen()),
+        );
       }
     });
 
