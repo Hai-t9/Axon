@@ -6,27 +6,27 @@ sidebar_position: 3
 
 ## Overview
 
-Manages competition participants and team administration. Handles team registration, member management, team metadata storage, and participation tracking across competition seasons. Provides organizational structure for team hierarchies and member roles within teams.
+Manages competition participants and team administration. Handles team registration, member management, and participation tracking. Members are stored as a JSON array of user IDs on the Team record — no separate members table.
 
 ---
 
 ### Responsibility
 
-Handles full CRUD operations on teams and team members. Manages team profiles, member assignments, team metadata, and participation history. Restricted to host/staff for team creation and deletion. Provides team information for all authenticated users.
+Handles full CRUD operations on teams. Manages team profiles, member assignments (via `user_ids` JSON column), and participation history. Restricted to host/staff for team creation and deletion.
 
 ### Inputs / Outputs
 
 | Function | Input | Output |
 |---|---|---|
-| `createTeam` | `compId`, `name`, `organization`, `metadata` | `{ id, competition_id, name, organization, created_at }` |
-| `getTeam` | `teamId` | `{ id, name, organization, members[ ], metadata, created_at }` |
-| `getTeamsByCompetition` | `compId` | `{ teams[ ], total, page }` |
-| `updateTeam` | `teamId`, `updates` | `{ id, ...updates, updated_at }` |
+| `createTeam` | `compId`, `name`, `userIds` | `{ id, comp_id, name, user_ids }` |
+| `getTeam` | `teamId` | `{ id, comp_id, name, user_ids }` |
+| `getTeamsByCompetition` | `compId`, `page`, `limit` | `{ teams[ ], total }` |
+| `updateTeam` | `teamId`, `updates` | `{ id, ...updates }` |
 | `deleteTeam` | `teamId` | `{ deleted: true, id }` |
-| `addTeamMember` | `teamId`, `userId`, `role` | `{ team_id, user_id, role, joined_at }` |
-| `removeTeamMember` | `teamId`, `userId` | `{ removed: true, team_id, user_id }` |
-| `getTeamMembers` | `teamId` | `{ members[ { id, name, role, joined_at } ], total }` |
-| `getTeamStatistics` | `teamId` | `{ total_members, images_uploaded, models_submitted, rank }` |
+| `addMember` | `teamId`, `userId` | `{ id, comp_id, name, user_ids }` |
+| `removeMember` | `teamId`, `userId` | `{ id, comp_id, name, user_ids }` |
+| `getMembers` | `teamId` | `{ members[ { id, fullname, email } ] }` |
+| `getTeamStatistics` | `teamId` | `{ total_members, images_uploaded, models_submitted }` |
 
 ### APIs
 
@@ -37,7 +37,7 @@ Handles full CRUD operations on teams and team members. Manages team profiles, m
 - `GET    /teams/:teamId` — Retrieve team details by ID
 - `PUT    /teams/:teamId` — Update team metadata — host/staff only
 - `DELETE /teams/:teamId` — Delete a team — host only
-- `GET    /teams/:teamId/members` — List team members
+- `GET    /teams/:teamId/members` — List team members (resolved from `user_ids`)
 - `POST   /teams/:teamId/members` — Add member to team — host/staff only
 - `DELETE /teams/:teamId/members/:userId` — Remove member from team — host/staff only
 - `GET    /teams/:teamId/statistics` — Get team performance statistics
@@ -56,56 +56,66 @@ Handles full CRUD operations on teams and team members. Manages team profiles, m
 
 **Service**
 
-- `createTeam(compId, name, organization, metadata)`
+- `createTeam(compId, name, userIds)`
   - → `validateTeamName(name)` — ensure unique within competition
-  - → `insertTeam(compId, name, organization, metadata)`
+  - → `normalizeUserIds(userIds)` — deduplicate, stringify UUIDs
+  - → `create(compId, name, user_ids)`
   - → return created team
 - `getTeam(teamId)` → `findTeamById(teamId)`
-- `getTeamsByCompetition(compId, filters)`
-  - → `findTeamsByCompetition(compId, filters)` — supports pagination
+- `listTeams(compId, page, limit)`
+  - → `findTeamsByCompetition(compId, offset, limit)`
+  - → `countTeamsByCompetition(compId)`
   - → return paginated results
 - `updateTeam(teamId, updates)`
-  - → `validateUpdates(updates)` — ensure only allowed fields
-  - → `modifyTeam(teamId, updates)`
+  - → `getTeam(teamId)`
+  - → `validateUpdates(updates)`
+  - → `update(team, updates)`
   - → return updated team
 - `deleteTeam(teamId)`
-  - → `checkTeamEmpty(teamId)` — ensure no dependent data or cascade
-  - → `removeTeam(teamId)`
+  - → `getTeam(teamId)`
+  - → `delete(team)`
   - → return deletion confirmation
-- `addTeamMember(teamId, userId, role)`
-  - → `validateRole(role)` — valid team roles
-  - → `insertTeamMember(teamId, userId, role)`
-  - → return member record
-- `removeTeamMember(teamId, userId)` → `deleteTeamMember(teamId, userId)`
-- `getTeamMembers(teamId)` → `findMembersByTeam(teamId)`
+- `addMember(teamId, userId)`
+  - → verify user exists
+  - → check user not already in team
+  - → append to `user_ids` JSON array
+  - → return updated team
+- `removeMember(teamId, userId)`
+  - → verify user is in team
+  - → remove from `user_ids` JSON array
+  - → return updated team
+- `getMembers(teamId)`
+  - → read `user_ids` from team
+  - → `findUsersByIds(userIds)` — resolve UUIDs to User records
+  - → return user list
 - `getTeamStatistics(teamId)`
-  - → `countTeamMembers(teamId)`
+  - → `countMembers(userIds)` — length of JSON array
   - → `countImagesByTeam(teamId)`
   - → `countModelsByTeam(teamId)`
-  - → `getTeamRank(teamId)`
   - → return aggregated statistics
 
 **Repository**
 
-- `insertTeam(compId, name, organization, metadata)`
-- `findTeamById(teamId)`
-- `findTeamsByCompetition(compId, filters)` — supports pagination
-- `modifyTeam(teamId, updates)`
-- `removeTeam(teamId)`
-- `insertTeamMember(teamId, userId, role)`
-- `deleteTeamMember(teamId, userId)`
-- `findMembersByTeam(teamId)`
-- `countTeamMembers(teamId)`
-- `countImagesByTeam(teamId)`
-- `countModelsByTeam(teamId)`
+- `getById(teamId)` → Team | None
+- `getByName(compId, name)` → Team | None
+- `listByCompetition(compId, offset, limit)` → Team[]
+- `countByCompetition(compId)` → int
+- `create(teamData)` → Team
+- `update(team, updates)` → Team
+- `delete(team)` → None
+- `getUserById(userId)` → User | None
+- `setTeamMembers(team, userIds)` → Team (writes `user_ids` JSON)
+- `getTeamMembers(team)` → User[] (resolves UUIDs from `user_ids`)
+- `countImagesByTeam(teamId)` → int
+- `countModelsByTeam(teamId)` → int
 
 ### Dependencies
 
-- `team`, `team_member` tables
+- `team` table only (no separate members table — membership stored in `user_ids` JSON column)
+- `user` table — for resolving member UUIDs to user records
 - **Competition module** — teams belong to competitions
 - **Image module** — teams upload images
 - **Model Submission Service** — teams submit models
-- **Validation module** — teams validate labels
 
 ### Data Model
 
@@ -113,34 +123,19 @@ Handles full CRUD operations on teams and team members. Manages team profiles, m
 ```
 {
   id: UUID,
-  competition_id: UUID,
-  name: string,
-  organization: string,
-  metadata: JSON,
-  created_at: timestamp,
-  updated_at: timestamp
+  comp_id: UUID (FK → competition.id),
+  name: string (unique per competition),
+  user_ids: string[] (JSON — array of user UUIDs)
 }
 ```
 
-**Team Member Entity**
-```
-{
-  id: UUID,
-  team_id: UUID,
-  user_id: UUID,
-  role: enum('member' | 'lead' | 'viewer'),
-  joined_at: timestamp
-}
-```
+**User IDs** are stored as a JSON array of strings. Example: `["550e8400-...", "6ba7b810-..."]`. Members are resolved by querying the `user` table with these IDs.
 
 **Team Statistics (Computed)**
 ```
 {
-  team_id: UUID,
   total_members: integer,
   images_uploaded: integer,
-  models_submitted: integer,
-  current_rank: integer,
-  computed_at: timestamp
+  models_submitted: integer
 }
 ```

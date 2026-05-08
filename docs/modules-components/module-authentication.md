@@ -39,11 +39,11 @@ Controller
 Service
   |-- login()
   |     |-- findByEmail()
-  |     |-- verifyPassword()   // bcrypt
+  |     |-- verifyPassword()   // PBKDF2-SHA256
   |     |-- generateJWT()
   |-- signup()
         |-- checkEmailExists()
-        |-- hashPassword()     // bcrypt
+        |-- hashPassword()     // PBKDF2-SHA256
         |-- createUser()
         |-- generateJWT()
 
@@ -110,6 +110,6 @@ Middleware applied: none (registration is public).
 ### Dependencies
 
 - `user` table
-- bcrypt (password hashing)
+- PBKDF2-SHA256 (password hashing, see `core/security.py`)
 - JWT signing secret and token config
 - Role definitions: host, staff, participant

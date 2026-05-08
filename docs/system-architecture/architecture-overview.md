@@ -163,7 +163,7 @@ graph TB
   - Token management and refresh
   - Audit logging for security events
 - **Technology:** FastAPI + Python-Jose JWT (custom implementation)
-- **Password Hashing:** bcrypt
+- **Password Hashing:** PBKDF2-SHA256 (see `core/security.py`)
 - **Roles:**
   - **Hosts (Organizers):** Full platform configuration and competition management
   - **Staff:** Data quality monitoring, team approvals, moderation
@@ -575,7 +575,7 @@ Participants View Live Rankings
 | **Backend API** | FastAPI (Python 3.10+) | REST API, all services in monolithic structure |
 | **API Gateway** | FastAPI middleware | Built-in routing, rate limiting, CORS |
 | **Authentication** | Custom JWT + FastAPI | Role-based access control (RBAC) |
-| **Password Hashing** | bcrypt | Secure password storage |
+| **Password Hashing** | PBKDF2-SHA256 | Secure password storage (see `core/security.py`) |
 | **Database** | PostgreSQL + SQLAlchemy ORM | Structured data, ACID transactions |
 | **Image Storage** | MinIO (S3-compatible) | Distributed object storage on school server |
 | **Model Storage** | MinIO (S3-compatible) | Versioned model files for evaluations |
