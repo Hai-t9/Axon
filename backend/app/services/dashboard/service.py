@@ -1,4 +1,5 @@
 from app.core.exceptions import NotFoundError
+from uuid import UUID
 
 from app.core.cache import DashboardCache
 from .repository import DashboardRepository
@@ -50,7 +51,7 @@ class DashboardService:
             "user_ids": team.user_ids,
         }
 
-    def _build_dashboard_payload(self, comp_id: int) -> dict:
+    def _build_dashboard_payload(self, comp_id: UUID) -> dict:
         phase_info = self.repository.find_phase_info(comp_id)
         if not phase_info:
             raise NotFoundError("Phase information not found")
@@ -72,7 +73,7 @@ class DashboardService:
             },
         }
 
-    def _build_participant_payload(self, comp_id: int, participant_id: int) -> dict:
+    def _build_participant_payload(self, comp_id: UUID, participant_id: UUID) -> dict:
         phase_info = self.repository.find_phase_info(comp_id)
         if not phase_info:
             raise NotFoundError("Phase information not found")
@@ -94,7 +95,7 @@ class DashboardService:
             "team_info": self._serialize_team(team),
         }
 
-    def get_dashboard(self, comp_id: int) -> dict:
+    def get_dashboard(self, comp_id: UUID) -> dict:
         # 1. Try cache first
         cached = self.cache.get_dashboard(comp_id)
         if cached:
@@ -107,15 +108,15 @@ class DashboardService:
         self.cache.set_dashboard(comp_id, payload)
         return payload
 
-    def get_participant_dashboard(self, comp_id: int, participant_id: int) -> dict:
+    def get_participant_dashboard(self, comp_id: UUID, participant_id: UUID) -> dict:
         return self._build_participant_payload(comp_id, participant_id)
 
-    def get_cached_dashboard(self, comp_id: int) -> dict:
+    def get_cached_dashboard(self, comp_id: UUID) -> dict:
         cached = self.cache.get_dashboard(comp_id)
         if not cached:
             raise NotFoundError("Cached dashboard not found")
         return cached
 
-    def clear_dashboard_cache(self, comp_id: int) -> dict:
+    def clear_dashboard_cache(self, comp_id: UUID) -> dict:
         self.cache.clear_dashboard(comp_id)
         return {"cleared": True}

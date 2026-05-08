@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 class ImageMetadataBase(BaseModel):
     GPSInfo: Optional[str] = None
@@ -27,8 +28,8 @@ class ImageBase(BaseModel):
 
 class ImageResponse(ImageBase):
     id: int
-    team_id: int
-    author_id: int
+    team_id: UUID
+    author_id: UUID
     time: datetime
     label: Optional[str] = None
     metadata_rel: Optional[ImageMetadataBase] = None

@@ -2,6 +2,7 @@ import os
 import sys
 
 import pytest
+from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -60,10 +61,10 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def _create_image(db_session, team_id: int, author_id: int, suffix: str) -> Image:
+def _create_image(db_session, team_id: str, author_id: str, suffix: str) -> Image:
     image = Image(
-        team_id=team_id,
-        author_id=author_id,
+        team_id=UUID(team_id),
+        author_id=UUID(author_id),
         filepath=f"/tmp/validation-{suffix}.jpg",
         image_hash=f"validation-hash-{suffix}",
     )
@@ -284,8 +285,12 @@ def test_validation_cache_threshold_and_team(db_session):
     db_session.add(config)
     db_session.commit()
 
-    participant_id = 999
-    team = Team(name="Cache Team", comp_id=competition.id, user_ids=[participant_id])
+    participant_id = uuid4()
+    team = Team(
+        name="Cache Team",
+        comp_id=competition.id,
+        user_ids=[str(participant_id)],
+    )
     db_session.add(team)
     db_session.commit()
     db_session.refresh(team)

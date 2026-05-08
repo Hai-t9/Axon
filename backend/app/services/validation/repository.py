@@ -1,5 +1,6 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.cache import ValidationCache
 from app.models import Config, Image, Label, LabelValidation, Team
@@ -10,7 +11,7 @@ class ValidationRepository:
         self.db = db
         self.cache = cache
 
-    def find_participant_team(self, comp_id: int, participant_id: int) -> Team | None:
+    def find_participant_team(self, comp_id: UUID, participant_id: UUID) -> Team | None:
         if self.cache:
             cached_team_id = self.cache.get_participant_team_id(comp_id, participant_id)
             if cached_team_id:
@@ -27,13 +28,13 @@ class ValidationRepository:
             .all()
         )
         for team in teams:
-            if participant_id in (team.user_ids or []):
+            if str(participant_id) in (team.user_ids or []):
                 if self.cache:
                     self.cache.set_participant_team_id(comp_id, participant_id, team.id)
                 return team
         return None
 
-    def find_validation_threshold(self, comp_id: int) -> int | None:
+    def find_validation_threshold(self, comp_id: UUID) -> int | None:
         if self.cache:
             cached_threshold = self.cache.get_validation_threshold(comp_id)
             if cached_threshold is not None:
@@ -50,7 +51,7 @@ class ValidationRepository:
         return config.max_validations
 
     def count_participant_validations(
-        self, comp_id: int, participant_id: int, team_id: int
+        self, comp_id: UUID, participant_id: UUID, team_id: UUID
     ) -> dict:
         rows = (
             self.db.query(Team.id.label("team_id"), func.count(LabelValidation.id))
@@ -72,7 +73,7 @@ class ValidationRepository:
 
         return {"ownCount": own_count, "otherCount": other_count}
 
-    def _build_voted_image_subquery(self, comp_id: int, participant_id: int):
+    def _build_voted_image_subquery(self, comp_id: UUID, participant_id: UUID):
         return (
             self.db.query(Image.id)
             .join(Label, Label.image_id == Image.id)
@@ -91,7 +92,7 @@ class ValidationRepository:
         )
 
     def find_next_from_own_team(
-        self, comp_id: int, team_id: int, participant_id: int, threshold: int
+        self, comp_id: UUID, team_id: UUID, participant_id: UUID, threshold: int
     ) -> dict | None:
         voted_subquery = self._build_voted_image_subquery(comp_id, participant_id)
         threshold_subquery = self._build_threshold_label_subquery(threshold)
@@ -116,7 +117,7 @@ class ValidationRepository:
         return {"id": row.id, "filepath": row.filepath}
 
     def find_next_from_other_teams(
-        self, comp_id: int, team_id: int, participant_id: int, threshold: int
+        self, comp_id: UUID, team_id: UUID, participant_id: UUID, threshold: int
     ) -> dict | None:
         voted_subquery = self._build_voted_image_subquery(comp_id, participant_id)
         threshold_subquery = self._build_threshold_label_subquery(threshold)
@@ -140,7 +141,7 @@ class ValidationRepository:
             return None
         return {"id": row.id, "filepath": row.filepath}
 
-    def insert_vote(self, image_id: int, validator_id: int, label: str) -> LabelValidation | None:
+    def insert_vote(self, image_id: int, validator_id: UUID, label: str) -> LabelValidation | None:
         label_entry = self.db.query(Label).filter(Label.image_id == image_id).first()
         if not label_entry:
             return None
@@ -182,7 +183,7 @@ class ValidationRepository:
             .all()
         )
 
-    def find_pending_by_comp(self, comp_id: int) -> list[dict]:
+    def find_pending_by_comp(self, comp_id: UUID) -> list[dict]:
         rows = (
             self.db.query(Image.id, Image.filepath, Label.label)
             .join(Label, Label.image_id == Image.id)
