@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/upload_service.dart';
 import '../services/metadata_service.dart';
 import '../services/offline_queue_service.dart';
+import '../widgets/location_status_widget.dart';
 
 class PreviewScreen extends ConsumerStatefulWidget {
   final String imagePath;
@@ -154,6 +155,10 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
             ),
           ),
           if (metadata != null) _buildMetadataChips(metadata),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: LocationStatusWidget(),
+          ),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),

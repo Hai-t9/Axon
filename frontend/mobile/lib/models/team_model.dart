@@ -2,13 +2,15 @@ class TeamModel {
   final String id;
   final String name;
   final String? organization;
-  final String competitionId;
+  final String compId;
+  final List<String> userIds;
 
   const TeamModel({
     required this.id,
     required this.name,
     this.organization,
-    required this.competitionId,
+    required this.compId,
+    this.userIds = const [],
   });
 
   factory TeamModel.fromJson(Map<String, dynamic> json) {
@@ -16,7 +18,11 @@ class TeamModel {
       id: json['id'].toString(),
       name: json['name'] as String,
       organization: json['organization'] as String?,
-      competitionId: json['competition_id'].toString(),
+      compId: json['comp_id'].toString(),
+      userIds: (json['user_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
     );
   }
 }
