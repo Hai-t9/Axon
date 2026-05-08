@@ -77,33 +77,9 @@ class ValidationService:
     def get_validation_list(self, comp_id: UUID, participant_id: UUID) -> dict:
         image_ids = self.repository.get_participant_assignments(participant_id)
         if not image_ids:
-            self.generate_assignments(comp_id)
-            image_ids = self.repository.get_participant_assignments(participant_id)
+            raise NotFoundError("Validation list not found")
 
         return {"image_ids": image_ids}
-
-    def get_next_image(self, comp_id: UUID, participant_id: UUID) -> dict:
-        team = self.repository.find_participant_team(comp_id, participant_id)
-        if not team:
-            raise NotFoundError("Participant team not found")
-
-        threshold = self.repository.find_validation_threshold(comp_id) or 5
-        counts = self.repository.count_participant_validations(comp_id, participant_id, team.id)
-        pick_own_team = self._should_pick_own_team(counts["ownCount"], counts["otherCount"])
-
-        if pick_own_team:
-            image = self.repository.find_next_from_own_team(
-                comp_id, team.id, participant_id, threshold
-            )
-        else:
-            image = self.repository.find_next_from_other_teams(
-                comp_id, team.id, participant_id, threshold
-            )
-
-        if not image:
-            raise NotFoundError("No eligible images found")
-
-        return image
 
     def submit_vote(self, image_id: int, validator_id: UUID, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)
