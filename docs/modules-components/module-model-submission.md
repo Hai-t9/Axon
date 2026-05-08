@@ -167,7 +167,10 @@ Executes the full submission pipeline:
 7. **Check duplicates** → Reject if hash already exists
 8. **Store zip** → Upload to MinIO / local fallback
 9. **Persist** → Save Model and ModelMetadata records
-10. **Auto-schedule** → Set status to SCHEDULED
+10. **Auto-evaluate** → Read `Config.evaluation` for protocol, call `EvaluationOrchestrationService.scheduleEvaluation()`
+    - Creates EvaluationJob + Tasks + queues to Celery
+    - Model status: RECEIVED → SCHEDULED → QUEUED
+    - Evaluation starts immediately via available workers
 
 #### `validate_docker_submission(zip_bytes, spec)`
 
