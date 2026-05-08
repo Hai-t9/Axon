@@ -11,6 +11,7 @@ class PhaseLog(Base):
     competition_id = Column(Integer, ForeignKey("competition.id"), nullable=False)
     phase_dates = Column(JSON, nullable=True)
     current_phase = Column(String, nullable=False)
+    dataset_locked = Column(Integer, default=0)  # Boolean flag representing dataset lock status
 
     competition = relationship("Competition", back_populates="phase_logs")
 

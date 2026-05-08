@@ -14,6 +14,7 @@ class DashboardService:
             "competition_id": phase_info.competition_id,
             "current_phase": phase_info.current_phase,
             "phase_dates": phase_info.phase_dates or {},
+            "dataset_locked": bool(getattr(phase_info, "dataset_locked", False)),
         }
 
     def _serialize_config(self, config) -> dict:

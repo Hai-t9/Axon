@@ -207,4 +207,29 @@ async def get_my_role(
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
 
-
+@router.post("/{competition_id}/dataset/lock")
+async def lock_dataset(
+    competition_id: int,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    db: Session = Depends(get_db)
+):
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.require_roles(token, competition_id, {RoleType.host})
+        
+        from app.models import PhaseLog
+        phase_log = db.query(PhaseLog).filter(PhaseLog.competition_id == competition_id).first()
+        if not phase_log:
+            from app.core.exceptions import NotFoundError
+            raise NotFoundError("Phase log not found")
+            
+        phase_log.dataset_locked = 1
+        db.commit()
+        return {"status": "locked", "dataset_locked": True}
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

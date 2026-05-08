@@ -11,6 +11,13 @@ class ValidationRepository:
         self.db = db
         self.cache = get_validation_cache()
 
+    def is_dataset_locked(self, comp_id: int) -> bool:
+        from app.models import PhaseLog
+        log = self.db.query(PhaseLog).filter(PhaseLog.competition_id == comp_id).first()
+        if log and log.dataset_locked:
+            return True
+        return False
+
     def find_participant_team(self, comp_id: int, participant_id: int) -> Team | None:
         cached_team_id = self.cache.get_participant_team(comp_id, participant_id)
         if cached_team_id:

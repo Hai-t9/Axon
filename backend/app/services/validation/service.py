@@ -12,6 +12,9 @@ class ValidationService:
         self.label_service = label_service
 
     def get_next_image(self, comp_id: int, participant_id: int) -> dict:
+        if self.repository.is_dataset_locked(comp_id):
+            return {"image": None}
+
         team = self.repository.find_participant_team(comp_id, participant_id)
         if not team:
             raise NotFoundError("Participant team not found")
@@ -51,6 +54,10 @@ class ValidationService:
         return {"image": images[0] if images else None}
 
     def submit_vote(self, image_id: int, validator_id: int, label: str) -> dict:
+        comp_id = self.label_service.get_competition_id(image_id)
+        if self.repository.is_dataset_locked(comp_id):
+            raise ValidationError("Dataset is locked. Modifications are no longer allowed.")
+
         vote = self.repository.insert_vote(image_id, validator_id, label)
         if not vote:
             raise ValidationError("Vote could not be recorded")

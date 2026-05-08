@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ArrowLeft, Activity, Users, Image as ImageIcon, Upload, Play, Download, Settings, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Activity, Users, Image as ImageIcon, Upload, Play, Download, Settings, ChevronRight, AlertTriangle, Lock } from 'lucide-react';
 
 export default function CompetitionDetail() {
   const { id } = useParams();
@@ -35,6 +35,10 @@ export default function CompetitionDetail() {
   // Cleaner state
   const [cleanerStatus, setCleanerStatus] = useState<string>('Idle');
   const [cleanerStats, setCleanerStats] = useState<any>(null);
+
+  // Dataset gallery state
+  const [datasetImages, setDatasetImages] = useState<any[]>([]);
+  const [datasetLoading, setDatasetLoading] = useState(false);
   
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -57,7 +61,57 @@ export default function CompetitionDetail() {
 
   useEffect(() => {
     fetchData();
+
+    // SSE Real-time Updates
+    const token = localStorage.getItem('token');
+    if (!token || !id) return;
+    
+    const es = new EventSource(`http://localhost:8000/api/v1/competitions/${id}/dashboard/stream?token=${token}`);
+    
+    es.addEventListener('update', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setDashboard(data);
+        
+        // Also fetch leaderboard when an update arrives, to keep it in sync live
+        fetch(`http://localhost:8000/api/v1/competitions/${id}/leaderboard`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(res => res.ok && res.json()).then(lead => {
+          if (lead) setLeaderboard(lead);
+        }).catch(console.error);
+
+      } catch (e) {
+        console.error("SSE parse error", e);
+      }
+    });
+
+    return () => {
+      es.close();
+    };
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'dataset') {
+      fetchDatasetImages();
+    }
+  }, [activeTab, id]);
+
+  const fetchDatasetImages = async () => {
+    setDatasetLoading(true);
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/images`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDatasetImages(data.images || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch dataset", e);
+    }
+    setDatasetLoading(false);
+  };
 
   const fetchData = async () => {
     const token = localStorage.getItem('token');
@@ -383,6 +437,26 @@ export default function CompetitionDetail() {
     e.target.value = '';
   };
 
+  const handleLockDataset = async () => {
+    if (!window.confirm("Are you sure you want to lock the dataset? This will prevent any further label modifications.")) return;
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/dataset/lock`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        alert("Dataset locked successfully.");
+        window.location.reload();
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.detail}`);
+      }
+    } catch (err) {
+      alert("Failed to lock dataset");
+    }
+  };
+
   if (loading) return <div style={{ padding: '40px', color: 'white' }}>Loading...</div>;
   if (error) return <div className="error-msg">{error}</div>;
   if (!dashboard) return <div style={{ padding: '40px', color: 'white' }}>No data found.</div>;
@@ -403,13 +477,13 @@ export default function CompetitionDetail() {
           <ArrowLeft size={20} /> Back
         </button>
         <div style={{ display: 'flex', gap: '6px' }}>
-          {['dashboard', 'teams', ...(role === 'host' ? ['cleaner'] : []), 'models', ...(role === 'host' ? ['settings'] : [])].map(tab => (
+          {['dashboard', 'dataset', 'teams', ...(role === 'host' ? ['cleaner'] : []), 'models', ...(role === 'host' ? ['settings'] : [])].map(tab => (
             <button
               key={tab}
               className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
               onClick={() => setActiveTab(tab)}
             >
-              {tab === 'dashboard' ? 'Dashboard' : tab === 'teams' ? 'Teams' : tab === 'cleaner' ? 'Cleaner' : tab === 'models' ? 'Models & Eval' : 'Settings'}
+              {tab === 'dashboard' ? 'Dashboard' : tab === 'dataset' ? 'Dataset' : tab === 'teams' ? 'Teams' : tab === 'cleaner' ? 'Cleaner' : tab === 'models' ? 'Models & Eval' : 'Settings'}
             </button>
           ))}
         </div>
@@ -428,11 +502,18 @@ export default function CompetitionDetail() {
                     <h2 style={{ margin: 0, textTransform: 'capitalize' }}>{dashboard.phase_info?.current_phase || 'Setup'}</h2>
                   </div>
                 </div>
-                {role === 'host' && dashboard.phase_info?.current_phase !== 'completed' && (
-                  <button className="btn-outline" style={{ padding: '6px 14px', fontSize: '12px', width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }} onClick={() => setShowPhaseConfirm(true)}>
-                    <ChevronRight size={14} /> Advance
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {role === 'host' && !dashboard.phase_info?.dataset_locked && (
+                    <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: '12px', width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.5)' }} onClick={handleLockDataset}>
+                      <Lock size={14} /> Lock Dataset
+                    </button>
+                  )}
+                  {role === 'host' && dashboard.phase_info?.current_phase !== 'completed' && (
+                    <button className="btn-outline" style={{ padding: '6px 14px', fontSize: '12px', width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }} onClick={() => setShowPhaseConfirm(true)}>
+                      <ChevronRight size={14} /> Advance
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -594,6 +675,27 @@ export default function CompetitionDetail() {
               </div>
             </div>
           </>
+        ) : activeTab === 'dataset' ? (
+          <div className="glass-panel" style={{ minHeight: '400px' }}>
+            <h2 style={{ marginBottom: '24px' }}>Dataset Gallery</h2>
+            {datasetLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading dataset...</div>
+            ) : datasetImages.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No images found.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+                {datasetImages.map(img => (
+                  <div key={img.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <img src={`http://localhost:8000${img.url}`} alt={`img-${img.id}`} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+                    <div style={{ padding: '12px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '500', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80px' }}>{img.label || 'None'}</span>
+                      <span style={{ color: img.status === 'verified' ? '#00C49F' : img.status === 'rejected' ? '#ef4444' : 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{img.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         ) : activeTab === 'teams' ? (
           <div className="glass-panel" style={{ minHeight: '400px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>

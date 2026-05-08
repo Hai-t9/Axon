@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+import asyncio
+import json
+from sse_starlette.sse import EventSourceResponse
 from sqlalchemy.orm import Session
 
 from app.core.auth import extract_bearer_token
@@ -58,6 +61,35 @@ async def get_dashboard(
         raise HTTPException(status_code=401, detail=str(exc))
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+@router.get("/stream")
+async def stream_dashboard(
+    comp_id: int,
+    token: str = Query(...),
+    db: Session = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+    dashboard_service: DashboardService = Depends(get_dashboard_service),
+):
+    try:
+        auth_service.get_current_user(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    async def event_generator():
+        while True:
+            try:
+                # Refresh db session to get latest state
+                # Wait, getting dashboard uses the cached session. It might need a fresh session.
+                # Since Depends(get_db) is bound to the request, the session lives as long as the SSE connection.
+                # To see updates, we might need to commit or rollback the session to see new transactions in sqlite.
+                db.commit()
+                data = dashboard_service.get_dashboard(comp_id)
+                yield {"event": "update", "data": json.dumps(data)}
+            except Exception:
+                pass
+            await asyncio.sleep(5)
+            
+    return EventSourceResponse(event_generator())
 
 
 @router.get("/cache", response_model=DashboardCachedResponse)
