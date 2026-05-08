@@ -7,6 +7,7 @@ import '../../../features/competition/presentation/host_competition_page.dart';
 import '../../../features/competition/presentation/join_competition_page.dart';
 import '../../../features/competition/presentation/competition_dashboard_page.dart';
 import '../../../features/competition/state/competition_list_controller.dart';
+import '../../../features/profile/presentation/profile_page.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../widgets/competition/competition_card.dart';
@@ -25,6 +26,11 @@ class HomePage extends ConsumerWidget {
 
     return AxonScaffold(
       actions: [
+        IconButton(
+          icon: const Icon(Icons.person_outline),
+          tooltip: 'Profile',
+          onPressed: () => context.go(ProfilePage.routePath),
+        ),
         TextButton(
           onPressed: () {
             ref.read(authControllerProvider.notifier).signOut();
