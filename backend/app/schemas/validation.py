@@ -10,8 +10,8 @@ class ValidationPendingImage(ValidationImage):
     label: str
 
 
-class ValidationNextResponse(ValidationImage):
-    pass
+class ValidationListResponse(BaseModel):
+    image_ids: list[int]
 
 
 class ValidationVoteCreate(BaseModel):

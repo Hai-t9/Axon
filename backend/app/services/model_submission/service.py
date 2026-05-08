@@ -130,7 +130,10 @@ class ModelSubmissionService:
         self.repository.save_model_metadata(model.id, metadata)  # type: ignore[arg-type]
 
         # 8. Auto-schedule
-        self._schedule_for_evaluation(model.id)
+        config = self.repository.find_competition_config(competition_id)
+        protocol = getattr(config, 'evaluation', None) if config else None
+        protocol = str(protocol) if protocol else "standard"
+        self._schedule_for_evaluation(model.id, protocol)
 
         return {
             "id": str(model.id),
@@ -165,13 +168,13 @@ class ModelSubmissionService:
         if not team:
             raise ValidationError(f"Team {team_id} does not exist.")
 
-        if int(team.comp_id) != competition_id:  # type: ignore[arg-type]
+        if team.comp_id != competition_id:
             raise ValidationError(
                 f"Team {team_id} does not belong to competition {competition_id}."
             )
 
         member_ids = team.user_ids or []
-        if user_id not in member_ids:
+        if str(user_id) not in [str(mid) for mid in member_ids]:
             raise ValidationError(
                 f"You are not a member of team {team_id}. "
                 "Only team members may submit models."
@@ -468,9 +471,29 @@ class ModelSubmissionService:
         storage_service.upload_file(content, object_name)
         return object_name
 
-    def _schedule_for_evaluation(self, model_id) -> None:
+    def _schedule_for_evaluation(self, model_id, protocol: str) -> None:
         self.repository.update_status(model_id, ModelStatus.SCHEDULED)
         self.repository.update_scheduled_at(model_id)
+
+        from app.core.database import SessionLocal
+        from app.services.evaluation_orchestration.repository import (
+            EvaluationOrchestrationRepository,
+        )
+        from app.services.evaluation_orchestration.service import (
+            EvaluationOrchestrationService,
+        )
+
+        db = SessionLocal()
+        try:
+            eval_service = EvaluationOrchestrationService(
+                EvaluationOrchestrationRepository(db)
+            )
+            eval_service.scheduleEvaluation(
+                model_id=model_id,
+                protocol=protocol,
+            )
+        finally:
+            db.close()
 
     # ------------------------------------------------------------------ #
     #  Read helpers (used by controller)                                   #

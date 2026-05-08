@@ -11,6 +11,7 @@ from app.services.team.controller import router as team_router
 from app.services.validation.controller import router as validation_router
 from app.services.image.controller import router as image_router
 from app.services.cleaner.controller import router as cleaner_router
+from app.services.evaluation_orchestration.controller import router as evaluation_router
 from app.core.database import engine, Base
 import app.models
 
@@ -54,3 +55,4 @@ app.include_router(validation_router, prefix=API_PREFIX)
 
 app.include_router(image_router, prefix=API_PREFIX)
 app.include_router(cleaner_router, prefix=API_PREFIX)
+app.include_router(evaluation_router, prefix=API_PREFIX)

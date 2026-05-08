@@ -5,15 +5,16 @@ from uuid import UUID
 from app.core.auth import extract_bearer_token
 from app.core.cache import get_validation_cache
 from app.core.database import SessionLocal
-from app.core.exceptions import AuthenticationError, NotFoundError, ValidationError
+from app.core.exceptions import AuthenticationError, AuthorizationError, NotFoundError, ValidationError
 from app.schemas.validation import (
-    ValidationNextResponse,
+    ValidationListResponse,
     ValidationPendingResponse,
     ValidationVoteCreate,
     ValidationVoteResponse,
 )
 from app.services.auth.repository import AuthRepository
 from app.services.auth.service import AuthService
+from app.models import RoleType
 from app.services.label.repository import LabelRepository
 from app.services.label.service import LabelService
 
@@ -41,8 +42,29 @@ def get_validation_service(db: Session = Depends(get_db)) -> ValidationService:
     return ValidationService(repository, label_service)
 
 
-@router.get("/competitions/{comp_id}/validations/next", response_model=ValidationNextResponse)
-async def get_next_image(
+@router.post("/competitions/{comp_id}/validations/generate")
+async def handle_generate_assignments(
+    comp_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    validation_service: ValidationService = Depends(get_validation_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.require_roles(token, comp_id, [RoleType.host])
+        return validation_service.generate_assignments(comp_id)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/competitions/{comp_id}/validations/list", response_model=ValidationListResponse)
+async def handle_get_validation_list(
     comp_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -51,7 +73,7 @@ async def get_next_image(
     try:
         token = extract_bearer_token(authorization)
         user = auth_service.get_current_user(token)
-        return validation_service.get_next_image(comp_id, user.id)
+        return validation_service.get_validation_list(comp_id, user.id)
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except NotFoundError as exc:
