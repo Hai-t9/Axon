@@ -12,6 +12,7 @@ class CompetitionConfig {
     this.evaluation,
     this.duplicateThreshold,
     this.maxValidations,
+    this.modelSpec,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class CompetitionConfig {
   final String? evaluation;
   final double? duplicateThreshold;
   final int? maxValidations;
+  final Map<String, dynamic>? modelSpec;
 
   factory CompetitionConfig.fromJson(Map<String, dynamic> json) {
     return CompetitionConfig(
@@ -41,6 +43,7 @@ class CompetitionConfig {
       evaluation: json['evaluation'] as String?,
       duplicateThreshold: (json['duplicate_threshhold'] as num?)?.toDouble(),
       maxValidations: json['max_validations'] as int?,
+      modelSpec: json['model_spec'] as Map<String, dynamic>?,
     );
   }
 }
