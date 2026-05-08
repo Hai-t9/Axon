@@ -3,6 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/offline_queue_service.dart';
+import '../services/upload_service.dart';
 import 'preview_screen.dart';
 import '../services/metadata_service.dart';
 
@@ -27,6 +28,21 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   Future<void>? _initializeControllerFuture;
   bool _cameraPermissionDenied = false;
   bool _checkingPermission = true;
+
+  bool _isBurstMode = false;
+  String? _selectedBurstLabel;
+  int _burstCount = 0;
+  bool _isCapturing = false;
+  bool _showFlash = false;
+
+  final List<String> _availableLabels = [
+    'seedling',
+    'tillering',
+    'flowering',
+    'maturity',
+    'disease',
+    'pest'
+  ];
 
   @override
   void initState() {
@@ -71,23 +87,56 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   }
 
   Future<void> _takePicture() async {
+    if (_isCapturing) return;
+
+    if (_isBurstMode && _selectedBurstLabel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a label for continuous capture'), backgroundColor: Color(0xFFE5A53C)),
+      );
+      return;
+    }
+
+    setState(() => _isCapturing = true);
+
     try {
       await _initializeControllerFuture;
-      final image = await _controller.takePicture();
-      if (!mounted) return;
+      
+      if (_isBurstMode) {
+        setState(() => _showFlash = true);
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) setState(() => _showFlash = false);
+        });
+      }
 
+      final image = await _controller.takePicture();
       final metadata = await MetadataService().captureMetadata();
 
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => PreviewScreen(
-            imagePath: image.path,
-            teamId: widget.teamId,
-            competitionId: widget.competitionId,
-            capturedMetadata: metadata,
+      if (_isBurstMode) {
+        ref.read(uploadServiceProvider).uploadOrQueue(
+              filePath: image.path,
+              teamId: widget.teamId,
+              label: _selectedBurstLabel!,
+              metadata: metadata,
+            ).catchError((e) {
+              // Ignore queue exceptions silently for burst flow
+            });
+
+        if (mounted) {
+          setState(() => _burstCount++);
+        }
+      } else {
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PreviewScreen(
+              imagePath: image.path,
+              teamId: widget.teamId,
+              competitionId: widget.competitionId,
+              capturedMetadata: metadata,
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (e) {
       debugPrint('Capture error: $e');
       if (mounted) {
@@ -95,6 +144,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
           SnackBar(content: Text('Capture failed: $e'), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isCapturing = false);
     }
   }
 
@@ -206,7 +257,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         height: double.infinity,
-                        child: CameraPreview(_controller),
+                        child: Stack(
+                          children: [
+                            SizedBox.expand(child: CameraPreview(_controller)),
+                            if (_showFlash)
+                              Container(
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -244,8 +303,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
                       decoration: BoxDecoration(
@@ -255,6 +315,46 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
                       child: IconButton(
                         icon: const Icon(Icons.close_rounded, color: Colors.white),
                         onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    // Burst mode toggle
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _isBurstMode ? const Color(0xFF5F75EE) : Colors.white38,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.burst_mode_rounded,
+                            color: _isBurstMode ? const Color(0xFF5F75EE) : Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Continuous',
+                            style: TextStyle(
+                              color: _isBurstMode ? const Color(0xFF5F75EE) : Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: _isBurstMode,
+                            onChanged: (val) {
+                              setState(() {
+                                _isBurstMode = val;
+                                if (!val) _burstCount = 0;
+                              });
+                            },
+                            activeColor: const Color(0xFF5F75EE),
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -302,6 +402,44 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
             ),
           ),
 
+          // Burst Mode count indicator
+          if (_isBurstMode && _burstCount > 0)
+            Positioned(
+              top: 160,
+              right: 16,
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey(_burstCount),
+                tween: Tween(begin: 0.5, end: 1.0),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.elasticOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF5F75EE).withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFF5F75EE).withOpacity(0.5), blurRadius: 10)
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.photo_library_rounded, size: 16, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$_burstCount captured',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
           // Camera Controls Bottom Bar
           Positioned(
             bottom: 0,
@@ -320,40 +458,88 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
                   ],
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  GestureDetector(
-                    onTap: _takePicture,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.9, end: 1.0),
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.elasticOut,
-                      builder: (context, value, child) {
-                        return Transform.scale(
-                          scale: value,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                              color: Colors.transparent,
+                  // Label selection for Burst Mode
+                  if (_isBurstMode) ...[
+                    SizedBox(
+                      height: 48,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _availableLabels.length,
+                        itemBuilder: (context, index) {
+                          final label = _availableLabels[index];
+                          final isSelected = _selectedBurstLabel == label;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: ChoiceChip(
+                              label: Text(label.toUpperCase()),
+                              selected: isSelected,
+                              selectedColor: const Color(0xFF5F75EE),
+                              backgroundColor: Colors.black54,
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : Colors.white70,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 12,
+                              ),
+                              showCheckmark: false,
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedBurstLabel = selected ? label : null;
+                                });
+                              },
                             ),
-                            child: Center(
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: _takePicture,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.9, end: 1.0),
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
                               child: Container(
-                                width: 64,
-                                height: 64,
-                                decoration: const BoxDecoration(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.white,
+                                  border: Border.all(
+                                    color: _isBurstMode ? const Color(0xFF5F75EE) : Colors.white, 
+                                    width: 4
+                                  ),
+                                  color: Colors.transparent,
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 64,
+                                    height: 64,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _isBurstMode ? const Color(0xFF5F75EE) : Colors.white,
+                                    ),
+                                    child: _isCapturing
+                                        ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                        : null,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
