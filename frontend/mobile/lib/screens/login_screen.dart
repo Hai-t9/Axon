@@ -75,95 +75,157 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Axon')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.agriculture, size: 64, color: Color(0xFF5F75EE)),
-              const SizedBox(height: 8),
-              Text(
-                'Axon',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF5F75EE),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1C1C28), Color(0xFF252536)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutQuint,
+                builder: (context, value, child) {
+                  return Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(0, 30 * (1 - value)),
+                      child: child,
                     ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Field Data Collection',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white60,
+                  );
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Hero(
+                      tag: 'app_logo',
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF5F75EE).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF5F75EE).withOpacity(0.3), width: 2),
+                        ),
+                        child: const Icon(Icons.grass_rounded, size: 40, color: Color(0xFF5F75EE)),
+                      ),
                     ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Axon',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Field Data Collection',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.white60,
+                            letterSpacing: 0.5,
+                          ),
+                    ),
+                    const SizedBox(height: 48),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      child: Column(
+                        children: [
+                          if (_isSignup)
+                            TextField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Full Name',
+                                prefixIcon: Icon(Icons.person_outline, color: Colors.white60),
+                              ),
+                            ),
+                          if (_isSignup) const SizedBox(height: 16),
+                          TextField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email Address',
+                              prefixIcon: Icon(Icons.email_outlined, color: Colors.white60),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _passwordController,
+                            decoration: const InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: Icon(Icons.lock_outline, color: Colors.white60),
+                            ),
+                            obscureText: true,
+                          ),
+                          if (_isSignup) const SizedBox(height: 16),
+                          if (_isSignup)
+                            TextField(
+                              controller: _phoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Phone Number',
+                                prefixIcon: Icon(Icons.phone_outlined, color: Colors.white60),
+                              ),
+                              keyboardType: TextInputType.phone,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    ElevatedButton(
+                      onPressed: authState.isLoading ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                      ),
+                      child: authState.isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              _isSignup ? 'Create Account' : 'Sign In',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                    ),
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () => setState(() => _isSignup = !_isSignup),
+                      child: RichText(
+                        text: TextSpan(
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white60),
+                          children: [
+                            TextSpan(
+                              text: _isSignup ? 'Already have an account? ' : "Don't have an account? ",
+                            ),
+                            TextSpan(
+                              text: _isSignup ? 'Sign In' : 'Sign Up',
+                              style: const TextStyle(
+                                color: Color(0xFF5F75EE),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 32),
-              if (_isSignup)
-                TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              if (_isSignup) const SizedBox(height: 12),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock),
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-              ),
-              if (_isSignup) const SizedBox(height: 12),
-              if (_isSignup)
-                TextField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone',
-                    prefixIcon: Icon(Icons.phone),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.phone,
-                ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: authState.isLoading ? null : _submit,
-                  child: authState.isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(_isSignup ? 'Sign Up' : 'Sign In'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => setState(() => _isSignup = !_isSignup),
-                child: Text(
-                  _isSignup
-                      ? 'Already have an account? Sign In'
-                      : "Don't have an account? Sign Up",
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
