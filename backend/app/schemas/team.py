@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -7,19 +8,19 @@ from .user import UserResponse
 
 class TeamCreate(BaseModel):
     name: str
-    user_ids: Optional[List[int]] = None
+    user_ids: Optional[List[UUID | str]] = None
 
 
 class TeamUpdate(BaseModel):
     name: Optional[str] = None
-    user_ids: Optional[List[int]] = None
+    user_ids: Optional[List[UUID | str]] = None
 
 
 class TeamResponse(BaseModel):
-    id: int
+    id: UUID | str
     name: str
-    comp_id: int
-    user_ids: Optional[List[int]] = None
+    comp_id: UUID | str
+    user_ids: Optional[List[UUID | str]] = None
 
     class Config:
         from_attributes = True
@@ -33,7 +34,7 @@ class TeamListResponse(BaseModel):
 
 
 class TeamMemberAddRequest(BaseModel):
-    user_id: int
+    user_id: UUID | str
 
 
 class TeamMembersResponse(BaseModel):

@@ -14,18 +14,24 @@ class CompetitionCreateController extends AsyncNotifier<Competition?> {
     return null;
   }
 
-  Future<void> createCompetition({
+  Future<Competition?> createCompetition({
     required String name,
     String? description,
     DateTime? launchDate,
   }) async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard<Competition?>(() async {
-      return ref.read(competitionRepositoryProvider).createCompetition(
-            name: name,
-            description: description,
-            launchDate: launchDate,
-          );
-    });
+    try {
+      final competition =
+          await ref.read(competitionRepositoryProvider).createCompetition(
+                name: name,
+                description: description,
+                launchDate: launchDate,
+              );
+      state = AsyncData(competition);
+      return competition;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
   }
 }

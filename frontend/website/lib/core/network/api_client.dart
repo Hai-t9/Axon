@@ -69,6 +69,45 @@ class ApiClient {
     throw const ApiException(500, 'Unexpected response format');
   }
 
+  Future<Map<String, dynamic>> putJson(
+    String path,
+    Map<String, dynamic> body, {
+    Map<String, String>? headers,
+  }) async {
+    final uri = Uri.parse(_normalize(baseUrl, path));
+    final response = await _client.put(
+      uri,
+      headers: _mergeHeaders(headers),
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(response.statusCode, _parseError(response.body));
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    throw const ApiException(500, 'Unexpected response format');
+  }
+
+  Future<void> delete(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
+    final uri = Uri.parse(_normalize(baseUrl, path));
+    final response = await _client.delete(
+      uri,
+      headers: headers,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(response.statusCode, _parseError(response.body));
+    }
+  }
+
   String _normalize(String base, String path) {
     final baseTrimmed = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
     final pathTrimmed = path.startsWith('/') ? path : '/$path';

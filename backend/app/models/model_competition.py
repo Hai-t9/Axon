@@ -25,7 +25,7 @@ class Competition(Base):
         back_populates="competition",
         uselist=False,
         cascade="all, delete-orphan",
-        foreign_keys=[Config.competition_id],
+        lazy="noload",
     )
     teams = relationship(
         "Team", back_populates="competition", cascade="all, delete-orphan"

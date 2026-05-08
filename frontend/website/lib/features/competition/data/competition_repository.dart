@@ -28,7 +28,7 @@ class CompetitionRepository {
     return CompetitionList.fromJson(response);
   }
 
-  Future<Competition> getCompetition(int competitionId) async {
+  Future<Competition> getCompetition(String competitionId) async {
     final response = await _apiClient.getJson(
       '/competitions/$competitionId',
       headers: _authHeaders(),
@@ -53,6 +53,34 @@ class CompetitionRepository {
       headers: _authHeaders(),
     );
     return Competition.fromJson(response);
+  }
+
+  Future<Competition> updateCompetition({
+    required String competitionId,
+    String? name,
+    String? description,
+    DateTime? launchDate,
+    String? invitationLink,
+  }) async {
+    final payload = <String, dynamic>{
+      if (name != null) 'name': name.trim(),
+      if (description != null) 'description': description.trim(),
+      if (launchDate != null) 'launch_date': _formatDate(launchDate),
+      if (invitationLink != null) 'invitation_link': invitationLink.trim(),
+    };
+    final response = await _apiClient.putJson(
+      '/competitions/$competitionId',
+      payload,
+      headers: _authHeaders(),
+    );
+    return Competition.fromJson(response);
+  }
+
+  Future<void> deleteCompetition(String competitionId) async {
+    await _apiClient.delete(
+      '/competitions/$competitionId',
+      headers: _authHeaders(),
+    );
   }
 
   Future<Competition?> findByInvitationLink(String link) async {

@@ -1,5 +1,6 @@
 from datetime import date
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -46,7 +47,7 @@ class CompetitionConfigBase(BaseModel):
 
 class CompetitionConfigResponse(CompetitionConfigBase):
     id: int
-    competition_id: int
+    competition_id: UUID | str
 
     class Config:
         from_attributes = True
@@ -67,7 +68,7 @@ class CompetitionUpdate(BaseModel):
 
 
 class CompetitionResponse(BaseModel):
-    id: int
+    id: UUID | str
     name: str
     description: Optional[str] = None
     launch_date: Optional[date] = None

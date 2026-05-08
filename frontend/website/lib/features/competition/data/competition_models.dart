@@ -14,8 +14,8 @@ class CompetitionConfig {
     this.maxValidations,
   });
 
-  final int id;
-  final int competitionId;
+  final String id;
+  final String competitionId;
   final Map<String, dynamic>? labels;
   final String? dataExample;
   final String? scoringExample;
@@ -29,8 +29,8 @@ class CompetitionConfig {
 
   factory CompetitionConfig.fromJson(Map<String, dynamic> json) {
     return CompetitionConfig(
-      id: json['id'] as int,
-      competitionId: json['competition_id'] as int,
+      id: json['id'].toString(),
+      competitionId: json['competition_id'].toString(),
       labels: json['labels'] as Map<String, dynamic>?,
       dataExample: json['data_ex'] as String?,
       scoringExample: json['scoring_ex'] as String?,
@@ -55,7 +55,7 @@ class Competition {
     this.config,
   });
 
-  final int id;
+  final String id;
   final String name;
   final String? description;
   final DateTime? launchDate;
@@ -64,7 +64,7 @@ class Competition {
 
   factory Competition.fromJson(Map<String, dynamic> json) {
     return Competition(
-      id: json['id'] as int,
+      id: json['id'].toString(),
       name: json['name'] as String,
       description: json['description'] as String?,
       launchDate: _parseDate(json['launch_date']),

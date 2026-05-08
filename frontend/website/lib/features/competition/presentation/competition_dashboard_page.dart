@@ -8,6 +8,7 @@ import '../../../widgets/layout/axon_scaffold.dart';
 import '../../../widgets/layout/page_header.dart';
 import '../state/competition_details_controller.dart';
 import '../../home/presentation/home_page.dart';
+import 'competition_settings_page.dart';
 
 class CompetitionDashboardPage extends ConsumerWidget {
   const CompetitionDashboardPage({super.key, required this.competitionId});
@@ -15,9 +16,9 @@ class CompetitionDashboardPage extends ConsumerWidget {
   static const routeName = 'competition-dashboard';
   static const routePath = '/competitions/:id';
 
-  final int competitionId;
+  final String competitionId;
 
-  static String routeForId(int id) => '/competitions/$id';
+  static String routeForId(String id) => '/competitions/$id';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,9 +30,23 @@ class CompetitionDashboardPage extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              PageHeader(
-                title: competition.name,
-                subtitle: 'Competition dashboard',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: PageHeader(
+                      title: competition.name,
+                      subtitle: 'Competition dashboard',
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go(
+                      CompetitionSettingsPage.routeForId(competition.id),
+                    ),
+                    icon: const Icon(Icons.settings),
+                    label: const Text('Manage'),
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.lg),
               Card(
