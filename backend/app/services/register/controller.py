@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.database import SessionLocal
 from app.core.exceptions import AuthenticationError, ValidationError
-from app.schemas.user import AuthResponse, LoginRequest, SignupRequest
+from app.schemas.user import AuthResponse, LoginRequest, SignupRequest, UserResponse
+from app.services.auth.repository import AuthRepository
+from app.services.auth.service import AuthService
 
 from .repository import RegisterRepository
 from .service import RegisterService
@@ -42,6 +45,28 @@ async def login(
     try:
         result = service.login(payload)
         return result
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_me(
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(
+        lambda db: AuthService(AuthRepository(db))
+    ),
+):
+    try:
+        from app.core.auth import extract_bearer_token
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        return UserResponse(
+            id=user.id,
+            email=user.email,
+            fullname=user.fullname,
+            phone=user.phone,
+            created_at=user.created_at,
+        )
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
 

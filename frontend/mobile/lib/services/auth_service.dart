@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user_model.dart';
 import 'api_client.dart';
 
 class AuthState {
   final bool isAuthenticated;
+  final bool isSignupSuccess;
   final String? token;
   final UserModel? user;
   final bool isLoading;
@@ -12,6 +14,7 @@ class AuthState {
 
   const AuthState({
     this.isAuthenticated = false,
+    this.isSignupSuccess = false,
     this.token,
     this.user,
     this.isLoading = false,
@@ -20,6 +23,7 @@ class AuthState {
 
   AuthState copyWith({
     bool? isAuthenticated,
+    bool? isSignupSuccess,
     String? token,
     UserModel? user,
     bool? isLoading,
@@ -27,6 +31,7 @@ class AuthState {
   }) {
     return AuthState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      isSignupSuccess: isSignupSuccess ?? this.isSignupSuccess,
       token: token ?? this.token,
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
@@ -53,6 +58,8 @@ class AuthNotifier extends Notifier<AuthState> {
       final token = data['access_token'] as String;
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
       ref.read(authTokenProvider.notifier).setToken(token);
+      final box = await Hive.openBox('auth');
+      await box.put('access_token', token);
       state = AuthState(
         isAuthenticated: true,
         token: token,
@@ -92,8 +99,10 @@ class AuthNotifier extends Notifier<AuthState> {
       final token = data['access_token'] as String;
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
       ref.read(authTokenProvider.notifier).setToken(token);
+      final box = await Hive.openBox('auth');
+      await box.put('access_token', token);
       state = AuthState(
-        isAuthenticated: true,
+        isSignupSuccess: true,
         token: token,
         user: user,
       );
@@ -105,13 +114,28 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  void logout() {
+  void logout() async {
     ref.read(authTokenProvider.notifier).setToken(null);
+    final box = await Hive.openBox('auth');
+    await box.delete('access_token');
     state = AuthState.initial();
+  }
+
+  void restoreSession(String token, UserModel user) {
+    ref.read(authTokenProvider.notifier).setToken(token);
+    state = AuthState(
+      isAuthenticated: true,
+      token: token,
+      user: user,
+    );
   }
 
   void clearError() {
     state = state.copyWith(error: null);
+  }
+
+  void clearSignupSuccess() {
+    state = state.copyWith(isSignupSuccess: false);
   }
 }
 

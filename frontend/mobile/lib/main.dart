@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:camera/camera.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -105,7 +105,7 @@ class AxonApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

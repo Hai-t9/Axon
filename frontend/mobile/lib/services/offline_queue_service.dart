@@ -120,3 +120,14 @@ class OfflineQueueNotifier extends Notifier<List<QueuedUpload>> {
 final offlineQueueProvider =
     NotifierProvider<OfflineQueueNotifier, List<QueuedUpload>>(
         OfflineQueueNotifier.new);
+
+final connectivityProvider = StreamProvider<bool>((ref) {
+  return Connectivity().onConnectivityChanged.map((results) {
+    return !results.contains(ConnectivityResult.none);
+  });
+});
+
+final isOnlineProvider = FutureProvider<bool>((ref) async {
+  final results = await Connectivity().checkConnectivity();
+  return !results.contains(ConnectivityResult.none);
+});
