@@ -48,9 +48,9 @@ class MinioStorageService:
                 self.minio_available = False # Mark unavailable for future requests
 
         # Fallback to local storage if MinIO is unavailable
-        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-        os.makedirs(upload_dir, exist_ok=True)
-        local_path = os.path.join(upload_dir, os.path.basename(object_name))
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        local_path = os.path.join(backend_dir, object_name)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
         with open(local_path, "wb") as f:
             f.write(file_content)
         return object_name
@@ -64,8 +64,8 @@ class MinioStorageService:
                 self.minio_available = False
 
         # Fallback local retrieval
-        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-        local_path = os.path.join(upload_dir, os.path.basename(object_name))
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        local_path = os.path.join(backend_dir, object_name)
         try:
             with open(local_path, "rb") as f:
                 return f.read()

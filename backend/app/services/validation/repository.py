@@ -83,7 +83,7 @@ class ValidationRepository:
         threshold_subquery = self._build_threshold_label_subquery(threshold)
 
         rows = (
-            self.db.query(Image.id, Image.filepath)
+            self.db.query(Image.id, Image.filepath, Label.label)
             .join(Label, Label.image_id == Image.id)
             .filter(
                 Image.team_id == team_id,
@@ -96,7 +96,7 @@ class ValidationRepository:
             .all()
         )
 
-        return [{"id": row.id, "filepath": row.filepath} for row in rows]
+        return [{"id": row.id, "filepath": row.filepath, "current_label": row.label} for row in rows]
 
     def find_batch_from_other_teams(
         self,
@@ -110,7 +110,7 @@ class ValidationRepository:
         threshold_subquery = self._build_threshold_label_subquery(threshold)
 
         rows = (
-            self.db.query(Image.id, Image.filepath)
+            self.db.query(Image.id, Image.filepath, Label.label)
             .join(Label, Label.image_id == Image.id)
             .join(Team, Team.id == Image.team_id)
             .filter(
@@ -125,7 +125,7 @@ class ValidationRepository:
             .all()
         )
 
-        return [{"id": row.id, "filepath": row.filepath} for row in rows]
+        return [{"id": row.id, "filepath": row.filepath, "current_label": row.label} for row in rows]
 
     def insert_vote(self, image_id: int, validator_id: int, label: str) -> LabelValidation | None:
         label_entry = self.db.query(Label).filter(Label.image_id == image_id).first()

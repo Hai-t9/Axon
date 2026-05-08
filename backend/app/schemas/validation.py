@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class ValidationImage(BaseModel):
     id: int
     filepath: str
+    current_label: str | None = None
 
 
 class ValidationPendingImage(ValidationImage):

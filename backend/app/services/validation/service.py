@@ -27,7 +27,7 @@ class ValidationService:
 
         threshold = self.repository.find_validation_threshold(comp_id)
         if not threshold:
-            threshold = 5
+            threshold = 1
 
         counts = self.repository.count_participant_validations(comp_id, participant_id, team.id)
         count60, count40 = self._compute_batch_counts(counts["ownCount"], counts["otherCount"])
@@ -50,7 +50,7 @@ class ValidationService:
             self.label_service.get_competition_id(image_id)
         )
         if not threshold:
-            threshold = 5
+            threshold = 1
 
         vote_count = self.repository.count_votes_for_image(image_id)
         if vote_count >= threshold:

@@ -73,12 +73,11 @@ async def submit_model(
         token = extract_bearer_token(authorization)
         user = auth_service.get_current_user(token)
 
-        # Check if user is in the team
+        # Only team members can submit models
         from app.models import Team
         team = db.query(Team).filter(Team.id == team_id).first()
         if not team or user.id not in (team.user_ids or []):
-            # Also allow host to submit for any team? No, only team members.
-            raise AuthorizationError("User is not a member of this team")
+            raise AuthorizationError("Only team members can submit models")
 
         service = ModelSubmissionService(ModelSubmissionRepository(db))
         model = await service.submit_model(
@@ -143,7 +142,7 @@ async def list_competition_models(
 ):
     try:
         token = extract_bearer_token(authorization)
-        auth_service.require_roles(token, comp_id, {RoleType.host, RoleType.staff})
+        auth_service.get_current_user(token)  # Any authenticated user can view models
 
         service = ModelSubmissionService(ModelSubmissionRepository(db))
         items = service.list_by_competition(comp_id)

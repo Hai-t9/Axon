@@ -211,4 +211,50 @@ class CleanerService:
         return True
 
     async def optimize_storage(self):
-        return {"freed_mb": 15.5, "files_removed": 5}
+        """
+        Scan for orphaned files (temp uploads, leftover eval dirs, etc.)
+        and report actual space that was freed during the cleaning pipeline.
+        """
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        files_removed = 0
+        freed_bytes = 0
+
+        # 1. Clean up temp evaluation directories
+        import tempfile
+        import glob
+        temp_dir = tempfile.gettempdir()
+        for d in glob.glob(os.path.join(temp_dir, "axon_eval_*")):
+            try:
+                import shutil
+                dir_size = sum(
+                    os.path.getsize(os.path.join(dp, f))
+                    for dp, dn, fns in os.walk(d)
+                    for f in fns
+                )
+                shutil.rmtree(d)
+                freed_bytes += dir_size
+                files_removed += 1
+            except Exception:
+                pass
+
+        # 2. Clean orphaned upload files that aren't referenced in DB
+        uploads_dir = os.path.join(backend_dir, "uploads")
+        if os.path.exists(uploads_dir):
+            db_filepaths = set()
+            all_images = self.repository.db.query(Image).all()
+            for img in all_images:
+                db_filepaths.add(os.path.basename(img.filepath))
+
+            for f in os.listdir(uploads_dir):
+                fpath = os.path.join(uploads_dir, f)
+                if os.path.isfile(fpath) and f not in db_filepaths:
+                    try:
+                        fsize = os.path.getsize(fpath)
+                        os.remove(fpath)
+                        freed_bytes += fsize
+                        files_removed += 1
+                    except Exception:
+                        pass
+
+        freed_mb = round(freed_bytes / (1024 * 1024), 2) + self.freed_space_mb
+        return {"freed_mb": round(freed_mb, 2), "files_removed": files_removed + self.resized_count}

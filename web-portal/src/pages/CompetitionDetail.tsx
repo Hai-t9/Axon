@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ArrowLeft, Activity, Users, Image as ImageIcon, Upload, Play, Download } from 'lucide-react';
+import { ArrowLeft, Activity, Users, Image as ImageIcon, Upload, Play, Download, Settings, ChevronRight, AlertTriangle } from 'lucide-react';
 
 export default function CompetitionDetail() {
   const { id } = useParams();
@@ -14,6 +14,12 @@ export default function CompetitionDetail() {
   const [role, setRole] = useState<string>('none');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Evaluation modal state
+  const [evalModalModelId, setEvalModalModelId] = useState<number | null>(null);
+  const [evalProtocol, setEvalProtocol] = useState('standard');
+  const [evaluating, setEvaluating] = useState(false);
+  const [evalResult, setEvalResult] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   
   // Cleaner state
@@ -30,6 +36,14 @@ export default function CompetitionDetail() {
   const [showAddMember, setShowAddMember] = useState<number | null>(null); // team_id or null
   const [unassigned, setUnassigned] = useState<any[]>([]);
   const [teamActionLoading, setTeamActionLoading] = useState(false);
+
+  // Phase confirmation
+  const [showPhaseConfirm, setShowPhaseConfirm] = useState(false);
+  // Settings tab
+  const [showSettings, setShowSettings] = useState(false);
+  const [configLabels, setConfigLabels] = useState('');
+  const [configThreshold, setConfigThreshold] = useState('1');
+  const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -181,27 +195,73 @@ export default function CompetitionDetail() {
     }
   };
 
+  const PHASE_ORDER = ['creation', 'active', 'evaluation', 'completed'];
+  const PHASE_WARNINGS: Record<string, string> = {
+    'creation': 'Moving to Active phase will allow teams to start uploading images via the mobile app.',
+    'active': 'Moving to Evaluation phase will lock image uploads and enable model submissions.',
+    'evaluation': 'Moving to Completed will finalize the competition. No more submissions allowed.',
+  };
+
   const advancePhase = async () => {
     const token = localStorage.getItem('token');
     await fetch(`http://localhost:8000/api/v1/competitions/${id}/phase/advance`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    setShowPhaseConfirm(false);
     fetchData();
+  };
+
+  const saveConfig = async () => {
+    setSavingConfig(true);
+    const token = localStorage.getItem('token');
+    try {
+      const labelsArr = configLabels.split(',').map(l => l.trim()).filter(Boolean);
+      await fetch(`http://localhost:8000/api/v1/competitions/${id}/config`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels: labelsArr, max_validations: parseInt(configThreshold) || 1 })
+      });
+      alert('Configuration saved!');
+      fetchData();
+    } catch (e) {
+      alert('Failed to save config');
+    } finally {
+      setSavingConfig(false);
+    }
   };
 
   const uploadModel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
+    // Determine which team to submit for
+    let teamId: number | null = null;
+    if (teams.length === 1) {
+      teamId = teams[0].id;
+    } else if (teams.length > 1) {
+      const teamNames = teams.map((t: any, i: number) => `${i + 1}. ${t.name} (ID: ${t.id})`).join('\n');
+      const choice = prompt(`Select a team to submit for:\n${teamNames}\n\nEnter the team ID:`);
+      if (!choice) { e.target.value = ''; return; }
+      teamId = parseInt(choice);
+      if (!teams.find((t: any) => t.id === teamId)) {
+        alert('Invalid team ID');
+        e.target.value = '';
+        return;
+      }
+    } else {
+      alert('No teams available to submit for');
+      e.target.value = '';
+      return;
+    }
+
     setUploading(true);
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      // Assuming team ID 1 for testing
-      const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/teams/1/models`, {
+      const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/teams/${teamId}/models`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -218,11 +278,14 @@ export default function CompetitionDetail() {
       alert('Upload error');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
-  const evaluateModel = async (modelId: number) => {
+  const evaluateModel = async (modelId: number, protocol: string) => {
     const token = localStorage.getItem('token');
+    setEvaluating(true);
+    setEvalResult('');
     try {
       const res = await fetch(`http://localhost:8000/api/v1/models/${modelId}/evaluate`, {
         method: 'POST',
@@ -230,17 +293,25 @@ export default function CompetitionDetail() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ protocol: 'standard', folds: 5 })
+        body: JSON.stringify({ protocol, folds: 5 })
       });
+      const data = await res.json();
       if (res.ok) {
-        alert('Evaluation scheduled!');
+        setEvalResult(`✅ ${data.message}`);
         fetchData();
       } else {
-        alert('Evaluation failed: ' + await res.text());
+        setEvalResult(`❌ ${data.detail || 'Evaluation failed'}`);
       }
     } catch (err) {
-      alert('Evaluation error');
+      setEvalResult('❌ Evaluation error — is Docker running?');
+    } finally {
+      setEvaluating(false);
     }
+  };
+
+  const exportTeamDataset = (teamId: number) => {
+    const token = localStorage.getItem('token');
+    window.open(`http://localhost:8000/api/v1/teams/${teamId}/dataset/export?token=${token}`, '_blank');
   };
 
   if (loading) return <div style={{ padding: '40px', color: 'white' }}>Loading...</div>;
@@ -262,39 +333,18 @@ export default function CompetitionDetail() {
         >
           <ArrowLeft size={20} /> Back
         </button>
-        <div style={{ display: 'flex', gap: '20px' }}>
-          <button 
-            className={activeTab === 'dashboard' ? 'btn-primary' : 'btn-secondary'}
-            onClick={() => setActiveTab('dashboard')}
-            style={{ padding: '8px 16px' }}
-          >
-            Dashboard
-          </button>
-          <button 
-            className={activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}
-            onClick={() => setActiveTab('teams')}
-            style={{ padding: '8px 16px' }}
-          >
-            Teams
-          </button>
-          {role === 'host' && (
-            <button 
-              className={activeTab === 'cleaner' ? 'btn-primary' : 'btn-secondary'}
-              onClick={() => setActiveTab('cleaner')}
-              style={{ padding: '8px 16px' }}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {['dashboard', 'teams', ...(role === 'host' ? ['cleaner'] : []), 'models', ...(role === 'host' ? ['settings'] : [])].map(tab => (
+            <button
+              key={tab}
+              className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab)}
             >
-              Dataset Cleaner
+              {tab === 'dashboard' ? 'Dashboard' : tab === 'teams' ? 'Teams' : tab === 'cleaner' ? 'Cleaner' : tab === 'models' ? 'Models & Eval' : 'Settings'}
             </button>
-          )}
-          <button 
-            className={activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}
-            onClick={() => setActiveTab('models')}
-            style={{ padding: '8px 16px' }}
-          >
-            Models & Evaluation
-          </button>
+          ))}
         </div>
-        <div style={{ width: 100 }}></div>
+        <div style={{ width: 80 }}></div>
       </header>
 
       <div className="dashboard-container">
@@ -309,9 +359,9 @@ export default function CompetitionDetail() {
                     <h2 style={{ margin: 0, textTransform: 'capitalize' }}>{dashboard.phase_info?.current_phase || 'Setup'}</h2>
                   </div>
                 </div>
-                {role === 'host' && dashboard.phase_info?.current_phase !== 'evaluation' && (
-                  <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={advancePhase}>
-                    Advance Phase
+                {role === 'host' && dashboard.phase_info?.current_phase !== 'completed' && (
+                  <button className="btn-outline" style={{ padding: '6px 14px', fontSize: '12px', width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }} onClick={() => setShowPhaseConfirm(true)}>
+                    <ChevronRight size={14} /> Advance
                   </button>
                 )}
               </div>
@@ -486,16 +536,21 @@ export default function CompetitionDetail() {
                         <h3 style={{ margin: 0, fontSize: '18px' }}>{t.name}</h3>
                         <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Team ID: {t.id} • {t.members?.length || 0} member(s)</span>
                       </div>
-                      {role === 'host' && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={() => fetchUnassigned(t.id)}>
-                            + Add Member
-                          </button>
-                          <button style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', cursor: 'pointer' }} onClick={() => deleteTeam(t.id)}>
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }} onClick={() => exportTeamDataset(t.id)}>
+                          <Download size={14} /> Export Dataset
+                        </button>
+                        {role === 'host' && (
+                          <>
+                            <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={() => fetchUnassigned(t.id)}>
+                              + Add Member
+                            </button>
+                            <button className="btn-danger" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={() => deleteTeam(t.id)}>
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                     {/* Members list */}
                     {t.members && t.members.length > 0 ? (
@@ -553,7 +608,71 @@ export default function CompetitionDetail() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'settings' ? (
+          <div className="glass-panel" style={{ minHeight: '400px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+              <Settings size={24} color="var(--primary)" />
+              <h2 style={{ margin: 0 }}>Competition Settings</h2>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+              <div>
+                <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Label Configuration</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '12px' }}>Comma-separated list of valid labels for image classification.</p>
+                <label>Available Labels</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g., Healthy, Blight, Rust, Weed"
+                  value={configLabels || (dashboard?.configuration?.labels || []).join(', ')}
+                  onChange={(e) => setConfigLabels(e.target.value)}
+                />
+              </div>
+              <div>
+                <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Validation Threshold</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '12px' }}>How many votes are needed before an image is marked as verified.</p>
+                <label>Max Validations</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  min="1"
+                  max="10"
+                  value={configThreshold || dashboard?.configuration?.max_validations || '1'}
+                  onChange={(e) => setConfigThreshold(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button className="btn-accent" style={{ width: 'auto', padding: '10px 24px' }} onClick={saveConfig} disabled={savingConfig}>
+                {savingConfig ? 'Saving...' : 'Save Configuration'}
+              </button>
+            </div>
+
+            <div style={{ marginTop: '40px', padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <h3 style={{ marginBottom: '12px', fontSize: '16px' }}>Current Configuration</h3>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '4px', textTransform: 'uppercase' }}>Labels</div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {(dashboard?.configuration?.labels || []).map((l: string) => (
+                      <span key={l} className="badge badge-primary">{l}</span>
+                    ))}
+                    {(dashboard?.configuration?.labels || []).length === 0 && <span style={{ color: 'var(--text-muted)' }}>Not configured</span>}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '4px', textTransform: 'uppercase' }}>Validation Threshold</div>
+                  <span className="badge badge-accent">{dashboard?.configuration?.max_validations || 1} vote(s)</span>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '4px', textTransform: 'uppercase' }}>Phase</div>
+                  <span className="badge badge-warning" style={{ textTransform: 'capitalize' }}>{dashboard?.phase_info?.current_phase || 'creation'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'models' ? (
           <div className="glass-panel" style={{ minHeight: '400px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
               <h2>Model Submissions</h2>
@@ -623,18 +742,9 @@ export default function CompetitionDetail() {
                       {role === 'host' && (
                         <td style={{ padding: '16px 8px' }}>
                           <button 
-                            onClick={() => evaluateModel(m.id)}
-                            style={{ 
-                              background: 'transparent', 
-                              border: '1px solid var(--primary)', 
-                              color: 'var(--primary)', 
-                              padding: '6px 12px', 
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}
+                            className="btn-outline"
+                            onClick={() => { setEvalModalModelId(m.id); setEvalProtocol('standard'); setEvalResult(''); }}
+                            style={{ padding: '6px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           >
                             <Play size={14} /> Evaluate
                           </button>
@@ -646,13 +756,40 @@ export default function CompetitionDetail() {
               </table>
             )}
           </div>
-        )}
+        ) : null}
       </div>
+
+      {/* Phase Advance Confirmation */}
+      {showPhaseConfirm && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '460px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <AlertTriangle size={24} color="var(--warning)" />
+              <h3 style={{ margin: 0 }}>Advance Phase</h3>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+              <span className="badge badge-primary" style={{ textTransform: 'capitalize' }}>{dashboard?.phase_info?.current_phase}</span>
+              <ChevronRight size={16} color="var(--text-muted)" />
+              <span className="badge badge-accent" style={{ textTransform: 'capitalize' }}>
+                {PHASE_ORDER[PHASE_ORDER.indexOf(dashboard?.phase_info?.current_phase || 'creation') + 1] || 'completed'}
+              </span>
+            </div>
+            <div className="alert alert-warning" style={{ marginBottom: '20px' }}>
+              <AlertTriangle size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+              {PHASE_WARNINGS[dashboard?.phase_info?.current_phase || 'creation'] || 'This action cannot be undone.'}
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn-secondary" onClick={() => setShowPhaseConfirm(false)} style={{ flex: 1 }}>Cancel</button>
+              <button className="btn-accent" onClick={advancePhase} style={{ flex: 1 }}>Confirm Advance</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Team Modal */}
       {showCreateTeam && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '400px' }}>
             <h3 style={{ marginBottom: '24px' }}>Create New Team</h3>
             <div style={{ marginBottom: '24px' }}>
               <label>Team Name</label>
@@ -670,8 +807,8 @@ export default function CompetitionDetail() {
 
       {/* Add Member Modal */}
       {showAddMember !== null && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '450px' }}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px' }}>
             <h3 style={{ marginBottom: '8px' }}>Add Member to Team</h3>
             <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
               Select an unassigned participant to add to this team.
@@ -700,10 +837,49 @@ export default function CompetitionDetail() {
         </div>
       )}
 
+      {/* Evaluation Protocol Modal */}
+      {evalModalModelId !== null && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Run Model Evaluation</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
+              Select an evaluation protocol. The model's Docker container will be executed against the validated dataset.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+              {[
+                { value: 'standard', label: 'Standard (80/20 Split)', desc: 'Random 80% train / 20% test split' },
+                { value: 'loto', label: 'LOTO (Leave-One-Team-Out)', desc: 'Test on submitting team, train on all others' },
+                { value: 'toto', label: 'TOTO (Train-On-One-Team-Only)', desc: 'Train only on submitting team, test on others' },
+              ].map((p) => (
+                <label key={p.value} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px', background: evalProtocol === p.value ? 'rgba(0,196,159,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${evalProtocol === p.value ? '#00C49F' : 'rgba(255,255,255,0.08)'}`, borderRadius: '10px', cursor: 'pointer' }}>
+                  <input type="radio" name="protocol" value={p.value} checked={evalProtocol === p.value} onChange={() => setEvalProtocol(p.value)} style={{ marginTop: '3px' }} />
+                  <div>
+                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{p.label}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{p.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {evalResult && (
+              <div style={{ padding: '14px', borderRadius: '8px', marginBottom: '16px', background: evalResult.startsWith('✅') ? 'rgba(0,196,159,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${evalResult.startsWith('✅') ? '#00C49F' : '#ef4444'}`, fontSize: '14px', whiteSpace: 'pre-wrap' }}>
+                {evalResult}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <button className="btn-secondary" onClick={() => setEvalModalModelId(null)} disabled={evaluating}>Cancel</button>
+              <button className="btn-primary" disabled={evaluating} onClick={() => evaluateModel(evalModalModelId!, evalProtocol)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Play size={16} />
+                {evaluating ? 'Running Docker Container...' : 'Run Evaluation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Invite Token Modal */}
       {showInviteModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px' }}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
             <h3 style={{ marginBottom: '8px' }}>Invitation Token Generated</h3>
             <p style={{ color: 'var(--text-muted)', marginBottom: '16px', fontSize: '14px' }}>
               Share this token with participants. They can paste it in "Join via Invite" on their Dashboard.

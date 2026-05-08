@@ -268,3 +268,72 @@ def export_dataset(
         )
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
+
+
+@router.get("/teams/{team_id}/dataset/export")
+def export_team_dataset(
+    team_id: int,
+    authorization: str = Header(None),
+    token: str = None,
+    db: Session = Depends(get_db),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """Export a single team's dataset as a ZIP containing only their images and labels.csv."""
+    import io, csv, zipfile, os
+    from fastapi.responses import StreamingResponse
+    from app.models import Image, Team, Label
+
+    try:
+        jwt_token = None
+        if authorization:
+            jwt_token = extract_bearer_token(authorization)
+        elif token:
+            jwt_token = token
+        if not jwt_token:
+            raise AuthenticationError("No token provided")
+        user = auth_service.get_current_user(jwt_token)
+
+        # Verify team exists
+        team = db.query(Team).filter(Team.id == team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+        # Verify user is a member of this team or is a host
+        user_ids = team.user_ids or []
+        from app.models import Role, RoleType
+        is_host = db.query(Role).filter(
+            Role.user_id == user.id,
+            Role.competition_id == team.comp_id,
+            Role.role == RoleType.host
+        ).first()
+        if user.id not in [int(uid) for uid in user_ids] and not is_host:
+            raise HTTPException(status_code=403, detail="You can only export your own team's dataset")
+
+        # Get only this team's images
+        images = db.query(Image).filter(Image.team_id == team_id).all()
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            csv_buf = io.StringIO()
+            writer = csv.writer(csv_buf)
+            writer.writerow(['filename', 'label', 'status'])
+
+            for img in images:
+                label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                label_text = label_record.label if label_record else (img.label or 'unlabeled')
+                filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                writer.writerow([filename, label_text, img.status.value if img.status else 'unknown'])
+
+                if img.filepath and os.path.exists(img.filepath):
+                    zf.write(img.filepath, f"images/{filename}")
+
+            zf.writestr("labels.csv", csv_buf.getvalue())
+
+        buf.seek(0)
+        return StreamingResponse(
+            buf,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=team_{team_id}_dataset.zip"}
+        )
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
