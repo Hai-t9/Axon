@@ -119,6 +119,7 @@ def run_docker_evaluation(
     timeout: int = 600,
     memory_limit: str = "4g",
     cpu_limit: str = "2",
+    gpus: Optional[str] = None,
 ) -> dict:
     """
     Builds Docker image from the participant's .zip, runs inference on test images.
@@ -126,6 +127,7 @@ def run_docker_evaluation(
     - Mounts data_dir (test images) to /data:ro
     - Mounts an output dir to /output (container writes predictions.json here)
     - Runs with --network=none for security
+    - If gpus is set, passes --gpus all and CUDA_VISIBLE_DEVICES to the container
     """
     build_dir = tempfile.mkdtemp(prefix="axon_docker_")
     output_dir = tempfile.mkdtemp(prefix="axon_output_")
@@ -142,16 +144,20 @@ def run_docker_evaluation(
             timeout=timeout,
         )
 
+        docker_run = [
+            "docker", "run", "--rm",
+            "-v", f"{data_dir}:/data:ro",
+            "-v", f"{output_dir}:/output",
+            "--memory", memory_limit,
+            "--cpus", cpu_limit,
+            "--network", "none",
+        ]
+        if gpus:
+            docker_run.extend(["--gpus", "all", "-e", f"CUDA_VISIBLE_DEVICES={gpus}"])
+        docker_run.append(image_tag)
+
         result = subprocess.run(
-            [
-                "docker", "run", "--rm",
-                "-v", f"{data_dir}:/data:ro",
-                "-v", f"{output_dir}:/output",
-                "--memory", memory_limit,
-                "--cpus", cpu_limit,
-                "--network", "none",
-                image_tag,
-            ],
+            docker_run,
             capture_output=True,
             timeout=timeout,
         )

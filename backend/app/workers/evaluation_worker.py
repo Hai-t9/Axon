@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 from datetime import datetime
 from uuid import UUID
 
@@ -51,10 +52,20 @@ def run_evaluation_task(self, task_id: str):
 
         try:
             model_zip_path = model.storage_path  # type: ignore[assignment]
+            timeout = int(os.getenv("EVAL_DOCKER_TIMEOUT", "600"))
+            memory_limit = os.getenv("EVAL_DOCKER_MEMORY_LIMIT", "4g")
+            cpu_limit = os.getenv("EVAL_DOCKER_CPU_LIMIT", "2")
+            gpu_enabled = os.getenv("EVAL_GPU_ENABLE", "false").lower() == "true"
+            gpu_device = os.getenv("CUDA_VISIBLE_DEVICES") if gpu_enabled else None
+
             predictions = run_docker_evaluation(
                 model_zip_path=model_zip_path,
                 data_dir=images_dir,
                 task_id=task_id,
+                timeout=timeout,
+                memory_limit=memory_limit,
+                cpu_limit=cpu_limit,
+                gpus=gpu_device,
             )
 
             with open(gt_path, "r") as f:
