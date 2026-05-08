@@ -14,6 +14,8 @@ if ROOT_DIR not in sys.path:
 from app.core.database import Base
 from app.main import app
 from app.models import Evaluation, Model
+from app.models.model_model import ModelFormat
+from uuid import UUID
 from app.services.competition.controller import get_db as competition_get_db
 from app.services.leaderboard.controller import get_db as leaderboard_get_db
 from app.services.phase.controller import get_db as phase_get_db
@@ -59,17 +61,35 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
+def _to_uuid(value) -> UUID:
+    if isinstance(value, UUID):
+        return value
+    return UUID(str(value))
+
+
 def _create_model_and_evaluation(
     db_session,
-    team_id: int,
-    competition_id: int,
+    team_id,
+    competition_id,
     docker_img_filepath: str,
     score: float,
+    submitted_by=None,
 ):
+    team_uuid = _to_uuid(team_id)
+    comp_uuid = _to_uuid(competition_id)
+    submitted_by_uuid = _to_uuid(submitted_by) if submitted_by is not None else None
+
     model = Model(
-        team_id=team_id,
-        competition_id=competition_id,
-        docker_img_filepath=docker_img_filepath,
+        team_id=team_uuid,
+        competition_id=comp_uuid,
+        submitted_by=submitted_by_uuid,
+        filename=os.path.basename(docker_img_filepath),
+        storage_path=docker_img_filepath,
+        model_hash=f"hash_{os.path.basename(docker_img_filepath)}",
+        format=ModelFormat.ONNX,
+        framework_version="1.0",
+        size_mb=1.0,
+        version=1,
     )
     db_session.add(model)
     db_session.commit()
@@ -126,6 +146,7 @@ def test_leaderboard_flow_ranks_best_scores(client, db_session):
         competition_id=competition_id,
         docker_img_filepath="/tmp/team-one-v1.tar",
         score=0.4,
+        submitted_by=host_id,
     )
     _create_model_and_evaluation(
         db_session,
@@ -133,6 +154,7 @@ def test_leaderboard_flow_ranks_best_scores(client, db_session):
         competition_id=competition_id,
         docker_img_filepath="/tmp/team-one-v2.tar",
         score=0.9,
+        submitted_by=host_id,
     )
     _create_model_and_evaluation(
         db_session,
@@ -140,6 +162,7 @@ def test_leaderboard_flow_ranks_best_scores(client, db_session):
         competition_id=competition_id,
         docker_img_filepath="/tmp/team-two-v1.tar",
         score=0.7,
+        submitted_by=host_id,
     )
 
     leaderboard_response = client.get(
