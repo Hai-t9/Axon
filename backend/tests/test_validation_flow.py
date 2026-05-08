@@ -1,7 +1,6 @@
 import os
 import sys
 import random
-from math import floor
 
 import pytest
 from uuid import UUID, uuid4
@@ -91,51 +90,40 @@ def _deterministic_shuffle(image_ids: list[int], participant_id: UUID) -> list[i
 
 
 def _build_expected_validation_assignments(db_session, competition_id: UUID) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
+    """
+    Simulate the Round-Robin assignment algorithm:
+    - Fetch all teams and all images
+    - For each image, assign it threshold times across teams in round-robin fashion
+    - Return the per-team master lists and per-participant shuffled lists
+    """
     from app.services.validation.repository import ValidationRepository
 
     repository = ValidationRepository(db_session)
     config = db_session.query(Config).filter(Config.competition_id == competition_id).first()
     threshold = int(config.max_validations) if config and config.max_validations is not None else 5
 
-    assigned_counts: dict[int, int] = {}
-    team_assignments: dict[str, list[int]] = {}
-    participant_assignments: dict[str, list[int]] = {}
-
     teams = repository.fetch_all_teams(competition_id)
+    images = repository.fetch_all_competition_images(competition_id)
+    
+    if not teams or not images:
+        return {}, {}
+
+    # Round-Robin assignment
+    team_assignments: dict[str, list[int]] = {str(team.id): [] for team in teams}
+    team_index = 0
+    for image_id in images:
+        for _ in range(threshold):
+            team = teams[team_index % len(teams)]
+            team_assignments[str(team.id)].append(image_id)
+            team_index += 1
+
+    # Per-participant assignments (shuffled)
+    participant_assignments: dict[str, list[int]] = {}
     for team in teams:
-        team_own_images = repository.count_team_images(competition_id, team.id)
-        available_own = repository.fetch_available_own_images(
-            competition_id,
-            team.id,
-            assigned_counts,
-            threshold,
-        )
-
-        own_quota = floor(min(team_own_images, available_own) * 0.6)
-        other_quota = floor(own_quota / 0.6 * 0.4) if own_quota > 0 else 0
-
-        own_images = repository.fetch_own_images(
-            competition_id,
-            team.id,
-            own_quota,
-            assigned_counts,
-            threshold,
-        )
-        other_images = repository.fetch_other_images(
-            competition_id,
-            team.id,
-            other_quota,
-            assigned_counts,
-            threshold,
-        )
-
-        master_image_ids = own_images + other_images
-        team_assignments[str(team.id)] = master_image_ids
-
         for raw_participant_id in team.user_ids or []:
             participant_id = UUID(str(raw_participant_id))
             participant_assignments[str(participant_id)] = _deterministic_shuffle(
-                master_image_ids,
+                team_assignments[str(team.id)],
                 participant_id,
             )
 
@@ -366,6 +354,88 @@ def test_validation_assignment_redis_keys_and_ttl(db_session):
         (f"validation:team:{team.id}", 86400),
     ]
     assert repository.get_team_assignments(team.id) == [1, 2, 3]
+
+
+def test_round_robin_assignment(db_session):
+    """Test that Round-Robin assignment distributes images evenly across teams."""
+    competition = Competition(name="Round Robin Test", description="Test")
+    db_session.add(competition)
+    db_session.commit()
+    db_session.refresh(competition)
+
+    # Create 3 teams
+    teams = []
+    for i in range(3):
+        team = Team(
+            name=f"Team {i}",
+            comp_id=competition.id,
+            user_ids=[str(uuid4())],
+        )
+        db_session.add(team)
+        db_session.commit()
+        db_session.refresh(team)
+        teams.append(team)
+
+    # Create 4 images
+    images = []
+    for i in range(4):
+        image = Image(
+            team_id=teams[0].id,
+            author_id=UUID(teams[0].user_ids[0]),
+            filepath=f"/tmp/round-robin-{i}.jpg",
+            image_hash=f"rr-hash-{i}",
+        )
+        db_session.add(image)
+        db_session.commit()
+        db_session.refresh(image)
+        images.append(image)
+        _create_label(db_session, image.id, "test")
+
+    # Create config with threshold
+    config = Config(competition_id=competition.id, max_validations=3)
+    db_session.add(config)
+    db_session.commit()
+
+    # Run assignment
+    from app.services.validation.repository import ValidationRepository
+    from app.services.validation.service import ValidationService
+    from app.services.label.service import LabelService
+    from app.services.label.repository import LabelRepository
+
+    repository = ValidationRepository(db_session)
+    label_service = LabelService(LabelRepository(db_session))
+    service = ValidationService(repository, label_service)
+
+    result = service.generate_assignments(competition.id)
+    assert result == {"success": True}
+
+    # Verify Round-Robin: each image should appear exactly threshold times
+    # With 4 images and threshold 3, total assignments = 4 * 3 = 12
+    # Distributed across 3 teams = 4 images per team
+    team_assignments = {}
+    for team in teams:
+        team_assignments[str(team.id)] = repository.get_team_assignments(team.id)
+
+    # Count how many times each image appears across all teams
+    image_counts = {}
+    for team_id, image_list in team_assignments.items():
+        for img_id in image_list:
+            image_counts[img_id] = image_counts.get(img_id, 0) + 1
+
+    # Each image should appear exactly threshold times
+    for img_id, count in image_counts.items():
+        assert count == 3, f"Image {img_id} appears {count} times, expected 3"
+
+    # Verify round-robin distribution
+    expected_assignments = {
+        str(teams[0].id): [1, 2, 3, 4],  # First round-robin cycle for team 0
+        str(teams[1].id): [1, 2, 3, 4],  # Second cycle for team 1
+        str(teams[2].id): [1, 2, 3, 4],  # Third cycle for team 2
+    }
+
+    # Check that all teams got the same images in the same order
+    for team_id, expected in expected_assignments.items():
+        assert team_assignments[team_id] == expected, f"Team {team_id} got {team_assignments[team_id]}, expected {expected}"
 
 
 if __name__ == "__main__":

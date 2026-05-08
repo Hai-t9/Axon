@@ -82,98 +82,16 @@ class ValidationRepository:
             .all()
         )
 
-    def count_team_images(self, comp_id: UUID, team_id: UUID) -> int:
-        return int(
-            self.db.query(func.count(Image.id))
-            .join(Team, Team.id == Image.team_id)
-            .filter(Team.comp_id == comp_id, Image.team_id == team_id)
-            .scalar()
-            or 0
-        )
-
-    def fetch_available_own_images(
-        self,
-        comp_id: UUID,
-        team_id: UUID,
-        assigned_counts: dict[int, int],
-        threshold: int,
-    ) -> int:
+    def fetch_all_competition_images(self, comp_id: UUID) -> list[int]:
+        """Fetch all image IDs in the competition, ordered by ID."""
         rows = (
             self.db.query(Image.id)
-            .join(Label, Label.image_id == Image.id)
             .join(Team, Team.id == Image.team_id)
-            .filter(
-                Team.comp_id == comp_id,
-                Image.team_id == team_id,
-                Label.validated.is_(False),
-            )
+            .filter(Team.comp_id == comp_id)
             .order_by(Image.id.asc())
             .all()
         )
-        return sum(1 for row in rows if assigned_counts.get(int(row.id), 0) < threshold)
-
-    def fetch_own_images(
-        self,
-        comp_id: UUID,
-        team_id: UUID,
-        own_quota: int,
-        assigned_counts: dict[int, int],
-        threshold: int,
-    ) -> list[int]:
-        rows = (
-            self.db.query(Image.id)
-            .join(Label, Label.image_id == Image.id)
-            .join(Team, Team.id == Image.team_id)
-            .filter(
-                Team.comp_id == comp_id,
-                Image.team_id == team_id,
-                Label.validated.is_(False),
-            )
-            .order_by(Image.id.asc())
-            .all()
-        )
-        return self._pick_images([int(row.id) for row in rows], own_quota, assigned_counts, threshold)
-
-    def fetch_other_images(
-        self,
-        comp_id: UUID,
-        team_id: UUID,
-        other_quota: int,
-        assigned_counts: dict[int, int],
-        threshold: int,
-    ) -> list[int]:
-        rows = (
-            self.db.query(Image.id)
-            .join(Label, Label.image_id == Image.id)
-            .join(Team, Team.id == Image.team_id)
-            .filter(
-                Team.comp_id == comp_id,
-                Image.team_id != team_id,
-                Label.validated.is_(False),
-            )
-            .order_by(Image.id.asc())
-            .all()
-        )
-        return self._pick_images([int(row.id) for row in rows], other_quota, assigned_counts, threshold)
-
-    def _pick_images(
-        self,
-        image_ids: list[int],
-        quota: int,
-        assigned_counts: dict[int, int],
-        threshold: int,
-    ) -> list[int]:
-        picked: list[int] = []
-        for image_id in image_ids:
-            if len(picked) >= quota:
-                break
-            if assigned_counts.get(image_id, 0) >= threshold:
-                continue
-            picked.append(image_id)
-            assigned_counts[image_id] = assigned_counts.get(image_id, 0) + 1
-        return picked
-
-    def fetch_participants_by_team(self, team_id: UUID) -> list[UUID]:
+        return [int(row.id) for row in rows]
         team = self.db.query(Team).filter(Team.id == team_id).first()
         if not team or not team.user_ids:
             return []
