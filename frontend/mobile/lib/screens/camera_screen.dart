@@ -104,13 +104,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
 
     if (_checkingPermission) {
       return Scaffold(
+        backgroundColor: const Color(0xFF1C1C28),
         appBar: AppBar(title: const Text('Capture Asset')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: CircularProgressIndicator(color: Color(0xFF5F75EE))),
       );
     }
 
     if (_cameraPermissionDenied) {
       return Scaffold(
+        backgroundColor: const Color(0xFF1C1C28),
         appBar: AppBar(title: const Text('Capture Asset')),
         body: Center(
           child: Padding(
@@ -118,27 +120,39 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.no_photography, size: 64, color: Colors.white38),
-                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.no_photography_rounded, size: 64, color: Colors.redAccent),
+                ),
+                const SizedBox(height: 32),
                 Text(
                   'Camera Access Required',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
                 ),
                 const SizedBox(height: 12),
                 const Text(
                   'Axon needs camera access to capture assets. Please grant camera permission in settings.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white60),
+                  style: TextStyle(color: Colors.white60, fontSize: 16),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 ElevatedButton.icon(
                   onPressed: _openSettings,
-                  icon: const Icon(Icons.settings),
+                  icon: const Icon(Icons.settings_rounded),
                   label: const Text('Open Settings'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Go Back'),
@@ -152,15 +166,23 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
 
     if (widget.cameras.isEmpty) {
       return Scaffold(
+        backgroundColor: const Color(0xFF1C1C28),
         appBar: AppBar(title: const Text('Capture Asset')),
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.camera_alt, size: 64, color: Colors.white38),
-              SizedBox(height: 16),
-              Text('No camera found on this device',
-                  style: TextStyle(color: Colors.white60)),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.camera_alt_rounded, size: 64, color: Colors.white38),
+              ),
+              const SizedBox(height: 24),
+              const Text('No camera found on this device',
+                  style: TextStyle(color: Colors.white60, fontSize: 16)),
             ],
           ),
         ),
@@ -168,17 +190,26 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Capture Asset')),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
           FutureBuilder<void>(
             future: _initializeControllerFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done) {
-                return SizedBox(
-                  width: double.infinity,
-                  height: double.infinity,
-                  child: CameraPreview(_controller),
+                return TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 500),
+                  builder: (context, value, child) {
+                    return Opacity(
+                      opacity: value,
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: double.infinity,
+                        child: CameraPreview(_controller),
+                      ),
+                    );
+                  },
                 );
               }
               if (snapshot.hasError) {
@@ -202,31 +233,63 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
                   ),
                 );
               }
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator(color: Color(0xFF5F75EE)));
             },
           ),
+          
+          // Custom transparent app bar over camera
           Positioned(
             top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Offline Banner
+          Positioned(
+            top: 100,
             left: 0,
             right: 0,
             child: connectivity.when(
               data: (isOnline) {
                 if (isOnline) return const SizedBox.shrink();
-                return Container(
-                  color: const Color(0xFFE5A53C),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: const SafeArea(
-                    bottom: false,
-                    child: Row(
+                return Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5A53C).withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.wifi_off, size: 18, color: Colors.white),
+                        Icon(Icons.wifi_off_rounded, size: 16, color: Colors.white),
                         SizedBox(width: 8),
                         Text(
-                          'Offline — uploads queued',
+                          'Offline Mode Active',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -238,17 +301,66 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
               error: (_, __) => const SizedBox.shrink(),
             ),
           ),
+
+          // Camera Controls Bottom Bar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 48, top: 24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.9),
+                    Colors.black.withOpacity(0.6),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: _takePicture,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.9, end: 1.0),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.scale(
+                          scale: value,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                              color: Colors.transparent,
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 64,
+                                height: 64,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.large(
-        onPressed: _takePicture,
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: const Icon(Icons.camera_alt, size: 36),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

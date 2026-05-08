@@ -42,8 +42,13 @@ build
 .env
 *.env
 
+<<<<<<< Updated upstream
 #github
 
 /.github
 
 docs
+=======
+/.github
+docs/
+>>>>>>> Stashed changes
