@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.auth import extract_bearer_token
 from app.core.database import SessionLocal
@@ -41,7 +42,7 @@ def get_team_service(db: Session = Depends(get_db)) -> TeamService:
 
 @router.post("/competitions/{comp_id}/teams", response_model=TeamResponse)
 async def create_team(
-    comp_id: int,
+    comp_id: UUID,
     payload: TeamCreate,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -61,7 +62,7 @@ async def create_team(
 
 @router.get("/competitions/{comp_id}/teams", response_model=TeamListResponse)
 async def list_teams(
-    comp_id: int,
+    comp_id: UUID,
     authorization: str = Header(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -79,7 +80,7 @@ async def list_teams(
 
 @router.get("/teams/{team_id}", response_model=TeamResponse)
 async def get_team(
-    team_id: int,
+    team_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     team_service: TeamService = Depends(get_team_service),
@@ -96,7 +97,7 @@ async def get_team(
 
 @router.put("/teams/{team_id}", response_model=TeamResponse)
 async def update_team(
-    team_id: int,
+    team_id: UUID,
     payload: TeamUpdate,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -117,7 +118,7 @@ async def update_team(
 
 @router.delete("/teams/{team_id}")
 async def delete_team(
-    team_id: int,
+    team_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     team_service: TeamService = Depends(get_team_service),
@@ -138,7 +139,7 @@ async def delete_team(
 
 @router.get("/teams/{team_id}/members", response_model=TeamMembersResponse)
 async def get_team_members(
-    team_id: int,
+    team_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     team_service: TeamService = Depends(get_team_service),
@@ -156,7 +157,7 @@ async def get_team_members(
 
 @router.post("/teams/{team_id}/members", response_model=TeamResponse)
 async def add_team_member(
-    team_id: int,
+    team_id: UUID,
     payload: TeamMemberAddRequest,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -179,8 +180,8 @@ async def add_team_member(
 
 @router.delete("/teams/{team_id}/members/{user_id}")
 async def remove_team_member(
-    team_id: int,
-    user_id: int,
+    team_id: UUID,
+    user_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     team_service: TeamService = Depends(get_team_service),

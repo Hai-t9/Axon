@@ -1,4 +1,5 @@
 from app.core.exceptions import NotFoundError, ValidationError
+from uuid import UUID
 from app.models import RoleType
 from app.schemas.competition import CompetitionCreate, CompetitionUpdate
 from uuid import UUID
@@ -49,7 +50,7 @@ class CompetitionService:
         updates = payload.dict(exclude_unset=True)
         return self.repository.update(competition, updates)
 
-    def delete_competition(self, competition_id: UUID):
+    def delete_competition(self, competition_id: UUID) -> UUID:
         competition = self.get_competition(competition_id)
         self.repository.delete(competition)
         return competition_id

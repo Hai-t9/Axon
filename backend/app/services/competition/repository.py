@@ -70,14 +70,14 @@ class CompetitionRepository:
         self.db.refresh(config)
         return config
 
-    def get_role(self, user_id, competition_id: UUID) -> Role | None:
+    def get_role(self, user_id: UUID, competition_id: UUID) -> Role | None:
         return (
             self.db.query(Role)
             .filter(Role.user_id == user_id, Role.competition_id == competition_id)
             .first()
         )
 
-    def create_role(self, user_id, competition_id: UUID, role) -> Role:
+    def create_role(self, user_id: UUID, competition_id: UUID, role) -> Role:
         entry = Role(user_id=user_id, competition_id=competition_id, role=role)
         self.db.add(entry)
         self.db.commit()

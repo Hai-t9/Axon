@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
 
 class PhaseResponse(BaseModel):
-    competition_id: int
+    competition_id: UUID
     current_phase: str
     phase_dates: Dict[str, Any]
 

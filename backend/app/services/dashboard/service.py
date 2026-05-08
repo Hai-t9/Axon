@@ -1,4 +1,5 @@
 from app.core.exceptions import NotFoundError
+from uuid import UUID
 
 from app.core.cache import DashboardCache
 from .repository import DashboardRepository
@@ -32,6 +33,16 @@ class DashboardService:
             "max_validations": config.max_validations,
         }
 
+    def _serialize_config_participant(self, config) -> dict:
+        return {
+            "labels": config.labels,
+            "data_ex": config.data_ex,
+            "overview": config.overview,
+            "terms_conditions": config.terms_conditions,
+            "data_md": config.data_md,
+            "data_format": config.data_format,
+        }
+
     def _serialize_team(self, team) -> dict:
         return {
             "id": team.id,
@@ -40,7 +51,7 @@ class DashboardService:
             "user_ids": team.user_ids,
         }
 
-    def _build_dashboard_payload(self, comp_id: int) -> dict:
+    def _build_dashboard_payload(self, comp_id: UUID) -> dict:
         phase_info = self.repository.find_phase_info(comp_id)
         if not phase_info:
             raise NotFoundError("Phase information not found")
@@ -62,7 +73,29 @@ class DashboardService:
             },
         }
 
-    def get_dashboard(self, comp_id: int) -> dict:
+    def _build_participant_payload(self, comp_id: UUID, participant_id: UUID) -> dict:
+        phase_info = self.repository.find_phase_info(comp_id)
+        if not phase_info:
+            raise NotFoundError("Phase information not found")
+
+        config = self.repository.find_config(comp_id)
+        if not config:
+            raise NotFoundError("Competition config not found")
+
+        team = self.repository.find_team_for_participant(comp_id, participant_id)
+        if not team:
+            raise NotFoundError("Participant team not found")
+
+        image_stats = self.repository.find_team_image_stats(team.id)
+
+        return {
+            "phase_info": self._serialize_phase_info(phase_info),
+            "config": self._serialize_config_participant(config),
+            "image_stats": image_stats,
+            "team_info": self._serialize_team(team),
+        }
+
+    def get_dashboard(self, comp_id: UUID) -> dict:
         # 1. Try cache first
         cached = self.cache.get_dashboard(comp_id)
         if cached:
@@ -75,12 +108,15 @@ class DashboardService:
         self.cache.set_dashboard(comp_id, payload)
         return payload
 
-    def get_cached_dashboard(self, comp_id: int) -> dict:
+    def get_participant_dashboard(self, comp_id: UUID, participant_id: UUID) -> dict:
+        return self._build_participant_payload(comp_id, participant_id)
+
+    def get_cached_dashboard(self, comp_id: UUID) -> dict:
         cached = self.cache.get_dashboard(comp_id)
         if not cached:
             raise NotFoundError("Cached dashboard not found")
         return cached
 
-    def clear_dashboard_cache(self, comp_id: int) -> dict:
+    def clear_dashboard_cache(self, comp_id: UUID) -> dict:
         self.cache.clear_dashboard(comp_id)
         return {"cleared": True}

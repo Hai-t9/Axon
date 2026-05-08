@@ -78,14 +78,12 @@ def verify_access_token(token: str) -> Optional[Any]:
 
     if isinstance(subject, int):
         return subject
-    if isinstance(subject, str):
-        if subject.isdigit():
-            return int(subject)
-        try:
-            return UUID(subject)
-        except ValueError:
-            return subject
-    return subject
+    if isinstance(subject, str) and subject.isdigit():
+        return int(subject)
+    try:
+        return UUID(str(subject))
+    except (TypeError, ValueError):
+        return None
 
 
 def extract_bearer_token(authorization: str) -> str:

@@ -1,6 +1,7 @@
 from collections import Counter
 
 from app.core.exceptions import NotFoundError, ValidationError
+from uuid import UUID
 from app.services.label.service import LabelService
 
 from .repository import ValidationRepository
@@ -21,7 +22,7 @@ class ValidationService:
         counts = Counter(votes)
         return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
-    def get_next_image(self, comp_id: int, participant_id: int) -> dict:
+    def get_next_image(self, comp_id: UUID, participant_id: UUID) -> dict:
         team = self.repository.find_participant_team(comp_id, participant_id)
         if not team:
             raise NotFoundError("Participant team not found")
@@ -49,7 +50,7 @@ class ValidationService:
 
         return image
 
-    def submit_vote(self, image_id: int, validator_id: int, label: str) -> dict:
+    def submit_vote(self, image_id: int, validator_id: UUID, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)
         if not vote:
             raise ValidationError("Vote could not be recorded")
@@ -73,6 +74,6 @@ class ValidationService:
 
         return {"validation_id": vote.id, "label": vote.label}
 
-    def get_pending_validations(self, comp_id: int) -> dict:
+    def get_pending_validations(self, comp_id: UUID) -> dict:
         images = self.repository.find_pending_by_comp(comp_id)
         return {"images": images, "total": len(images)}

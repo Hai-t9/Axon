@@ -47,7 +47,7 @@ class CompetitionConfigBase(BaseModel):
 
 class CompetitionConfigResponse(CompetitionConfigBase):
     id: int
-    competition_id: UUID | str
+    competition_id: UUID
 
     class Config:
         from_attributes = True
@@ -68,7 +68,7 @@ class CompetitionUpdate(BaseModel):
 
 
 class CompetitionResponse(BaseModel):
-    id: UUID | str
+    id: UUID
     name: str
     description: Optional[str] = None
     launch_date: Optional[date] = None

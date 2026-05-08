@@ -8,19 +8,19 @@ from .user import UserResponse
 
 class TeamCreate(BaseModel):
     name: str
-    user_ids: Optional[List[UUID | str]] = None
+    user_ids: Optional[List[UUID]] = None
 
 
 class TeamUpdate(BaseModel):
     name: Optional[str] = None
-    user_ids: Optional[List[UUID | str]] = None
+    user_ids: Optional[List[UUID]] = None
 
 
 class TeamResponse(BaseModel):
-    id: UUID | str
+    id: UUID
     name: str
-    comp_id: UUID | str
-    user_ids: Optional[List[UUID | str]] = None
+    comp_id: UUID
+    user_ids: Optional[List[UUID]] = None
 
     class Config:
         from_attributes = True
@@ -34,7 +34,7 @@ class TeamListResponse(BaseModel):
 
 
 class TeamMemberAddRequest(BaseModel):
-    user_id: UUID | str
+    user_id: UUID
 
 
 class TeamMembersResponse(BaseModel):

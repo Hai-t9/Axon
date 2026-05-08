@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.models import Image, Label, Team
 
@@ -10,7 +11,7 @@ class LabelRepository:
     def get_image_by_id(self, image_id: int) -> Image | None:
         return self.db.query(Image).filter(Image.id == image_id).first()
 
-    def get_competition_id_for_image(self, image_id: int) -> int | None:
+    def get_competition_id_for_image(self, image_id: int) -> UUID | None:
         return (
             self.db.query(Team.comp_id)
             .join(Image, Image.team_id == Team.id)

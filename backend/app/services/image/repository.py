@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from uuid import UUID
 from app.models.model_image import Image, ImageMetadata
 from app.models.model_label import Label
 
@@ -46,7 +47,7 @@ class ImageRepository:
             self.db.refresh(db_image)
         return db_image
 
-    def find_by_team(self, team_id: int, status: str = None, skip: int = 0, limit: int = 100):
+    def find_by_team(self, team_id: UUID, status: str = None, skip: int = 0, limit: int = 100):
         query = self.db.query(Image).filter(Image.team_id == team_id)
         if status:
             query = query.filter(Image.status == status)
@@ -54,7 +55,7 @@ class ImageRepository:
         images = query.offset(skip).limit(limit).all()
         return images, total
 
-    def find_by_competition(self, comp_id: int, status: str = None):
+    def find_by_competition(self, comp_id: UUID, status: str = None):
         from app.models.model_team import Team
         query = self.db.query(Image).join(Team, Image.team_id == Team.id).filter(Team.comp_id == comp_id)
         if status:
@@ -62,7 +63,7 @@ class ImageRepository:
         total = query.count()
         return query.all(), total
 
-    def get_stats(self, comp_id: int):
+    def get_stats(self, comp_id: UUID):
         from sqlalchemy import func
         from app.models.model_team import Team
         

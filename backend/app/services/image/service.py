@@ -6,6 +6,7 @@ import imagehash
 import json
 import os
 import uuid
+from uuid import UUID
 from fastapi import UploadFile
 from app.services.image.repository import ImageRepository
 from app.storage.minio_client import storage_service
@@ -41,7 +42,7 @@ class ImageService:
         # Fallback: treat the raw value as a plain string label
         return str(raw_label).strip()
 
-    async def upload_image(self, user_id: int, team_id: int, file: UploadFile, label: str = None):
+    async def upload_image(self, user_id: UUID, team_id: UUID, file: UploadFile, label: str = None):
         # Validate format
         allowed = ["image/jpeg", "image/png", "image/jpg"]
         if file.content_type not in allowed:
@@ -174,15 +175,15 @@ class ImageService:
     def get_image_by_id(self, image_id: int):
         return self.repository.find_by_id(image_id)
 
-    def get_images_by_team(self, team_id: int, status: str = None, page: int = 1):
+    def get_images_by_team(self, team_id: UUID, status: str = None, page: int = 1):
         limit = 10
         skip = (page - 1) * limit
         return self.repository.find_by_team(team_id, status, skip, limit)
 
-    def get_images_by_competition(self, comp_id: int, status: str = None):
+    def get_images_by_competition(self, comp_id: UUID, status: str = None):
         return self.repository.find_by_competition(comp_id, status)
 
-    def get_image_stats(self, comp_id: int):
+    def get_image_stats(self, comp_id: UUID):
         return self.repository.get_stats(comp_id)
 
     def update_image_status(self, image_id: int, status: str):
