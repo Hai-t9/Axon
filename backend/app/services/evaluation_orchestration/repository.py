@@ -47,6 +47,13 @@ class EvaluationOrchestrationRepository:
             .first()
         )
 
+    def find_evaluation_by_model_id(self, model_id: UUID) -> Optional[EvaluationJob]:
+        return (
+            self.db.query(EvaluationJob)
+            .filter(EvaluationJob.model_id == model_id)
+            .first()
+        )
+
     def find_evaluations_by_competition(self, comp_id: UUID) -> List[EvaluationJob]:
         return (
             self.db.query(EvaluationJob)

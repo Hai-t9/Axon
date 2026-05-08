@@ -64,7 +64,7 @@ class ValidationService:
 
         image_ids = self.repository.get_team_assignments(team_id)
         if not image_ids:
-            raise NotFoundError("Validation list not found")
+            return {"image_ids": []}
 
         shuffled = self._deterministic_shuffle(image_ids, participant_id)
         return {"image_ids": shuffled}

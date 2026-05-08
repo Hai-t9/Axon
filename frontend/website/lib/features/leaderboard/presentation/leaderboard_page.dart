@@ -29,7 +29,7 @@ class LeaderboardPage extends ConsumerWidget {
           const SizedBox(height: AppSpacing.lg),
           state.when(
             data: (raw) {
-              final data = raw as LeaderboardData;
+              final data = raw;
               if (data.entries.isEmpty) {
                 return _emptyState(context);
               }
@@ -125,7 +125,7 @@ class LeaderboardPage extends ConsumerWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
-              color: colors[i].withOpacity(0.1),
+              color: colors[i].withValues(alpha: 0.1),
             ),
             child: Column(
               children: [
@@ -135,7 +135,7 @@ class LeaderboardPage extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: AppSpacing.xs),
-                Text('${entry.score.toStringAsFixed(4)}',
+                Text(entry.score.toStringAsFixed(4),
                     style: TextStyle(
                         fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
               ],
@@ -177,7 +177,7 @@ class LeaderboardPage extends ConsumerWidget {
               final isEven = i.isEven;
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                color: isEven ? Colors.transparent : AppColors.surfaceAlt.withOpacity(0.3),
+                color: isEven ? Colors.transparent : AppColors.surfaceAlt.withValues(alpha: 0.3),
                 child: Row(
                   children: [
                     SizedBox(
