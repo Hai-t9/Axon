@@ -203,6 +203,27 @@ class ValidationRepository:
     def get_participant_assignments(self, participant_id: UUID) -> list[int]:
         return self._get_assignment_list(self._assignment_key_for_participant(participant_id))
 
+    def get_team_assignments(self, team_id: UUID) -> list[int]:
+        return self._get_assignment_list(self._assignment_key_for_team(team_id))
+
+    def find_participant_team(self, comp_id: UUID, participant_id: UUID) -> UUID | None:
+        # Simple in-Python lookup: iterate teams in competition and match user_ids.
+        teams = (
+            self.db.query(Team)
+            .filter(Team.comp_id == comp_id)
+            .all()
+        )
+        for team in teams:
+            if not team or not team.user_ids:
+                continue
+            for raw_user_id in team.user_ids:
+                try:
+                    if _normalize_uuid(raw_user_id) == _normalize_uuid(participant_id):
+                        return team.id
+                except (TypeError, ValueError):
+                    continue
+        return None
+
     def find_validation_threshold(self, comp_id: UUID) -> int | None:
         config = (
             self.db.query(Config)

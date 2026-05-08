@@ -355,19 +355,17 @@ def test_validation_assignment_redis_keys_and_ttl(db_session):
         _create_label(db_session, image.id, "cat")
 
     repository = ValidationRepository(db_session, _FakeValidationCacheForAssignments())
+    # Store only the team master list; per-participant shuffling is done at retrieval time.
     assert repository.store_team_assignments(team.id, [1, 2, 3]) is True
-    assert repository.store_participant_assignments(participant_a, [3, 2, 1]) is True
 
     fake_client = repository.cache.client
     assert fake_client.rpush_calls == [
         (f"validation:team:{team.id}", ["1", "2", "3"]),
-        (f"validation:participant:{participant_a}", ["3", "2", "1"]),
     ]
     assert fake_client.expire_calls == [
         (f"validation:team:{team.id}", 86400),
-        (f"validation:participant:{participant_a}", 86400),
     ]
-    assert repository.get_participant_assignments(participant_a) == [3, 2, 1]
+    assert repository.get_team_assignments(team.id) == [1, 2, 3]
 
 
 if __name__ == "__main__":

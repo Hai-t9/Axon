@@ -65,21 +65,23 @@ class ValidationService:
             )
 
             master_image_ids = own_images + other_images
+            # Store only the team master list in Redis. Per-participant shuffling
+            # happens at retrieval time to keep storage minimal.
             self.repository.store_team_assignments(team.id, master_image_ids)
-
-            participants = self.repository.fetch_participants_by_team(team.id)
-            for participant_id in participants:
-                shuffled = self._deterministic_shuffle(master_image_ids, participant_id)
-                self.repository.store_participant_assignments(participant_id, shuffled)
 
         return {"success": True}
 
     def get_validation_list(self, comp_id: UUID, participant_id: UUID) -> dict:
-        image_ids = self.repository.get_participant_assignments(participant_id)
+        team_id = self.repository.find_participant_team(comp_id, participant_id)
+        if not team_id:
+            raise NotFoundError("Participant team not found")
+
+        image_ids = self.repository.get_team_assignments(team_id)
         if not image_ids:
             raise NotFoundError("Validation list not found")
 
-        return {"image_ids": image_ids}
+        shuffled = self._deterministic_shuffle(image_ids, participant_id)
+        return {"image_ids": shuffled}
 
     def submit_vote(self, image_id: int, validator_id: UUID, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)
