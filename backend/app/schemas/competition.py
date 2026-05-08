@@ -46,7 +46,7 @@ class CompetitionConfigBase(BaseModel):
 
 
 class CompetitionConfigResponse(CompetitionConfigBase):
-    id: int
+    id: UUID
     competition_id: UUID
 
     class Config:
