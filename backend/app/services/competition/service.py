@@ -39,10 +39,10 @@ class CompetitionService:
             raise NotFoundError("Competition not found")
         return competition
 
-    def list_competitions(self, page: int, limit: int):
+    def list_competitions(self, user_id, page: int, limit: int):
         offset = (page - 1) * limit
-        items = self.repository.list_competitions(offset, limit)
-        total = self.repository.count_competitions()
+        items = self.repository.list_competitions_for_user(user_id, offset, limit)
+        total = self.repository.count_competitions_for_user(user_id)
         return items, total
 
     def update_competition(self, competition_id: UUID, payload: CompetitionUpdate):

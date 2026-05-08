@@ -67,8 +67,8 @@ async def list_competitions(
 ):
     try:
         token = extract_bearer_token(authorization)
-        auth_service.get_current_user(token)
-        items, total = competition_service.list_competitions(page, limit)
+        user = auth_service.get_current_user(token)
+        items, total = competition_service.list_competitions(user.id, page, limit)
         return {
             "items": items,
             "total": total,
