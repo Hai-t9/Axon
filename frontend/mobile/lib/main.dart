@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:camera/camera.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/splash_screen.dart';
 
 List<CameraDescription> cameras = [];
@@ -43,28 +44,30 @@ class AxonApp extends StatelessWidget {
           onPrimary: Colors.white,
           onSurface: Colors.white,
         ),
-        appBarTheme: const AppBarTheme(
+        textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
+        appBarTheme: AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
-          titleTextStyle: TextStyle(
+          titleTextStyle: GoogleFonts.outfit(
             fontSize: 20,
             fontWeight: FontWeight.w600,
             color: Colors.white,
             letterSpacing: 0.5,
           ),
-          iconTheme: IconThemeData(color: Colors.white),
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF5F75EE),
             foregroundColor: Colors.white,
-            elevation: 0,
+            elevation: 8,
+            shadowColor: const Color(0xFF5F75EE).withOpacity(0.4),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(16.0),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            textStyle: const TextStyle(
+            textStyle: GoogleFonts.outfit(
               fontSize: 16,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
@@ -76,33 +79,49 @@ class AxonApp extends StatelessWidget {
             foregroundColor: Colors.white,
             side: const BorderSide(color: Color(0xFF3A3A50), width: 1.5),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(16.0),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            textStyle: const TextStyle(
+            textStyle: GoogleFonts.outfit(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
         ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.white70,
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF252536),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF3A3A50), width: 1.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF5F75EE), width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          hintStyle: GoogleFonts.outfit(color: Colors.white38),
+          labelStyle: GoogleFonts.outfit(color: Colors.white70),
         ),
         chipTheme: ChipThemeData(
-          backgroundColor: const Color(0xFF1C1C28),
-          selectedColor: const Color(0xFF5F75EE),
-          labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          secondaryLabelStyle: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: const BorderSide(color: Color(0xFF3A3A50), width: 1),
+          backgroundColor: const Color(0xFF252536),
+          selectedColor: const Color(0xFF5F75EE).withOpacity(0.2),
+          labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w500, color: Colors.white70),
+          secondaryLabelStyle: GoogleFonts.outfit(
+            color: const Color(0xFF5F75EE),
+            fontWeight: FontWeight.bold,
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFF3A3A50), width: 1.5),
+          ),
+          checkmarkColor: const Color(0xFF5F75EE),
         ),
       ),
       home: const SplashScreen(),

@@ -29,14 +29,18 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   String? _selectedLabel;
 
   final List<String> _availableLabels = [
-    'damage', 'front-bumper', 'rear-bumper',
-    'left-door', 'right-door', 'scratch',
+    'seedling', 'tillering', 'flowering', 'maturity', 'disease', 'pest'
   ];
 
   Future<void> _uploadImage({bool forceOnline = false}) async {
     if (_selectedLabel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a label first!')),
+        SnackBar(
+          content: const Text('Please select a growth stage or issue.'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          backgroundColor: const Color(0xFF151A27),
+        ),
       );
       return;
     }
@@ -64,9 +68,18 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Upload successful!'),
-          backgroundColor: Color(0xFF37B287),
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Asset submitted successfully', style: TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          backgroundColor: const Color(0xFF33E1A6).withOpacity(0.9),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
         ),
       );
       Navigator.of(context).pop();
@@ -79,10 +92,13 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
           backgroundColor: msg.contains('offline queue')
               ? const Color(0xFFE5A53C)
               : Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
         ),
       );
       if (!msg.contains('offline queue')) {
-        // Don't pop - let them retry or go back
+        // Let them retry
       } else {
         Navigator.of(context).pop();
       }
@@ -97,7 +113,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
     final connectivity = ref.watch(connectivityProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF12121A),
+      backgroundColor: const Color(0xFF1C1C28),
       appBar: AppBar(
         title: const Text('Review Asset'),
         backgroundColor: Colors.transparent,
@@ -114,24 +130,29 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
               if (isOnline) return const SizedBox.shrink();
               return Container(
                 width: double.infinity,
-                color: const Color(0xFFE5A53C),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: const SafeArea(
-                  bottom: false,
-                  child: Row(
-                    children: [
-                      Icon(Icons.wifi_off, size: 18, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text(
-                        'Offline — image will be queued for upload',
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5A53C).withOpacity(0.15),
+                  border: Border.all(color: const Color(0xFFE5A53C).withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: const Row(
+                  children: [
+                    Icon(Icons.wifi_off_rounded, size: 20, color: Color(0xFFE5A53C)),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Offline Mode. Assets will be queued and uploaded automatically when connection returns.',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFFE5A53C),
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
+                          height: 1.4,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               );
             },
@@ -139,113 +160,178 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
             error: (_, __) => const SizedBox.shrink(),
           ),
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                    color: const Color(0xFF3A3A50).withOpacity(0.5), width: 1.5),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Image.file(
-                File(widget.imagePath),
-                fit: BoxFit.cover,
-                width: double.infinity,
-              ),
-            ),
-          ),
-          if (metadata != null) _buildMetadataChips(metadata),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            child: LocationStatusWidget(),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1C1C28),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Labeling',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.scale(
+                    scale: 0.95 + (0.05 * value),
+                    child: child,
                   ),
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFF3A3A50), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Select the correct label for this image.',
-                  style: TextStyle(color: Colors.white60),
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: _availableLabels.map((label) {
-                    final isSelected = _selectedLabel == label;
-                    return ChoiceChip(
-                      label: Text(label),
-                      selected: isSelected,
-                      showCheckmark: false,
-                      avatar: isSelected
-                          ? const Icon(Icons.check_circle,
-                              size: 16, color: Colors.white)
-                          : null,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                      onSelected: (selected) {
-                        setState(
-                            () => _selectedLabel = selected ? label : null);
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 28),
-                Row(
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _isUploading
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                        ),
-                        child: const Text('Retake'),
+                    Hero(
+                      tag: 'preview_image_${widget.imagePath}',
+                      child: Image.file(
+                        File(widget.imagePath),
+                        fit: BoxFit.cover,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: _isUploading ? null : () => _uploadImage(),
-                        child: _isUploading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2.5, color: Colors.white),
-                              )
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.cloud_upload_outlined, size: 22),
-                                  SizedBox(width: 8),
-                                  Text('Submit Asset',
-                                      style: TextStyle(fontSize: 16)),
-                                ],
-                              ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.8),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (metadata != null) _buildMetadataChips(metadata),
+                            const SizedBox(height: 8),
+                            const LocationStatusWidget(),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
+            ),
+          ),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 50 * (1 - value)),
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 48),
+              decoration: const BoxDecoration(
+                color: Color(0xFF252536),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Classification',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Select the primary growth stage or issue.',
+                    style: TextStyle(color: Colors.white60, fontSize: 14),
+                  ),
+                  const SizedBox(height: 24),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: _availableLabels.map((label) {
+                        final isSelected = _selectedLabel == label;
+                        return ChoiceChip(
+                          label: Text(label.toUpperCase()),
+                          selected: isSelected,
+                          showCheckmark: false,
+                          onSelected: (selected) {
+                            setState(() => _selectedLabel = selected ? label : null);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isUploading
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          child: const Text('Retake'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _isUploading ? null : () => _uploadImage(),
+                          child: _isUploading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.cloud_upload_rounded, size: 22),
+                                    SizedBox(width: 8),
+                                    Text('Submit Asset'),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
