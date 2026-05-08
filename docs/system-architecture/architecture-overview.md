@@ -32,54 +32,87 @@ graph TB
     
     subgraph Processing["Processing & Evaluation Layer"]
         VALIDATOR["Data Validator & Label Manager"]
-        QUEUE["Task Queue/Message Broker"]
-        WORKERS["Evaluation Workers"]
-        EXECUTOR["Model Executor"]
+
+        QUEUE["Task Queue / Redis + Celery"]
+
+        subgraph Workers["Evaluation Workers"]
+            W1["Worker (GPU 0)"]
+            W2["Worker (GPU 1)"]
+            W3["Worker (CPU)"]
+        end
+
+        subgraph Runtime["Secure Execution Runtime"]
+            DOCKER["Docker Execution Engine"]
+            EXECUTOR["Model Executor"]
+        end
     end
     
     subgraph Data["Data & Storage Layer"]
         DB["Primary Database"]
-        IMAGES["Image Storage"]
-        MODELS["Model Storage"]
-        CACHE["Cache Layer"]
+        IMAGES["Image Storage (MinIO)"]
+        MODELS["Model Storage (MinIO)"]
+        CACHE["Cache Layer (Redis)"]
     end
-    
+
     MA -->|Image Upload| GW
     WP -->|Model Submit| GW
+
     GW -->|Route Requests| AUTH
-    AUTH -->|Validated| COMPETITION_API & PHASE_API & TEAMS_API & DATA_API & LABEL_API & CLEANER_API & MODELS_API & EVAL_API & LEADERBOARD_API & VALIDATION_API
-    
+
+    AUTH -->|Validated| COMPETITION_API
+    AUTH -->|Validated| PHASE_API
+    AUTH -->|Validated| TEAMS_API
+    AUTH -->|Validated| DATA_API
+    AUTH -->|Validated| LABEL_API
+    AUTH -->|Validated| CLEANER_API
+    AUTH -->|Validated| MODELS_API
+    AUTH -->|Validated| EVAL_API
+    AUTH -->|Validated| LEADERBOARD_API
+    AUTH -->|Validated| VALIDATION_API
+
     DATA_API -->|Store Images| IMAGES
     DATA_API -->|Queue for Review| VALIDATION_API
-    
+
     VALIDATION_API -->|Display to Team| WP
     VALIDATION_API -->|Manage Labels| LABEL_API
+
     LABEL_API -->|Store Labels| DB
-    
+
     CLEANER_API -->|Analyze & Clean| IMAGES
     CLEANER_API -->|Update Metadata| DB
-    
+
     MODELS_API -->|Store Models| MODELS
-    MODELS_API -->|Schedule| QUEUE
-    
-    QUEUE -->|Dispatch Tasks| WORKERS
-    WORKERS -->|Retrieve Data| IMAGES
-    WORKERS -->|Load Model| MODELS
-    WORKERS -->|Execute| EXECUTOR
-    EXECUTOR -->|Update Results| DB
-    
+
+    EVAL_API -->|Create Evaluation Tasks| QUEUE
+
+    QUEUE -->|Consume| W1
+    QUEUE -->|Consume| W2
+    QUEUE -->|Consume| W3
+
+    W1 -->|Launch Isolated Container| DOCKER
+    W2 -->|Launch Isolated Container| DOCKER
+    W3 -->|Launch Isolated Container| DOCKER
+
+    DOCKER -->|Execute Model| EXECUTOR
+
+    EXECUTOR -->|Retrieve Dataset| IMAGES
+    EXECUTOR -->|Load Model| MODELS
+
+    EXECUTOR -->|Store Metrics & Logs| DB
+
     EVAL_API -->|Query Results| DB
-    EVAL_API -->|Generate| LEADERBOARD_API
-    
+    EVAL_API -->|Generate Rankings| LEADERBOARD_API
+
+    LEADERBOARD_API -->|Cache Rankings| CACHE
     LEADERBOARD_API -->|Fetch Rankings| WP
-    LEADERBOARD_API -->|Cache| CACHE
-    
+
     COMPETITION_API -->|Persist| DB
     PHASE_API -->|Persist| DB
+    TEAMS_API -->|Persist| DB
     LABEL_API -->|Persist| DB
     CLEANER_API -->|Persist| DB
-    TEAMS_API -->|Persist| DB
-    EVAL_API -->|Persist| DB
+    VALIDATION_API -->|Persist| DB
+
     VALIDATOR -->|Validate Quality| DB
 ```
 
@@ -272,26 +305,26 @@ graph TB
 #### Task Queue / Message Broker
 - **Purpose:** Decouple request processing from long-running evaluation tasks
 - **Responsibilities:**
-  - Accept evaluation jobs from orchestration service
+  - Accept evaluation tasks from orchestration service (one task per fold)
   - Ensure reliable task delivery and retry logic
-  - Load-balance tasks across worker pool
+  - Distribute tasks round-robin across all workers (Celery handles this)
   - Maintain job status and history
-- **Technology:** Redis + Celery (for Python/FastAPI)
-- **Alternative (for school servers):** Database polling with status column
-- **Rationale:** Prevents UI blocking during computationally expensive model evaluations
+- **Technology:** Redis + Celery
+- **Alternative (for school servers):** Database polling with status column (no Redis dependency)
+- **Rationale:** The only task type is model inference on test data. No GPU/CPU scheduling needed — every worker runs the same kind of task. Celery's built-in round-robin is sufficient.
 
 #### Evaluation Workers
 - **Purpose:** Execute model evaluations in parallel
 - **Responsibilities:**
-  - Consume evaluation tasks from queue (via Celery or database polling)
+  - Consume evaluation tasks from queue (Celery — one task per fold)
   - Fetch model and dataset for evaluation
-  - Execute model inference on assigned fold
+  - Launch Docker container with model inference
   - Collect prediction results and metrics (accuracy, precision, recall, F1)
-  - Handle GPU/resource management
   - Report results back to database with status updates
-- **Technology:** Python processes with Celery workers (or RQ)
-- **Scalability:** Horizontally scalable - run 1, 5, or 10+ workers on same/different servers
-- **Resource Allocation:** Can use GPU if available (NVIDIA CUDA)
+- **Technology:** Python processes with Celery workers
+- **Scalability:** Horizontally scalable — start N workers on the same machine or across servers. Each worker is pinned to one GPU (if available) or runs on CPU.
+- **Single Task Type:** The only task is model inference on test data. No scheduler needed — Celery distributes tasks round-robin. Workers auto-detect GPU or fall back to CPU.
+- **Hardfloor:** `worker_concurrency` = GPU count (preferred) or CPU core count
 
 #### Data Validator & Label Manager
 - **Purpose:** Manage data quality and team label validations
@@ -434,8 +467,7 @@ Leaderboard Service
     ↓
 Web Portal (Real-time update)
 ```
-
-### 3. **Leaderboard Update Flow**
+### 4. **Leaderboard Update Flow**
 ```
 Evaluation Results Stored
     ↓
@@ -485,13 +517,14 @@ Participants View Live Rankings
 
 ### Evaluation Environment
 - **Choice:** Docker containers for model execution
-- **Workers:** Python processes with Celery/RQ
+- **Workers:** Python processes with Celery
 - **Rationale:**
   - Isolate model execution environments
   - Version control of dependencies per model
   - Support multiple frameworks (PyTorch, TensorFlow, scikit-learn)
-  - GPU support via docker-compose (NVIDIA runtime)
+  - GPU support via `docker run --gpus` flag (NVIDIA Container Toolkit)
   - Safe execution of untrusted user code
+  - No scheduler needed — Celery distributes all tasks round-robin
 
 ### Database
 - **Choice:** PostgreSQL with SQLAlchemy ORM
@@ -592,13 +625,12 @@ docker-compose up
 
 If the project grows:
 
-1. **Phase 1 (Now):** Monolith + local workers
-2. **Phase 2 (If needed):** More workers, Redis on separate server
-3. **Phase 3 (Growth):** Split FastAPI services, keep same database/storage
-4. **Phase 4 (Scale):** Kubernetes orchestration (but not before needed)
+1. **Phase 1 (Now):** Monolith + local workers on a single machine
+2. **Phase 2 (HPC):** Add more workers pinned to GPUs. Start workers with `--gpus device=N`. Same code, no changes needed.
+3. **Phase 3 (Distributed):** Workers on separate servers + MinIO for shared model/dataset access. Redis on its own server.
+4. **Phase 4 (Scale):** Kubernetes orchestration if needed (not before)
 
-Each phase is backwards compatible - no rewrites needed.
-  - Scalable to multiple worker processes
+Each phase is backwards compatible — no rewrites needed.
 
 ## Key Architectural Principles
 
