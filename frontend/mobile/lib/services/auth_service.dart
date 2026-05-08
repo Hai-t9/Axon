@@ -114,7 +114,7 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  void logout() async {
+  Future<void> logout() async {
     ref.read(authTokenProvider.notifier).setToken(null);
     final box = await Hive.openBox('auth');
     await box.delete('access_token');

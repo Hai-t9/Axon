@@ -4,23 +4,13 @@ from app.schemas.image import ImageResponse
 from app.services.image.service import ImageService
 from app.services.image.repository import ImageRepository
 from app.core.database import SessionLocal
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.core.auth import extract_bearer_token
+from app.core.exceptions import AuthenticationError
+from app.services.auth.repository import AuthRepository
+from app.services.auth.service import AuthService
 from typing import List
 from pydantic import BaseModel
 from uuid import UUID
-
-security = HTTPBearer()
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    # This is a placeholder mock for Mustafa's AuthGuard. It assumes the token contains a sub or just defaults to 1.
-    token = credentials.credentials
-    if token.startswith("real_jwt_token_for_user_"):
-        raw_id = token.split("_")[-1]
-        try:
-            return UUID(raw_id)
-        except (TypeError, ValueError):
-            return UUID(int=0)
-    return UUID(int=0)
 
 def get_db():
     db = SessionLocal()
@@ -28,6 +18,22 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
+    return AuthService(AuthRepository(db))
+
+
+def get_current_user_id(
+    authorization: str = Depends(lambda x: x),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> UUID:
+    token = extract_bearer_token(authorization)
+    try:
+        user = auth_service.get_current_user(token)
+        return user.id
+    except AuthenticationError:
+        return UUID(int=0)
+
 
 router = APIRouter(tags=["images"])
 
@@ -40,7 +46,7 @@ async def upload_image(
     file: UploadFile = File(...),
     label: str = Form(None),
     db: Session = Depends(get_db),
-    current_user_id: UUID = Depends(get_current_user)
+    current_user_id: UUID = Depends(get_current_user_id)
 ):
     repo = ImageRepository(db)
     service = ImageService(repo)
