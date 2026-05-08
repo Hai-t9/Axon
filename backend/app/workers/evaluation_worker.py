@@ -1,0 +1,138 @@
+import json
+import logging
+import os
+from datetime import datetime
+from uuid import UUID
+
+from app.core.database import SessionLocal
+from app.models import EvaluationJob, EvaluationTask, Model
+from app.models.model_enums import EvaluationStatus, TaskStatus
+from app.services.evaluation_orchestration.repository import (
+    EvaluationOrchestrationRepository,
+)
+
+from .celery_app import celery_app
+from .executor import compute_metrics, prepare_fold_data, run_docker_evaluation
+
+logger = logging.getLogger(__name__)
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+def run_evaluation_task(self, task_id: str):
+    db = SessionLocal()
+    try:
+        repo = EvaluationOrchestrationRepository(db)
+        task_uuid = UUID(task_id)
+
+        task = db.query(EvaluationTask).filter(EvaluationTask.id == task_uuid).first()
+        if not task:
+            raise ValueError(f"EvaluationTask {task_id} not found")
+
+        task.status = TaskStatus.executing.value  # type: ignore[assignment]
+        task.started_at = datetime.utcnow()  # type: ignore[assignment]
+        db.flush()
+
+        job = db.query(EvaluationJob).filter(EvaluationJob.id == task.evaluation_id).first()
+        if not job:
+            raise ValueError(f"EvaluationJob {task.evaluation_id} not found")
+
+        model = db.query(Model).filter(Model.id == job.model_id).first()
+        if not model:
+            raise ValueError(f"Model {job.model_id} not found")
+
+        teams = repo.find_teams_by_competition(job.competition_id)
+        images_by_team = {}
+        for team in teams:
+            images = repo.find_images_by_team(team.id)
+            images_by_team[team.id] = images
+
+        images_dir, gt_path = prepare_fold_data(job, task, images_by_team, teams)
+        temp_root = os.path.dirname(images_dir)
+
+        try:
+            model_zip_path = model.storage_path  # type: ignore[assignment]
+            predictions = run_docker_evaluation(
+                model_zip_path=model_zip_path,
+                data_dir=images_dir,
+                task_id=task_id,
+            )
+
+            with open(gt_path, "r") as f:
+                ground_truth = json.load(f)
+
+            metrics = compute_metrics(ground_truth, predictions)
+
+            repo.record_evaluation_result(
+                evaluation_id=job.id,
+                task_id=task_uuid,
+                fold_number=task.task_number,
+                metrics=metrics,
+            )
+
+            task.status = TaskStatus.completed.value  # type: ignore[assignment]
+            task.completed_at = datetime.utcnow()  # type: ignore[assignment]
+            db.flush()
+
+            _check_job_completion(job.id, repo, db)
+
+        finally:
+            shutil.rmtree(temp_root, ignore_errors=True)
+
+    except Exception as exc:
+        logger.error(f"Evaluation task {task_id} failed: {exc}")
+        try:
+            task_uuid = UUID(task_id)
+            task = db.query(EvaluationTask).filter(EvaluationTask.id == task_uuid).first()
+            if task:
+                task.status = TaskStatus.failed.value  # type: ignore[assignment]
+                task.error_message = str(exc)  # type: ignore[assignment]
+                db.flush()
+
+                repo = EvaluationOrchestrationRepository(db)
+                _check_job_completion(task.evaluation_id, repo, db)
+        except Exception:
+            logger.exception("Failed to update task failure status")
+        finally:
+            db.close()
+
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+
+    else:
+        db.commit()
+        db.close()
+
+
+def _check_job_completion(
+    evaluation_id: UUID,
+    repo: EvaluationOrchestrationRepository,
+    db,
+):
+    completed_folds = repo.increment_completed_folds(evaluation_id)
+    job = repo.find_evaluation_by_id(evaluation_id)
+    if not job:
+        return
+
+    if completed_folds >= job.total_folds:
+        results = repo.find_completed_results(evaluation_id)
+        if results:
+            accuracies = [r.accuracy for r in results]
+            mean_accuracy = sum(accuracies) / len(accuracies)
+            repo.write_final_score(job.model_id, mean_accuracy)
+
+        repo.update_evaluation_status(evaluation_id, EvaluationStatus.completed)
+        repo.update_evaluation_timestamps(
+            evaluation_id, completed_at=datetime.utcnow()
+        )
+
+        model = db.query(Model).filter(Model.id == job.model_id).first()
+        if model:
+            from app.models.model_model import ModelStatus
+            model.status = ModelStatus.COMPLETED  # type: ignore[assignment]
+
+    elif _any_task_failed(evaluation_id, repo):
+        repo.update_evaluation_status(evaluation_id, EvaluationStatus.failed)
+
+
+def _any_task_failed(evaluation_id: UUID, repo: EvaluationOrchestrationRepository) -> bool:
+    failed = repo.find_failed_tasks(evaluation_id)
+    return len(failed) > 0
