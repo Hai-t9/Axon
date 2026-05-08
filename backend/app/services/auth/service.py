@@ -1,4 +1,5 @@
 from typing import Iterable
+from uuid import UUID
 
 from app.core.auth import verify_access_token
 from app.core.exceptions import AuthenticationError, AuthorizationError
@@ -23,7 +24,7 @@ class AuthService:
         return user
 
     def require_roles(
-        self, token: str, competition_id: int, allowed_roles: Iterable[RoleType]
+        self, token: str, competition_id: UUID, allowed_roles: Iterable[RoleType]
     ) -> User:
         user = self.get_current_user(token)
         role = self.repository.get_role(user.id, competition_id)
@@ -32,7 +33,7 @@ class AuthService:
 
         return user
 
-    def get_user_role(self, competition_id: int, user_id: int) -> RoleType | None:
+    def get_user_role(self, competition_id: UUID, user_id: UUID) -> RoleType | None:
         role = self.repository.get_role(user_id, competition_id)
         return role.role if role else None
 

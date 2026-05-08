@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.auth import extract_bearer_token
 from app.core.database import SessionLocal
@@ -79,7 +80,7 @@ async def list_competitions(
 
 @router.get("/{competition_id}", response_model=CompetitionResponse)
 async def get_competition(
-    competition_id: int,
+    competition_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     competition_service: CompetitionService = Depends(get_competition_service),
@@ -96,7 +97,7 @@ async def get_competition(
 
 @router.put("/{competition_id}", response_model=CompetitionResponse)
 async def update_competition(
-    competition_id: int,
+    competition_id: UUID,
     payload: CompetitionUpdate,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -116,7 +117,7 @@ async def update_competition(
 
 @router.delete("/{competition_id}")
 async def delete_competition(
-    competition_id: int,
+    competition_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     competition_service: CompetitionService = Depends(get_competition_service),
@@ -136,7 +137,7 @@ async def delete_competition(
 
 @router.get("/{competition_id}/config", response_model=CompetitionConfigResponse)
 async def get_competition_config(
-    competition_id: int,
+    competition_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     competition_service: CompetitionService = Depends(get_competition_service),
@@ -153,7 +154,7 @@ async def get_competition_config(
 
 @router.put("/{competition_id}/config", response_model=CompetitionConfigResponse)
 async def update_competition_config(
-    competition_id: int,
+    competition_id: UUID,
     payload: CompetitionConfigBase,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),

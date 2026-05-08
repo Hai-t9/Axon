@@ -5,6 +5,7 @@ import json
 import os
 import time
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from .exceptions import AuthenticationError
 
@@ -79,7 +80,10 @@ def verify_access_token(token: str) -> Optional[Any]:
         return subject
     if isinstance(subject, str) and subject.isdigit():
         return int(subject)
-    return str(subject)
+    try:
+        return UUID(str(subject))
+    except (TypeError, ValueError):
+        return None
 
 
 def extract_bearer_token(authorization: str) -> str:

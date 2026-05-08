@@ -1,5 +1,6 @@
 import os
 import sys
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -59,12 +60,20 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def _create_image(db_session, team_id: int, author_id: int) -> Image:
+def _to_uuid(value) -> UUID:
+    if isinstance(value, UUID):
+        return value
+    return UUID(str(value))
+
+
+def _create_image(db_session, team_id, author_id) -> Image:
+    team_uuid = _to_uuid(team_id)
+    author_uuid = _to_uuid(author_id)
     image = Image(
-        team_id=team_id,
-        author_id=author_id,
-        filepath=f"/tmp/image_{team_id}_{author_id}.jpg",
-        image_hash=f"hash_{team_id}_{author_id}",
+        team_id=team_uuid,
+        author_id=author_uuid,
+        filepath=f"/tmp/image_{team_uuid}_{author_uuid}.jpg",
+        image_hash=f"hash_{team_uuid}_{author_uuid}",
     )
     db_session.add(image)
     db_session.commit()

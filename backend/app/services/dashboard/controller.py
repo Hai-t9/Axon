@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.auth import extract_bearer_token
 from app.core.cache import get_dashboard_cache
@@ -46,7 +47,7 @@ def get_dashboard_service(
 
 @router.get("", response_model=DashboardResponse | DashboardParticipantResponse)
 async def get_dashboard(
-    comp_id: int,
+    comp_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     dashboard_service: DashboardService = Depends(get_dashboard_service),
@@ -70,7 +71,7 @@ async def get_dashboard(
 
 @router.get("/cache", response_model=DashboardCachedResponse)
 async def get_cached_dashboard(
-    comp_id: int,
+    comp_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     dashboard_service: DashboardService = Depends(get_dashboard_service),
@@ -89,7 +90,7 @@ async def get_cached_dashboard(
 
 @router.delete("/cache", response_model=DashboardCacheClearResponse)
 async def clear_dashboard_cache(
-    comp_id: int,
+    comp_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     dashboard_service: DashboardService = Depends(get_dashboard_service),

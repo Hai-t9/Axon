@@ -2,6 +2,7 @@ import os
 import sys
 
 import pytest
+from uuid import UUID
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -87,10 +88,10 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def _create_image(db_session, team_id: int, author_id: int):
+def _create_image(db_session, team_id: str, author_id: str):
     image = Image(
-        team_id=team_id,
-        author_id=author_id,
+        team_id=UUID(team_id),
+        author_id=UUID(author_id),
         filepath=f"/tmp/dashboard-cache-{team_id}-{author_id}.jpg",
         image_hash=f"dashboard-cache-hash-{team_id}-{author_id}",
         status=ImageStatus.verified,
@@ -130,7 +131,7 @@ def test_dashboard_cache_endpoints_flow(client, db_session):
 
     db_session.add(
         PhaseLog(
-            competition_id=competition_id,
+            competition_id=UUID(competition_id),
             current_phase="active",
             phase_dates={"timeline": [], "history": []},
         )
