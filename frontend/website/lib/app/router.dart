@@ -5,6 +5,7 @@ import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/signup_page.dart';
 import '../features/auth/state/auth_controller.dart';
 import '../features/competition/presentation/competition_dashboard_page.dart';
+import '../features/competition/presentation/competition_settings_page.dart';
 import '../features/competition/presentation/host_competition_page.dart';
 import '../features/competition/presentation/join_competition_page.dart';
 import '../features/home/presentation/home_page.dart';
@@ -55,12 +56,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: CompetitionDashboardPage.routePath,
         name: CompetitionDashboardPage.routeName,
         builder: (context, state) {
-          final idValue = state.pathParameters['id'];
-          final id = int.tryParse(idValue ?? '');
-          if (id == null) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) {
             return const HomePage();
           }
           return CompetitionDashboardPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: CompetitionSettingsPage.routePath,
+        name: CompetitionSettingsPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) {
+            return const HomePage();
+          }
+          return CompetitionSettingsPage(competitionId: id);
         },
       ),
     ],

@@ -2,6 +2,7 @@ from app.core.exceptions import NotFoundError, ValidationError
 from uuid import UUID
 from app.models import RoleType
 from app.schemas.competition import CompetitionCreate, CompetitionUpdate
+from uuid import UUID
 
 from .repository import CompetitionRepository
 
@@ -10,7 +11,7 @@ class CompetitionService:
     def __init__(self, repository: CompetitionRepository):
         self.repository = repository
 
-    def create_competition(self, host_id: int, payload: CompetitionCreate):
+    def create_competition(self, host_id, payload: CompetitionCreate):
         if self.repository.get_by_name(payload.name):
             raise ValidationError("Competition name already exists")
 
