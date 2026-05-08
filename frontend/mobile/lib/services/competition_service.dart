@@ -1,0 +1,33 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/competition_model.dart';
+import '../models/team_model.dart';
+import 'api_client.dart';
+
+class CompetitionService {
+  final Dio _dio;
+
+  CompetitionService(this._dio);
+
+  Future<List<CompetitionModel>> getCompetitions() async {
+    final response = await _dio.get('/api/v1/competitions');
+    final data = response.data as Map<String, dynamic>;
+    final items = data['items'] as List<dynamic>;
+    return items
+        .map((item) => CompetitionModel.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<TeamModel>> getTeams(String competitionId) async {
+    final response = await _dio.get('/api/v1/competitions/$competitionId/teams');
+    final data = response.data as Map<String, dynamic>;
+    final items = data['teams'] as List<dynamic>;
+    return items
+        .map((item) => TeamModel.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+}
+
+final competitionServiceProvider = Provider<CompetitionService>((ref) {
+  return CompetitionService(ref.read(dioProvider));
+});

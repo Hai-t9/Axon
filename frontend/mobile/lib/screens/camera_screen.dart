@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'preview_screen.dart';
+import '../services/metadata_service.dart';
 
 class CameraScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
-  const CameraScreen({super.key, required this.cameras});
+  final String teamId;
+  final String competitionId;
+
+  const CameraScreen({
+    super.key,
+    required this.cameras,
+    required this.teamId,
+    required this.competitionId,
+  });
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -20,7 +29,7 @@ class _CameraScreenState extends State<CameraScreen> {
     if (widget.cameras.isNotEmpty) {
       _controller = CameraController(
         widget.cameras.first,
-        ResolutionPreset.high, // Compressed resolution for speed/storing
+        ResolutionPreset.high,
         enableAudio: false,
       );
       _initializeControllerFuture = _controller.initialize();
@@ -38,22 +47,28 @@ class _CameraScreenState extends State<CameraScreen> {
       await _initializeControllerFuture;
       final image = await _controller.takePicture();
       if (!mounted) return;
+
+      final metadata = await MetadataService().captureMetadata();
+
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => PreviewScreen(imagePath: image.path),
+          builder: (_) => PreviewScreen(
+            imagePath: image.path,
+            teamId: widget.teamId,
+            competitionId: widget.competitionId,
+            capturedMetadata: metadata,
+          ),
         ),
       );
     } catch (e) {
-      debugPrint(e.toString());
+      debugPrint('Capture error: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (widget.cameras.isEmpty) {
-      return const Scaffold(
-        body: Center(child: Text("No camera found")),
-      );
+      return const Scaffold(body: Center(child: Text('No camera found')));
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Capture Asset')),
@@ -66,9 +81,8 @@ class _CameraScreenState extends State<CameraScreen> {
               height: double.infinity,
               child: CameraPreview(_controller),
             );
-          } else {
-            return const Center(child: CircularProgressIndicator());
           }
+          return const Center(child: CircularProgressIndicator());
         },
       ),
       floatingActionButton: FloatingActionButton.large(
@@ -76,7 +90,8 @@ class _CameraScreenState extends State<CameraScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: const Icon(Icons.camera_alt, size: 36),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,

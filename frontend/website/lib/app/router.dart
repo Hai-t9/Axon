@@ -9,6 +9,12 @@ import '../features/competition/presentation/competition_settings_page.dart';
 import '../features/competition/presentation/host_competition_page.dart';
 import '../features/competition/presentation/join_competition_page.dart';
 import '../features/home/presentation/home_page.dart';
+import '../features/leaderboard/presentation/leaderboard_page.dart';
+import '../features/model_submission/presentation/model_submission_page.dart';
+import '../features/validation/presentation/validation_page.dart';
+import '../features/evaluation/presentation/evaluation_page.dart';
+import '../features/data_validation/presentation/data_validation_page.dart';
+import '../features/profile/presentation/profile_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
@@ -53,13 +59,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const HostCompetitionPage(),
       ),
       GoRoute(
+        path: ProfilePage.routePath,
+        name: ProfilePage.routeName,
+        builder: (context, state) => const ProfilePage(),
+      ),
+      GoRoute(
         path: CompetitionDashboardPage.routePath,
         name: CompetitionDashboardPage.routeName,
         builder: (context, state) {
           final id = state.pathParameters['id'];
-          if (id == null || id.isEmpty) {
-            return const HomePage();
-          }
+          if (id == null || id.isEmpty) return const HomePage();
           return CompetitionDashboardPage(competitionId: id);
         },
       ),
@@ -68,10 +77,53 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: CompetitionSettingsPage.routeName,
         builder: (context, state) {
           final id = state.pathParameters['id'];
-          if (id == null || id.isEmpty) {
-            return const HomePage();
-          }
+          if (id == null || id.isEmpty) return const HomePage();
           return CompetitionSettingsPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: LeaderboardPage.routePath,
+        name: LeaderboardPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return LeaderboardPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: ModelSubmissionPage.routePath,
+        name: ModelSubmissionPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return ModelSubmissionPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: ValidationPage.routePath,
+        name: ValidationPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return ValidationPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: EvaluationPage.routePath,
+        name: EvaluationPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return EvaluationPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: DataValidationPage.routePath,
+        name: DataValidationPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return DataValidationPage(competitionId: id);
         },
       ),
     ],
