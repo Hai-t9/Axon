@@ -1,5 +1,6 @@
+/// Represents a single image to be validated, with its display data.
 class ValidationImage {
-  final String imageId;
+  final int imageId;
   final String? filepath;
   final String? currentLabel;
 
@@ -11,24 +12,63 @@ class ValidationImage {
 
   factory ValidationImage.fromJson(Map<String, dynamic> json) {
     return ValidationImage(
-      imageId: json['id']?.toString() ?? json['image_id']?.toString() ?? '',
+      imageId: (json['id'] as num?)?.toInt() ?? 0,
       filepath: json['filepath'] as String?,
       currentLabel: json['label'] as String?,
     );
   }
 }
 
-class ValidationBatch {
-  final List<ValidationImage> images;
+/// The response from GET /competitions/:compId/validations/list
+/// Contains only image IDs — the frontend fetches details per image.
+class ValidationListResponse {
+  final List<int> imageIds;
 
-  const ValidationBatch({required this.images});
+  const ValidationListResponse({required this.imageIds});
 
-  factory ValidationBatch.fromJson(Map<String, dynamic> json) {
-    final raw = json['images'] as List<dynamic>? ?? [];
-    return ValidationBatch(
-      images: raw
-          .map((e) => ValidationImage.fromJson(e as Map<String, dynamic>))
-          .toList(),
+  factory ValidationListResponse.fromJson(Map<String, dynamic> json) {
+    final raw = json['image_ids'] as List<dynamic>? ?? [];
+    return ValidationListResponse(
+      imageIds: raw.map((e) => (e as num).toInt()).toList(),
+    );
+  }
+}
+
+/// The response from POST /images/:imageId/validations
+class ValidationVoteResponse {
+  final int validationId;
+  final String label;
+
+  const ValidationVoteResponse({
+    required this.validationId,
+    required this.label,
+  });
+
+  factory ValidationVoteResponse.fromJson(Map<String, dynamic> json) {
+    return ValidationVoteResponse(
+      validationId: (json['validation_id'] as num).toInt(),
+      label: json['label'] as String,
+    );
+  }
+}
+
+/// Pending validation image (from GET /competitions/:compId/validations/pending)
+class ValidationPendingImage {
+  final int id;
+  final String filepath;
+  final String label;
+
+  const ValidationPendingImage({
+    required this.id,
+    required this.filepath,
+    required this.label,
+  });
+
+  factory ValidationPendingImage.fromJson(Map<String, dynamic> json) {
+    return ValidationPendingImage(
+      id: (json['id'] as num).toInt(),
+      filepath: json['filepath'] as String? ?? '',
+      label: json['label'] as String? ?? '',
     );
   }
 }
