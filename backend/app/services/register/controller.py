@@ -76,7 +76,22 @@ async def get_profile(
             teams_in_comp = db.query(Team).filter(Team.comp_id == r.competition_id).all()
             user_team = None
             for t in teams_in_comp:
-                if t.user_ids and user.id in t.user_ids:
+                import json
+                uids = t.user_ids or []
+                if isinstance(uids, str):
+                    try:
+                        uids = json.loads(uids)
+                    except:
+                        uids = []
+                
+                uids_int = []
+                for uid in uids:
+                    try:
+                        uids_int.append(int(uid))
+                    except:
+                        pass
+
+                if uids_int and user.id in uids_int:
                     user_team = {"id": t.id, "name": t.name}
                     break
 
@@ -118,8 +133,27 @@ async def get_my_competitions(
             teams_in_comp = db.query(Team).filter(Team.comp_id == r.competition_id).all()
             user_team = None
             for t in teams_in_comp:
-                if t.user_ids and user.id in t.user_ids:
-                    user_team = {"id": t.id, "name": t.name}
+                import json
+                uids = t.user_ids or []
+                if isinstance(uids, str):
+                    try:
+                        uids = json.loads(uids)
+                    except:
+                        uids = []
+                
+                # normalize to int
+                uids_int = []
+                for uid in uids:
+                    try:
+                        uids_int.append(int(uid))
+                    except:
+                        pass
+
+                if uids_int and user.id in uids_int:
+                    from app.models import User
+                    members_db = db.query(User).filter(User.id.in_(uids_int)).all()
+                    members = [{"name": m.fullname, "email": m.email} for m in members_db]
+                    user_team = {"id": t.id, "name": t.name, "members": members}
                     break
             result.append({
                 "competition_id": r.competition_id,

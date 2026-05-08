@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/upload_service.dart';
 import '../services/api_client.dart';
+import '../utils/ui_helpers.dart';
 
 class PreviewScreen extends ConsumerStatefulWidget {
   final String imagePath;
@@ -51,9 +52,7 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
 
   Future<void> _uploadImage() async {
     if (_selectedLabel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a label first!')),
-      );
+      TopNotification.show(context, 'Please select a label first!', isError: true);
       return;
     }
 
@@ -73,18 +72,11 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
       await uploadService.uploadImage(widget.imagePath, '$teamId', labelPayload);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Upload successful!')),
-      );
+      TopNotification.show(context, 'Asset submitted successfully!', isError: false);
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
-      );
+      TopNotification.show(context, e.toString().replaceAll('Exception: ', ''), isError: true);
     } finally {
       if (mounted) {
         setState(() {

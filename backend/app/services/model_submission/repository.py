@@ -39,11 +39,13 @@ class ModelSubmissionRepository:
         team_id: int,
         competition_id: int,
         docker_img_filepath: str,
+        model_hash: str | None = None,
     ) -> Model:
         model = Model(
             team_id=team_id,
             competition_id=competition_id,
             docker_img_filepath=docker_img_filepath,
+            model_hash=model_hash,
         )
         self.db.add(model)
         self.db.commit()

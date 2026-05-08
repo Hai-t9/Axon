@@ -247,54 +247,88 @@ def evaluate_model(
     
     Returns dict with score, accuracy, and protocol details.
     """
+    # 1. Base validation
     if not images:
         raise RuntimeError("No validated images available for evaluation")
 
     if len(images) < 2:
         raise RuntimeError("Need at least 2 validated images for evaluation")
 
-    # 1. Prepare splits
-    if protocol == "loto":
-        if model_team_id is None:
-            raise RuntimeError("LOTO protocol requires model_team_id")
-        train, test = _prepare_loto_split(images, model_team_id)
-    elif protocol == "toto":
-        if model_team_id is None:
-            raise RuntimeError("TOTO protocol requires model_team_id")
-        train, test = _prepare_toto_split(images, model_team_id)
-    else:  # standard
-        train, test = _prepare_split(images)
+    # 2. Load Docker image once for all runs
+    image_name = _load_docker_image(_resolve_path(model_filepath))
+    logger.info(f"Loaded Docker image: {image_name}")
 
-    if not train:
-        raise RuntimeError(f"No training images after {protocol} split")
-    if not test:
-        raise RuntimeError(f"No test images after {protocol} split")
+    if protocol == "kfold":
+        k = 5
+        if len(images) < k:
+            raise RuntimeError(f"Need at least {k} validated images for {k}-fold CV")
+        
+        shuffled = images.copy()
+        random.shuffle(shuffled)
+        fold_size = max(1, len(shuffled) // k)
+        
+        kfold_metrics = []
+        
+        for i in range(k):
+            start_idx = i * fold_size
+            end_idx = (i + 1) * fold_size if i < k - 1 else len(shuffled)
+            
+            test = shuffled[start_idx:end_idx]
+            train = shuffled[:start_idx] + shuffled[end_idx:]
+            
+            work_dir = tempfile.mkdtemp(prefix=f"axon_eval_kfold_{i}_")
+            try:
+                ground_truth = _write_dataset_to_dir(work_dir, train, test)
+                output_dir = _run_container(image_name, work_dir)
+                fold_metric = _compute_accuracy(output_dir, ground_truth)
+                fold_metric["train_count"] = len(train)
+                fold_metric["test_count"] = len(test)
+                fold_metric["fold"] = i + 1
+                kfold_metrics.append(fold_metric)
+            finally:
+                shutil.rmtree(work_dir, ignore_errors=True)
+                
+        avg_accuracy = sum(m["accuracy"] for m in kfold_metrics) / k
+        
+        return {
+            "accuracy": round(avg_accuracy, 4),
+            "protocol": f"{k}-fold",
+            "folds": kfold_metrics,
+            "predictions_count": sum(m["predictions_count"] for m in kfold_metrics),
+            "ground_truth_count": sum(m["ground_truth_count"] for m in kfold_metrics),
+            "train_count": sum(m["train_count"] for m in kfold_metrics) // k,
+            "test_count": sum(m["test_count"] for m in kfold_metrics) // k,
+        }
+    
+    else:
+        # Standard, LOTO, TOTO
+        if protocol == "loto":
+            if model_team_id is None:
+                raise RuntimeError("LOTO protocol requires model_team_id")
+            train, test = _prepare_loto_split(images, model_team_id)
+        elif protocol == "toto":
+            if model_team_id is None:
+                raise RuntimeError("TOTO protocol requires model_team_id")
+            train, test = _prepare_toto_split(images, model_team_id)
+        else:  # standard
+            train, test = _prepare_split(images)
 
-    # 2. Set up workspace
-    work_dir = tempfile.mkdtemp(prefix="axon_eval_")
-    try:
-        # 3. Write dataset
-        ground_truth = _write_dataset_to_dir(work_dir, train, test)
+        if not train:
+            raise RuntimeError(f"No training images after {protocol} split")
+        if not test:
+            raise RuntimeError(f"No test images after {protocol} split")
 
-        # 4. Load Docker image
-        image_name = _load_docker_image(_resolve_path(model_filepath))
-        logger.info(f"Loaded Docker image: {image_name}")
-
-        # 5. Run container
-        output_dir = _run_container(image_name, work_dir)
-
-        # 6. Compute metrics
-        metrics = _compute_accuracy(output_dir, ground_truth)
-        metrics["protocol"] = protocol
-        metrics["train_count"] = len(train)
-        metrics["test_count"] = len(test)
-
-        logger.info(f"Evaluation complete: accuracy={metrics['accuracy']}, protocol={protocol}")
-        return metrics
-
-    finally:
-        # Cleanup
+        work_dir = tempfile.mkdtemp(prefix="axon_eval_")
         try:
-            shutil.rmtree(work_dir)
-        except Exception:
-            pass
+            ground_truth = _write_dataset_to_dir(work_dir, train, test)
+            output_dir = _run_container(image_name, work_dir)
+            
+            metrics = _compute_accuracy(output_dir, ground_truth)
+            metrics["protocol"] = protocol
+            metrics["train_count"] = len(train)
+            metrics["test_count"] = len(test)
+
+            logger.info(f"Evaluation complete: accuracy={metrics['accuracy']}, protocol={protocol}")
+            return metrics
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)

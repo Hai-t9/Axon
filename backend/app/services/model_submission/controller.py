@@ -142,10 +142,36 @@ async def list_competition_models(
 ):
     try:
         token = extract_bearer_token(authorization)
-        auth_service.get_current_user(token)  # Any authenticated user can view models
-
+        user = auth_service.get_current_user(token)
         service = ModelSubmissionService(ModelSubmissionRepository(db))
-        items = service.list_by_competition(comp_id)
+        
+        role = auth_service.repository.get_user_role(user.id, comp_id)
+        
+        if role and role.role in (RoleType.host, RoleType.staff):
+            items = service.list_by_competition(comp_id)
+        else:
+            from app.models import Team
+            teams_in_comp = db.query(Team).filter(Team.comp_id == comp_id).all()
+            user_team_id = None
+            for t in teams_in_comp:
+                import json
+                uids = t.user_ids or []
+                if isinstance(uids, str):
+                    try: uids = json.loads(uids)
+                    except: uids = []
+                uids_int = []
+                for uid in uids:
+                    try: uids_int.append(int(uid))
+                    except: pass
+                if user.id in uids_int:
+                    user_team_id = t.id
+                    break
+            
+            if user_team_id:
+                items = service.list_by_team(user_team_id)
+            else:
+                items = []
+
         return {"items": items, "total": len(items)}
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))

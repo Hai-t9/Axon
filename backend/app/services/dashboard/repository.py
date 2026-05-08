@@ -32,11 +32,20 @@ class DashboardRepository:
         total = len(images)
         verified = sum(1 for image in images if image.status == ImageStatus.verified)
         on_hold = sum(1 for image in images if image.status == ImageStatus.onhold)
+        
+        team_stats = {}
+        for img in images:
+            if img.team_id not in team_stats:
+                team_stats[img.team_id] = {"total": 0, "verified": 0}
+            team_stats[img.team_id]["total"] += 1
+            if img.status == ImageStatus.verified:
+                team_stats[img.team_id]["verified"] += 1
 
         return {
             "total": total,
             "verified": verified,
             "on_hold": on_hold,
+            "team_stats": team_stats
         }
 
     def find_team_info(self, comp_id: int) -> list[Team]:

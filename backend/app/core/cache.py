@@ -67,3 +67,45 @@ class DashboardCache:
 @lru_cache(maxsize=1)
 def get_dashboard_cache() -> DashboardCache:
     return DashboardCache()
+
+
+class ValidationCache:
+    def __init__(self):
+        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        self.client = self._build_client()
+        # These rarely change during competition, so 1 hour TTL is fine
+        self.ttl_seconds = 3600
+
+    def _build_client(self):
+        if redis is None:
+            return None
+        try:
+            client = redis.Redis.from_url(self.redis_url, decode_responses=True)
+            client.ping()
+            return client
+        except Exception:
+            return None
+            
+    def get_threshold(self, comp_id: int) -> int | None:
+        if not self.client: return None
+        val = self.client.get(f"val_thresh:{comp_id}")
+        return int(val) if val else None
+        
+    def set_threshold(self, comp_id: int, threshold: int):
+        if self.client:
+            self.client.setex(f"val_thresh:{comp_id}", self.ttl_seconds, str(threshold))
+            
+    def get_participant_team(self, comp_id: int, user_id: int) -> int | None:
+        if not self.client: return None
+        val = self.client.get(f"val_team:{comp_id}:{user_id}")
+        return int(val) if val else None
+        
+    def set_participant_team(self, comp_id: int, user_id: int, team_id: int):
+        if self.client:
+            self.client.setex(f"val_team:{comp_id}:{user_id}", self.ttl_seconds, str(team_id))
+
+
+@lru_cache(maxsize=1)
+def get_validation_cache() -> ValidationCache:
+    return ValidationCache()
+

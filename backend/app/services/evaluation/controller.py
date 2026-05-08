@@ -2,7 +2,7 @@
 FILE: backend/app/services/evaluation/controller.py
 """
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.core.auth import extract_bearer_token
@@ -17,6 +17,7 @@ from app.models import RoleType
 from app.schemas.evaluation import (
     EvaluationJobResponse,
     EvaluationResultResponse,
+    EvaluationListResponse,
     EvaluationScheduleRequest,
 )
 from app.services.auth.repository import AuthRepository
@@ -57,6 +58,7 @@ def get_evaluation_service(db: Session = Depends(get_db)) -> EvaluationService:
 async def schedule_evaluation(
     model_id: int,
     payload: EvaluationScheduleRequest,
+    background_tasks: BackgroundTasks,
     authorization: str = Header(...),
     db: Session = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
@@ -66,6 +68,7 @@ async def schedule_evaluation(
 
     **Protocol options:**
     - `standard` — 80/20 random train/test split
+    - `kfold` — 5-Fold Cross Validation: averages accuracy across 5 unique splits
     - `loto` — Leave-One-Team-Out: test on submitting team, train on rest
     - `toto` — Train-On-One-Team-Only: train on submitting team, test on rest
 
@@ -89,6 +92,7 @@ async def schedule_evaluation(
             model_id=model_id,
             protocol=payload.protocol,
             db=db,
+            background_tasks=background_tasks,
         )
         return result
     except AuthenticationError as exc:
@@ -106,11 +110,11 @@ async def schedule_evaluation(
 #   Retrieve evaluation result for a model.
 # -----------------------------------------------------------------------
 @router.get(
-    "/models/{model_id}/evaluation",
-    response_model=EvaluationResultResponse,
-    summary="Get evaluation result for a model",
+    "/models/{model_id}/evaluations",
+    response_model=EvaluationListResponse,
+    summary="Get all evaluation results for a model",
 )
-async def get_evaluation(
+async def get_evaluations(
     model_id: int,
     authorization: str = Header(...),
     db: Session = Depends(get_db),
@@ -121,7 +125,8 @@ async def get_evaluation(
         auth_service.get_current_user(token)
 
         service = EvaluationService(EvaluationRepository(db))
-        return service.get_evaluation(model_id)
+        items = service.get_evaluations(model_id)
+        return {"items": items}
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except NotFoundError as exc:

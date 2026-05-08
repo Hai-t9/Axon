@@ -4,11 +4,20 @@ from sqlalchemy.orm import Session
 from app.models import Config, Image, Label, LabelValidation, Team
 
 
+from app.core.cache import get_validation_cache
+
 class ValidationRepository:
     def __init__(self, db: Session):
         self.db = db
+        self.cache = get_validation_cache()
 
     def find_participant_team(self, comp_id: int, participant_id: int) -> Team | None:
+        cached_team_id = self.cache.get_participant_team(comp_id, participant_id)
+        if cached_team_id:
+            team = self.db.query(Team).filter(Team.id == cached_team_id).first()
+            if team:
+                return team
+
         teams = (
             self.db.query(Team)
             .filter(Team.comp_id == comp_id)
@@ -17,10 +26,15 @@ class ValidationRepository:
         )
         for team in teams:
             if participant_id in (team.user_ids or []):
+                self.cache.set_participant_team(comp_id, participant_id, team.id)
                 return team
         return None
 
     def find_validation_threshold(self, comp_id: int) -> int | None:
+        cached_thresh = self.cache.get_threshold(comp_id)
+        if cached_thresh is not None:
+            return cached_thresh
+
         config = (
             self.db.query(Config)
             .filter(Config.competition_id == comp_id)
@@ -28,6 +42,10 @@ class ValidationRepository:
         )
         if not config:
             return None
+            
+        if config.max_validations is not None:
+            self.cache.set_threshold(comp_id, config.max_validations)
+            
         return config.max_validations
 
     def count_participant_validations(

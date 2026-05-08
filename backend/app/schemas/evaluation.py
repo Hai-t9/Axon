@@ -12,8 +12,14 @@ class EvaluationJobResponse(BaseModel):
     message: str
 
 class EvaluationResultResponse(BaseModel):
+    id: int
     model_id: int
-    score: float
+    score: Optional[float] = None
+    metrics_json: Optional[str] = None
+    status: str
     evaluated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class EvaluationListResponse(BaseModel):
+    items: list[EvaluationResultResponse]

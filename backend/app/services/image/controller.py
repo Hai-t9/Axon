@@ -210,55 +210,76 @@ def delete_image(
 @router.get("/competitions/{comp_id}/dataset/export")
 def export_dataset(
     comp_id: int,
+    format: str = "csv",
     authorization: str = Header(None),
     token: str = None,
     db: Session = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    """Export a competition's dataset as a ZIP containing images and a labels.csv."""
-    import io, csv, zipfile, os
+    """Export a competition's dataset as a ZIP in specific formats (csv, yolo, coco)."""
+    import io, csv, zipfile, os, json
     from fastapi.responses import StreamingResponse
     from app.models import Image, Team, Label
 
     try:
-        # Support both header-based and query-param-based auth (for browser downloads)
-        jwt_token = None
-        if authorization:
-            jwt_token = extract_bearer_token(authorization)
-        elif token:
-            jwt_token = token
+        jwt_token = extract_bearer_token(authorization) if authorization else token
         if not jwt_token:
             raise AuthenticationError("No token provided")
         auth_service.get_current_user(jwt_token)
 
-        # Get all images for this competition
-        images = (
-            db.query(Image)
-            .join(Team, Team.id == Image.team_id)
-            .filter(Team.comp_id == comp_id)
-            .all()
-        )
+        images = db.query(Image).join(Team, Team.id == Image.team_id).filter(Team.comp_id == comp_id).all()
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-            # Write labels.csv
-            csv_buf = io.StringIO()
-            writer = csv.writer(csv_buf)
-            writer.writerow(['filename', 'label', 'team_id', 'status'])
-
-            for img in images:
-                # Try to get label from label table first, fallback to image.label
-                label_record = db.query(Label).filter(Label.image_id == img.id).first()
-                label_text = label_record.label if label_record else (img.label or 'unlabeled')
-
-                filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
-                writer.writerow([filename, label_text, img.team_id, img.status.value if img.status else 'unknown'])
-
-                # Add image file if it exists
-                if img.filepath and os.path.exists(img.filepath):
-                    zf.write(img.filepath, f"images/{filename}")
-
-            zf.writestr("labels.csv", csv_buf.getvalue())
+            if format == "csv":
+                csv_buf = io.StringIO()
+                writer = csv.writer(csv_buf)
+                writer.writerow(['filename', 'label', 'team_id', 'status'])
+                for img in images:
+                    label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                    label_text = label_record.label if label_record else (img.label or 'unlabeled')
+                    filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                    writer.writerow([filename, label_text, img.team_id, img.status.value if img.status else 'unknown'])
+                    if img.filepath and os.path.exists(img.filepath):
+                        zf.write(img.filepath, f"images/{filename}")
+                zf.writestr("labels.csv", csv_buf.getvalue())
+                
+            elif format == "yolo":
+                for img in images:
+                    label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                    label_text = label_record.label if label_record else (img.label or 'unlabeled')
+                    filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                    # YOLO classification format: class_name/image.jpg
+                    if img.filepath and os.path.exists(img.filepath):
+                        zf.write(img.filepath, f"{label_text}/{filename}")
+                        
+            elif format == "coco":
+                coco_data = {
+                    "info": {"description": f"Axon Competition {comp_id} Dataset"},
+                    "images": [],
+                    "annotations": [],
+                    "categories": []
+                }
+                categories_map = {}
+                cat_id = 1
+                for img in images:
+                    label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                    label_text = label_record.label if label_record else (img.label or 'unlabeled')
+                    if label_text not in categories_map:
+                        categories_map[label_text] = cat_id
+                        coco_data["categories"].append({"id": cat_id, "name": label_text})
+                        cat_id += 1
+                        
+                    filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                    coco_data["images"].append({"id": img.id, "file_name": filename})
+                    coco_data["annotations"].append({
+                        "id": img.id,
+                        "image_id": img.id,
+                        "category_id": categories_map[label_text]
+                    })
+                    if img.filepath and os.path.exists(img.filepath):
+                        zf.write(img.filepath, f"images/{filename}")
+                zf.writestr("annotations.json", json.dumps(coco_data, indent=2))
 
         buf.seek(0)
         return StreamingResponse(
@@ -273,61 +294,73 @@ def export_dataset(
 @router.get("/teams/{team_id}/dataset/export")
 def export_team_dataset(
     team_id: int,
+    format: str = "csv",
     authorization: str = Header(None),
     token: str = None,
     db: Session = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service),
 ):
     """Export a single team's dataset as a ZIP containing only their images and labels.csv."""
-    import io, csv, zipfile, os
+    import io, csv, zipfile, os, json
     from fastapi.responses import StreamingResponse
     from app.models import Image, Team, Label
 
     try:
-        jwt_token = None
-        if authorization:
-            jwt_token = extract_bearer_token(authorization)
-        elif token:
-            jwt_token = token
+        jwt_token = extract_bearer_token(authorization) if authorization else token
         if not jwt_token:
             raise AuthenticationError("No token provided")
         user = auth_service.get_current_user(jwt_token)
 
-        # Verify team exists
         team = db.query(Team).filter(Team.id == team_id).first()
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
 
-        # Verify user is a member of this team or is a host
         user_ids = team.user_ids or []
         from app.models import Role, RoleType
-        is_host = db.query(Role).filter(
-            Role.user_id == user.id,
-            Role.competition_id == team.comp_id,
-            Role.role == RoleType.host
-        ).first()
+        is_host = db.query(Role).filter(Role.user_id == user.id, Role.competition_id == team.comp_id, Role.role == RoleType.host).first()
         if user.id not in [int(uid) for uid in user_ids] and not is_host:
             raise HTTPException(status_code=403, detail="You can only export your own team's dataset")
 
-        # Get only this team's images
         images = db.query(Image).filter(Image.team_id == team_id).all()
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-            csv_buf = io.StringIO()
-            writer = csv.writer(csv_buf)
-            writer.writerow(['filename', 'label', 'status'])
-
-            for img in images:
-                label_record = db.query(Label).filter(Label.image_id == img.id).first()
-                label_text = label_record.label if label_record else (img.label or 'unlabeled')
-                filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
-                writer.writerow([filename, label_text, img.status.value if img.status else 'unknown'])
-
-                if img.filepath and os.path.exists(img.filepath):
-                    zf.write(img.filepath, f"images/{filename}")
-
-            zf.writestr("labels.csv", csv_buf.getvalue())
+            if format == "csv":
+                csv_buf = io.StringIO()
+                writer = csv.writer(csv_buf)
+                writer.writerow(['filename', 'label', 'status'])
+                for img in images:
+                    label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                    label_text = label_record.label if label_record else (img.label or 'unlabeled')
+                    filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                    writer.writerow([filename, label_text, img.status.value if img.status else 'unknown'])
+                    if img.filepath and os.path.exists(img.filepath):
+                        zf.write(img.filepath, f"images/{filename}")
+                zf.writestr("labels.csv", csv_buf.getvalue())
+            elif format == "yolo":
+                for img in images:
+                    label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                    label_text = label_record.label if label_record else (img.label or 'unlabeled')
+                    filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                    if img.filepath and os.path.exists(img.filepath):
+                        zf.write(img.filepath, f"{label_text}/{filename}")
+            elif format == "coco":
+                coco_data = {"info": {"description": f"Team {team_id} Dataset"}, "images": [], "annotations": [], "categories": []}
+                categories_map = {}
+                cat_id = 1
+                for img in images:
+                    label_record = db.query(Label).filter(Label.image_id == img.id).first()
+                    label_text = label_record.label if label_record else (img.label or 'unlabeled')
+                    if label_text not in categories_map:
+                        categories_map[label_text] = cat_id
+                        coco_data["categories"].append({"id": cat_id, "name": label_text})
+                        cat_id += 1
+                    filename = os.path.basename(img.filepath) if img.filepath else f"image_{img.id}.jpg"
+                    coco_data["images"].append({"id": img.id, "file_name": filename})
+                    coco_data["annotations"].append({"id": img.id, "image_id": img.id, "category_id": categories_map[label_text]})
+                    if img.filepath and os.path.exists(img.filepath):
+                        zf.write(img.filepath, f"images/{filename}")
+                zf.writestr("annotations.json", json.dumps(coco_data, indent=2))
 
         buf.seek(0)
         return StreamingResponse(

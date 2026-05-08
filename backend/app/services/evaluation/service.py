@@ -1,7 +1,10 @@
 import uuid
 import logging
+import json
 from typing import Any
 from sqlalchemy.orm import Session
+from fastapi import BackgroundTasks
+from app.core.database import SessionLocal
 from app.core.exceptions import NotFoundError, ValidationError
 from .repository import EvaluationRepository
 
@@ -12,13 +15,13 @@ class EvaluationService:
     def __init__(self, repository: EvaluationRepository):
         self.repository = repository
 
-    def schedule_evaluation(self, model_id: int, protocol: str, db: Session) -> dict[str, Any]:
+    def schedule_evaluation(self, model_id: int, protocol: str, db: Session, background_tasks: BackgroundTasks) -> dict[str, Any]:
         model = self.repository.find_model(model_id)
         if not model:
             raise NotFoundError(f"Model {model_id} not found")
 
-        if protocol not in ("standard", "loto", "toto"):
-            raise ValidationError(f"Unknown protocol '{protocol}'. Use: standard, loto, toto")
+        if protocol not in ("standard", "loto", "toto", "kfold"):
+            raise ValidationError(f"Unknown protocol '{protocol}'. Use: standard, loto, toto, kfold")
 
         # Get all validated images for the competition
         images = self.repository.get_all_validated_images_for_competition(model.competition_id)
@@ -33,6 +36,11 @@ class EvaluationService:
                 f"Only {len(images)} validated image(s). Need at least 2 for evaluation."
             )
 
+        if protocol == "kfold" and len(images) < 5:
+            raise ValidationError(
+                f"Only {len(images)} validated image(s). Need at least 5 for 5-fold CV evaluation."
+            )
+
         # LOTO/TOTO require images from at least 2 different teams
         if protocol in ("loto", "toto"):
             team_ids_with_data = set(img["team_id"] for img in images)
@@ -45,57 +53,57 @@ class EvaluationService:
 
         job_id = str(uuid.uuid4())
 
+        # Always create a new evaluation attempt
+        evaluation = self.repository.create_evaluation(model_id, status="pending")
+        db.commit()
+
+        background_tasks.add_task(self._run_evaluation_background, evaluation.id, model.docker_img_filepath, images, protocol, model.team_id)
+
+        return {
+            "model_id": model_id,
+            "job_id": job_id,
+            "status": "pending",
+            "message": f"Evaluation queued using {protocol} protocol.",
+        }
+
+    def _run_evaluation_background(self, evaluation_id: int, docker_img_filepath: str, images: list, protocol: str, model_team_id: int):
+        db = SessionLocal()
         try:
             from .docker_runner import evaluate_model
+            
+            repo = EvaluationRepository(db)
+            from app.models import Evaluation
+            evaluation = db.query(Evaluation).filter(Evaluation.id == evaluation_id).first()
+            if not evaluation:
+                return
 
             metrics = evaluate_model(
-                model_filepath=model.docker_img_filepath,
+                model_filepath=docker_img_filepath,
                 images=images,
                 protocol=protocol,
-                model_team_id=model.team_id,
+                model_team_id=model_team_id,
             )
 
-            score = metrics["accuracy"]
+            score = metrics.get("accuracy", 0.0)
+            metrics_json = json.dumps(metrics)
 
-            # Save evaluation result
-            evaluation = self.repository.find_by_model_id(model_id)
-            if evaluation:
-                self.repository.update_evaluation(evaluation, score)
-            else:
-                self.repository.create_evaluation(model_id, score)
+            repo.update_evaluation(evaluation, score=score, metrics_json=metrics_json, status="completed")
 
-            db.commit()
-
-            return {
-                "model_id": model_id,
-                "job_id": job_id,
-                "status": "completed",
-                "score": score,
-                "message": (
-                    f"Evaluation completed using {protocol} protocol. "
-                    f"Accuracy: {score:.2%} "
-                    f"({metrics['correct']}/{metrics['total']} correct, "
-                    f"train={metrics['train_count']}, test={metrics['test_count']})"
-                ),
-            }
-
-        except FileNotFoundError:
-            raise ValidationError(
-                f"Model file not found at {model.docker_img_filepath}. "
-                "Was the model archive uploaded correctly?"
-            )
-        except RuntimeError as exc:
-            logger.error(f"Docker evaluation failed for model {model_id}: {exc}")
-            raise ValidationError(f"Evaluation failed: {exc}")
         except Exception as exc:
-            logger.exception(f"Unexpected evaluation error for model {model_id}")
-            raise ValidationError(f"Evaluation error: {exc}")
+            logger.exception(f"Background evaluation error for evaluation {evaluation_id}")
+            try:
+                from app.models import Evaluation
+                evaluation = db.query(Evaluation).filter(Evaluation.id == evaluation_id).first()
+                if evaluation:
+                    repo = EvaluationRepository(db)
+                    repo.update_evaluation(evaluation, status="failed")
+            except Exception:
+                pass
+        finally:
+            db.close()
 
-    def get_evaluation(self, model_id: int) -> Any:
-        evaluation = self.repository.find_by_model_id(model_id)
-        if not evaluation:
-            raise NotFoundError(f"Evaluation for model {model_id} not found")
-        return evaluation
+    def get_evaluations(self, model_id: int) -> list[Any]:
+        return self.repository.find_all_by_model_id(model_id)
 
     def store_result(self, model_id: int, score: float) -> Any:
         model = self.repository.find_model(model_id)

@@ -13,8 +13,8 @@ class ValidationPendingImage(ValidationImage):
     label: str
 
 
-class ValidationBatchResponse(BaseModel):
-    images: List[ValidationImage]
+class ValidationNextResponse(BaseModel):
+    image: ValidationImage | None
 
 
 class ValidationVoteCreate(BaseModel):

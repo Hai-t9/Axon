@@ -52,12 +52,18 @@ class DashboardService:
         image_stats = self.repository.find_image_stats(comp_id)
         teams = self.repository.find_team_info(comp_id)
 
+        teams_payload = []
+        for team in teams:
+            t_data = self._serialize_team(team)
+            t_data["stats"] = image_stats.get("team_stats", {}).get(team.id, {"total": 0, "verified": 0})
+            teams_payload.append(t_data)
+
         return {
             "phase_info": self._serialize_phase_info(phase_info),
             "config": self._serialize_config(config),
             "image_stats": image_stats,
             "team_info": {
-                "items": [self._serialize_team(team) for team in teams],
+                "items": teams_payload,
                 "total": len(teams),
             },
         }

@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [newCompName, setNewCompName] = useState('');
   const [newCompDesc, setNewCompDesc] = useState('');
   const [inviteToken, setInviteToken] = useState('');
+  const [inviteInfo, setInviteInfo] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
 
@@ -85,8 +86,26 @@ export default function Dashboard() {
     }
   };
 
-  const handleJoin = async (e: React.FormEvent) => {
+  const handleCheckToken = async (e: React.FormEvent) => {
     e.preventDefault();
+    setActionLoading(true);
+    setActionError('');
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/invitations/info?token=${encodeURIComponent(inviteToken)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Invalid or expired token.');
+      const data = await res.json();
+      setInviteInfo(data);
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleJoin = async () => {
     setActionLoading(true);
     setActionError('');
     const token = localStorage.getItem('token');
@@ -100,12 +119,19 @@ export default function Dashboard() {
       if (!res.ok) throw new Error('Failed to join. Invalid or expired token.');
       setShowJoinModal(false);
       setInviteToken('');
+      setInviteInfo(null);
       fetchCompetitions();
     } catch (err: any) {
       setActionError(err.message);
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleReject = () => {
+    setInviteToken('');
+    setInviteInfo(null);
+    setShowJoinModal(false);
   };
 
   return (
@@ -210,16 +236,31 @@ export default function Dashboard() {
           <div className="glass-panel" style={{ width: '100%', maxWidth: '400px' }}>
             <h3 style={{ marginBottom: '24px' }}>Join Competition</h3>
             {actionError && <div className="error-msg" style={{ marginBottom: '16px' }}>{actionError}</div>}
-            <form onSubmit={handleJoin}>
-              <div style={{ marginBottom: '24px' }}>
-                <label>Invitation Token</label>
-                <input type="text" className="input-field" placeholder="Paste your invite token here" value={inviteToken} onChange={(e) => setInviteToken(e.target.value)} required />
+            
+            {!inviteInfo ? (
+              <form onSubmit={handleCheckToken}>
+                <div style={{ marginBottom: '24px' }}>
+                  <label>Invitation Token</label>
+                  <input type="text" className="input-field" placeholder="Paste your invite token here" value={inviteToken} onChange={(e) => setInviteToken(e.target.value)} required />
+                </div>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <button type="button" className="btn-secondary" onClick={() => setShowJoinModal(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={actionLoading}>{actionLoading ? 'Checking...' : 'Check Token'}</button>
+                </div>
+              </form>
+            ) : (
+              <div>
+                <div style={{ marginBottom: '24px', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '8px' }}>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '14px' }}>You have been invited to join:</p>
+                  <h4 style={{ margin: '0 0 8px 0', color: 'white', fontSize: '18px' }}>{inviteInfo.name}</h4>
+                  <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>{inviteInfo.overview}</p>
+                </div>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <button type="button" className="btn-secondary" onClick={handleReject} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.5)' }}>Reject</button>
+                  <button type="button" className="btn-primary" onClick={handleJoin} disabled={actionLoading}>{actionLoading ? 'Joining...' : 'Accept Invitation'}</button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setShowJoinModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={actionLoading}>{actionLoading ? 'Joining...' : 'Join'}</button>
-              </div>
-            </form>
+            )}
           </div>
         </div>
       )}

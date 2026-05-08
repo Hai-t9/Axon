@@ -37,18 +37,31 @@ class EvaluationRepository:
         return (
             self.db.query(Evaluation)
             .filter(Evaluation.model_id == model_id)
+            .order_by(Evaluation.evaluated_at.desc())
             .first()
         )
 
-    def create_evaluation(self, model_id: int, score: float) -> Evaluation:
-        evaluation = Evaluation(model_id=model_id, score=score)
+    def find_all_by_model_id(self, model_id: int) -> list[Evaluation]:
+        return (
+            self.db.query(Evaluation)
+            .filter(Evaluation.model_id == model_id)
+            .order_by(Evaluation.evaluated_at.desc())
+            .all()
+        )
+
+    def create_evaluation(self, model_id: int, score: float = None, metrics_json: str = None, status: str = "pending") -> Evaluation:
+        evaluation = Evaluation(model_id=model_id, score=score, metrics_json=metrics_json, status=status)
         self.db.add(evaluation)
         self.db.commit()
         self.db.refresh(evaluation)
         return evaluation
 
-    def update_evaluation(self, evaluation: Evaluation, score: float) -> Evaluation:
-        evaluation.score = score
+    def update_evaluation(self, evaluation: Evaluation, score: float = None, metrics_json: str = None, status: str = "completed") -> Evaluation:
+        if score is not None:
+            evaluation.score = score
+        if metrics_json is not None:
+            evaluation.metrics_json = metrics_json
+        evaluation.status = status
         evaluation.evaluated_at = datetime.utcnow()
         self.db.commit()
         self.db.refresh(evaluation)

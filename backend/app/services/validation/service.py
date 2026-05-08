@@ -11,16 +11,7 @@ class ValidationService:
         self.repository = repository
         self.label_service = label_service
 
-    def _compute_batch_counts(self, own_count: int, other_count: int) -> tuple[int, int]:
-        return 6, 4
-
-    def _compute_majority_vote(self, votes: list[str]) -> str:
-        if not votes:
-            raise ValidationError("No votes to compute majority")
-        counts = Counter(votes)
-        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
-
-    def get_validation_batch(self, comp_id: int, participant_id: int) -> dict:
+    def get_next_image(self, comp_id: int, participant_id: int) -> dict:
         team = self.repository.find_participant_team(comp_id, participant_id)
         if not team:
             raise NotFoundError("Participant team not found")
@@ -30,16 +21,34 @@ class ValidationService:
             threshold = 1
 
         counts = self.repository.count_participant_validations(comp_id, participant_id, team.id)
-        count60, count40 = self._compute_batch_counts(counts["ownCount"], counts["otherCount"])
+        own_count = counts["ownCount"]
+        other_count = counts["otherCount"]
+        
+        # Decide pool based on 60/40 ratio (pure logic, no DB):
+        # if ownCount / (ownCount + otherCount + 1) < 0.6 -> own team
+        # else -> other teams
+        ratio = own_count / (own_count + other_count + 1)
+        
+        if ratio < 0.6:
+            images = self.repository.find_batch_from_own_team(
+                comp_id, team.id, participant_id, threshold, 1
+            )
+            if not images:
+                # Fallback if own team has no more images
+                images = self.repository.find_batch_from_other_teams(
+                    comp_id, team.id, participant_id, threshold, 1
+                )
+        else:
+            images = self.repository.find_batch_from_other_teams(
+                comp_id, team.id, participant_id, threshold, 1
+            )
+            if not images:
+                # Fallback if other teams have no more images
+                images = self.repository.find_batch_from_own_team(
+                    comp_id, team.id, participant_id, threshold, 1
+                )
 
-        own_batch = self.repository.find_batch_from_own_team(
-            comp_id, team.id, participant_id, threshold, count60
-        )
-        other_batch = self.repository.find_batch_from_other_teams(
-            comp_id, team.id, participant_id, threshold, count40
-        )
-
-        return {"images": own_batch + other_batch}
+        return {"image": images[0] if images else None}
 
     def submit_vote(self, image_id: int, validator_id: int, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)
@@ -64,6 +73,12 @@ class ValidationService:
             self.label_service.validate_label(image_id)
 
         return {"validation_id": vote.id, "label": vote.label}
+
+    def _compute_majority_vote(self, votes: list[str]) -> str:
+        if not votes:
+            raise ValidationError("No votes to compute majority")
+        counts = Counter(votes)
+        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
     def get_pending_validations(self, comp_id: int) -> dict:
         images = self.repository.find_pending_by_comp(comp_id)

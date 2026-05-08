@@ -60,6 +60,28 @@ async def generate_link(
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@router.get(
+    "/info",
+    summary="Get competition info from an invitation token",
+)
+async def get_invitation_info(
+    token: str = Query(..., description="Invitation token from the link"),
+    db: Session = Depends(get_db),
+):
+    try:
+        from .service import verify_invite_token
+        comp_id = verify_invite_token(token)
+        from app.models import Competition
+        comp = db.query(Competition).filter(Competition.id == comp_id).first()
+        if not comp:
+            raise NotFoundError("Competition not found")
+        return {"competition_id": comp.id, "name": comp.name, "overview": comp.overview}
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @router.post(
     "/join",
     summary="Join a competition via invitation token",

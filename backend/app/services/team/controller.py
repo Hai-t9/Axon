@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.auth import extract_bearer_token
@@ -51,6 +51,40 @@ async def create_team(
         token = extract_bearer_token(authorization)
         auth_service.require_roles(token, comp_id, {RoleType.host, RoleType.staff})
         return team_service.create_team(comp_id, payload)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/competitions/{comp_id}/teams/bulk-import")
+async def bulk_import_teams(
+    comp_id: int,
+    file: UploadFile = File(...),
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    team_service: TeamService = Depends(get_team_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.require_roles(token, comp_id, {RoleType.host, RoleType.staff})
+        
+        content = await file.read()
+        import csv, io
+        # Parse CSV
+        csv_reader = csv.reader(io.StringIO(content.decode("utf-8")))
+        team_names = []
+        for row in csv_reader:
+            if row and row[0].strip() and row[0].strip().lower() not in ["team", "team_name", "team name"]:
+                team_names.append(row[0].strip())
+                
+        if not team_names:
+            raise ValidationError("No valid team names found in CSV")
+            
+        created_count = team_service.bulk_import(comp_id, team_names)
+        return {"created_count": created_count, "message": f"Successfully created {created_count} teams"}
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except AuthorizationError as exc:

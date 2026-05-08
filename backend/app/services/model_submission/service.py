@@ -2,7 +2,10 @@
 FILE: backend/app/services/model_submission/service.py
 """
 
+import hashlib
+import io
 import os
+import tarfile
 import uuid
 
 from fastapi import UploadFile
@@ -85,8 +88,20 @@ class ModelSubmissionService:
         contents = await file.read()
         self._validate_file(file, contents)
 
-        # 4. Persist to storage (MinIO / local fallback).
+        # 3.5. Calculate hash and validate structure
+        model_hash = hashlib.sha256(contents).hexdigest()
+        
         ext = os.path.splitext(file.filename or "model.tar")[1] or ".tar"
+        
+        if ext in [".tar", ".tar.gz", ".tgz"]:
+            try:
+                # Basic check to ensure it's actually a tarball
+                with tarfile.open(fileobj=io.BytesIO(contents), mode="r:gz" if ext in [".tar.gz", ".tgz"] else "r") as tar:
+                    tar.getmembers()
+            except tarfile.TarError:
+                raise ValidationError(f"File validation failed: The uploaded file is not a valid {ext} archive.")
+
+        # 4. Persist to storage (MinIO / local fallback).
         object_name = f"models/comp_{competition_id}/team_{team_id}/{uuid.uuid4()}{ext}"
         storage_service.upload_file(contents, object_name)
 
@@ -95,6 +110,7 @@ class ModelSubmissionService:
             team_id=team_id,
             competition_id=competition_id,
             docker_img_filepath=object_name,
+            model_hash=model_hash,
         )
         return model
 

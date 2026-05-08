@@ -12,12 +12,13 @@ class Model(Base):
     team_id = Column(Integer, ForeignKey("team.id"), nullable=False)
     competition_id = Column(Integer, ForeignKey("competition.id"), nullable=False)
     docker_img_filepath = Column(String, nullable=False)
+    model_hash = Column(String, nullable=True)  # SHA-256 for dedup
     submitted_at = Column(DateTime, server_default=func.now())
 
     team = relationship("Team", back_populates="models")
     competition = relationship("Competition", back_populates="models")
-    evaluation = relationship(
-        "Evaluation", back_populates="model", uselist=False, cascade="all, delete-orphan"
+    evaluations = relationship(
+        "Evaluation", back_populates="model", cascade="all, delete-orphan"
     )
 
     __table_args__ = (

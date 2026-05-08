@@ -24,6 +24,17 @@ class TeamService:
             {"comp_id": comp_id, "name": payload.name, "user_ids": user_ids}
         )
 
+    def bulk_import(self, comp_id: int, team_names: list[str]):
+        created_count = 0
+        for name in set(team_names):
+            name = name.strip()
+            if not name:
+                continue
+            if not self.repository.get_by_name(comp_id, name):
+                self.repository.create({"comp_id": comp_id, "name": name, "user_ids": []})
+                created_count += 1
+        return created_count
+
     def get_team(self, team_id: int):
         team = self.repository.get_by_id(team_id)
         if not team:

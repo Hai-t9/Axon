@@ -180,9 +180,30 @@ async def get_my_role(
         token = extract_bearer_token(authorization)
         user = auth_service.get_current_user(token)
         
-        from app.models import Role
+        from app.models import Role, Team
+        import json
         role_entry = db.query(Role).filter_by(user_id=user.id, competition_id=competition_id).first()
-        return {"role": role_entry.role.value if role_entry else "none"}
+        
+        team_id = None
+        if role_entry and role_entry.role.value == "participant":
+            teams_in_comp = db.query(Team).filter(Team.comp_id == competition_id).all()
+            for t in teams_in_comp:
+                uids = t.user_ids or []
+                if isinstance(uids, str):
+                    try: uids = json.loads(uids)
+                    except: uids = []
+                uids_int = []
+                for uid in uids:
+                    try: uids_int.append(int(uid))
+                    except: pass
+                if user.id in uids_int:
+                    team_id = t.id
+                    break
+
+        return {
+            "role": role_entry.role.value if role_entry else "none",
+            "team_id": team_id
+        }
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
 

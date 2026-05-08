@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_client.dart';
+import '../utils/ui_helpers.dart';
 
 class ValidationScreen extends ConsumerStatefulWidget {
   final int compId;
@@ -32,8 +33,8 @@ class _ValidationScreenState extends ConsumerState<ValidationScreen> {
       final configRes = await dio.get('/api/v1/competitions/${widget.compId}/config');
       final labels = configRes.data['labels'] as List<dynamic>? ?? [];
       
-      // Fetch batch of images
-      final batchRes = await dio.get('/api/v1/competitions/${widget.compId}/validations/batch');
+      // Fetch next image
+      final nextRes = await dio.get('/api/v1/competitions/${widget.compId}/validations/next');
       
       if (mounted) {
         setState(() {
@@ -41,7 +42,8 @@ class _ValidationScreenState extends ConsumerState<ValidationScreen> {
           if (_labelOptions.isEmpty) {
             _labelOptions = ['Healthy', 'Blight', 'Rust', 'Weed'];
           }
-          _images = batchRes.data['images'] ?? [];
+          final image = nextRes.data['image'];
+          _images = image != null ? [image] : [];
           _currentIndex = 0;
           _isLoading = false;
         });
@@ -49,9 +51,7 @@ class _ValidationScreenState extends ConsumerState<ValidationScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load data: $e')),
-        );
+        TopNotification.show(context, 'Failed to load data: $e', isError: true);
       }
     }
   }
@@ -66,20 +66,12 @@ class _ValidationScreenState extends ConsumerState<ValidationScreen> {
       await dio.post('/api/v1/images/$imageId/validations', data: {'label': label});
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Validated as "$label"'),
-            duration: const Duration(milliseconds: 800),
-            backgroundColor: const Color(0xFF00C49F),
-          ),
-        );
+        TopNotification.show(context, 'Validated as "$label"', isError: false);
         _goToNext();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Vote failed: $e'), backgroundColor: Colors.red),
-        );
+        TopNotification.show(context, 'Vote failed: $e', isError: true);
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -88,25 +80,12 @@ class _ValidationScreenState extends ConsumerState<ValidationScreen> {
 
   void _skipImage() {
     if (_images.isEmpty) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Skipped'),
-        duration: Duration(milliseconds: 600),
-        backgroundColor: Color(0xFF555566),
-      ),
-    );
+    TopNotification.show(context, 'Skipped', isError: false);
     _goToNext();
   }
 
   void _goToNext() {
-    if (_currentIndex < _images.length - 1) {
-      setState(() => _currentIndex++);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Batch complete! Loading next...')),
-      );
-      _fetchData();
-    }
+    _fetchData();
   }
 
   @override

@@ -5,7 +5,7 @@ class AuthNotifier extends Notifier<String?> {
   @override
   String? build() => null;
 
-  void setToken(String token) {
+  void setToken(String? token) {
     state = token;
   }
 }

@@ -12,6 +12,7 @@ export default function CompetitionDetail() {
   const [models, setModels] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [role, setRole] = useState<string>('none');
+  const [myTeamId, setMyTeamId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -21,6 +22,15 @@ export default function CompetitionDetail() {
   const [evaluating, setEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<string>('');
   const [uploading, setUploading] = useState(false);
+  
+  // History modal state
+  const [historyModalModelId, setHistoryModalModelId] = useState<number | null>(null);
+  const [modelHistory, setModelHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // Export states
+  const [globalExportFormat, setGlobalExportFormat] = useState('csv');
+  const [teamExportFormats, setTeamExportFormats] = useState<{[key: number]: string}>({});
   
   // Cleaner state
   const [cleanerStatus, setCleanerStatus] = useState<string>('Idle');
@@ -81,6 +91,7 @@ export default function CompetitionDetail() {
       if (roleRes.ok) {
         const r = await roleRes.json();
         setRole(r.role);
+        setMyTeamId(r.team_id || null);
       }
       if (teamsRes && 'ok' in teamsRes && teamsRes.ok) {
         const t = await teamsRes.json();
@@ -235,24 +246,34 @@ export default function CompetitionDetail() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Determine which team to submit for
     let teamId: number | null = null;
-    if (teams.length === 1) {
-      teamId = teams[0].id;
-    } else if (teams.length > 1) {
-      const teamNames = teams.map((t: any, i: number) => `${i + 1}. ${t.name} (ID: ${t.id})`).join('\n');
-      const choice = prompt(`Select a team to submit for:\n${teamNames}\n\nEnter the team ID:`);
-      if (!choice) { e.target.value = ''; return; }
-      teamId = parseInt(choice);
-      if (!teams.find((t: any) => t.id === teamId)) {
-        alert('Invalid team ID');
+    if (role === 'participant') {
+      if (myTeamId) {
+        teamId = myTeamId;
+      } else {
+        alert('You are not assigned to a team yet.');
         e.target.value = '';
         return;
       }
     } else {
-      alert('No teams available to submit for');
-      e.target.value = '';
-      return;
+      // For hosts/staff if they ever upload
+      if (teams.length === 1) {
+        teamId = teams[0].id;
+      } else if (teams.length > 1) {
+        const teamNames = teams.map((t: any, i: number) => `${i + 1}. ${t.name} (ID: ${t.id})`).join('\n');
+        const choice = prompt(`Select a team to submit for:\n${teamNames}\n\nEnter the team ID:`);
+        if (!choice) { e.target.value = ''; return; }
+        teamId = parseInt(choice);
+        if (!teams.find((t: any) => t.id === teamId)) {
+          alert('Invalid team ID');
+          e.target.value = '';
+          return;
+        }
+      } else {
+        alert('No teams available to submit for');
+        e.target.value = '';
+        return;
+      }
     }
 
     setUploading(true);
@@ -309,9 +330,57 @@ export default function CompetitionDetail() {
     }
   };
 
+  const viewHistory = async (modelId: number) => {
+    setHistoryModalModelId(modelId);
+    setLoadingHistory(true);
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/models/${modelId}/evaluations`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setModelHistory(data.items || []);
+      } else {
+        alert('Failed to load history');
+      }
+    } catch (e) {
+      alert('Error fetching history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   const exportTeamDataset = (teamId: number) => {
     const token = localStorage.getItem('token');
-    window.open(`http://localhost:8000/api/v1/teams/${teamId}/dataset/export?token=${token}`, '_blank');
+    const format = teamExportFormats[teamId] || 'csv';
+    window.open(`http://localhost:8000/api/v1/teams/${teamId}/dataset/export?format=${format}&token=${token}`, '_blank');
+  };
+
+  const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/competitions/${id}/teams/bulk-import`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Success: ${data.message}`);
+        window.location.reload();
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.detail}`);
+      }
+    } catch (err) {
+      alert('Failed to upload CSV');
+    }
+    e.target.value = '';
   };
 
   if (loading) return <div style={{ padding: '40px', color: 'white' }}>Loading...</div>;
@@ -374,16 +443,28 @@ export default function CompetitionDetail() {
                   </div>
                 </div>
                 {dashboard.image_stats.total > 0 && (
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    onClick={() => {
-                      const token = localStorage.getItem('token');
-                      window.open(`http://localhost:8000/api/v1/competitions/${id}/dataset/export?token=${token}`, '_blank');
-                    }}
-                  >
-                    <Download size={14} /> Export
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <select 
+                      className="input-field" 
+                      style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', background: 'rgba(255,255,255,0.05)', color: 'white' }}
+                      value={globalExportFormat}
+                      onChange={(e) => setGlobalExportFormat(e.target.value)}
+                    >
+                      <option value="csv">CSV (Default)</option>
+                      <option value="yolo">YOLO format</option>
+                      <option value="coco">COCO format</option>
+                    </select>
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      onClick={() => {
+                        const token = localStorage.getItem('token');
+                        window.open(`http://localhost:8000/api/v1/competitions/${id}/dataset/export?format=${globalExportFormat}&token=${token}`, '_blank');
+                      }}
+                    >
+                      <Download size={14} /> Export
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'space-between' }}>
@@ -518,9 +599,15 @@ export default function CompetitionDetail() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
               <h2>Team Management</h2>
               {role === 'host' && (
-                <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', width: 'auto' }} onClick={() => setShowCreateTeam(true)}>
-                  + Create Team
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <label className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', width: 'auto', cursor: 'pointer' }}>
+                    <Upload size={16} /> Bulk Import (CSV)
+                    <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleBulkImport} />
+                  </label>
+                  <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', width: 'auto' }} onClick={() => setShowCreateTeam(true)}>
+                    + Create Team
+                  </button>
+                </div>
               )}
             </div>
             {teams.length === 0 ? (
@@ -537,9 +624,21 @@ export default function CompetitionDetail() {
                         <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Team ID: {t.id} • {t.members?.length || 0} member(s)</span>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }} onClick={() => exportTeamDataset(t.id)}>
-                          <Download size={14} /> Export Dataset
-                        </button>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <select 
+                            className="input-field" 
+                            style={{ padding: '4px 8px', fontSize: '12px', width: 'auto', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}
+                            value={teamExportFormats[t.id] || 'csv'}
+                            onChange={(e) => setTeamExportFormats({...teamExportFormats, [t.id]: e.target.value})}
+                          >
+                            <option value="csv">CSV</option>
+                            <option value="yolo">YOLO</option>
+                            <option value="coco">COCO</option>
+                          </select>
+                          <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }} onClick={() => exportTeamDataset(t.id)}>
+                            <Download size={14} /> Export Dataset
+                          </button>
+                        </div>
                         {role === 'host' && (
                           <>
                             <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: 'auto' }} onClick={() => fetchUnassigned(t.id)}>
@@ -567,6 +666,25 @@ export default function CompetitionDetail() {
                     ) : (
                       <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No members yet — add participants to this team</span>
                     )}
+
+                    {/* Validation Progress Bar */}
+                    {role === 'host' && dashboard?.team_info?.items && (() => {
+                      const stats = dashboard.team_info.items.find((item: any) => item.id === t.id)?.stats || { total: 0, verified: 0 };
+                      const total = stats.total || 0;
+                      const verified = stats.verified || 0;
+                      const pct = total > 0 ? Math.round((verified / total) * 100) : 0;
+                      return (
+                        <div style={{ marginTop: '20px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Validation Progress</span>
+                            <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{verified} / {total} Images ({pct}%)</span>
+                          </div>
+                          <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary)', transition: 'width 0.3s ease' }}></div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -719,7 +837,7 @@ export default function CompetitionDetail() {
                     <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Version</th>
                     <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Filename</th>
                     <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Status</th>
-                    {role === 'host' && <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Actions</th>}
+                    <th style={{ padding: '16px 8px', color: 'var(--text-muted)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -739,17 +857,24 @@ export default function CompetitionDetail() {
                           SUBMITTED
                         </span>
                       </td>
-                      {role === 'host' && (
-                        <td style={{ padding: '16px 8px' }}>
+                        <td style={{ padding: '16px 8px', display: 'flex', gap: '8px' }}>
                           <button 
                             className="btn-outline"
-                            onClick={() => { setEvalModalModelId(m.id); setEvalProtocol('standard'); setEvalResult(''); }}
+                            onClick={() => viewHistory(m.id)}
                             style={{ padding: '6px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           >
-                            <Play size={14} /> Evaluate
+                            <Activity size={14} /> History
                           </button>
+                          {role === 'host' && (
+                            <button 
+                              className="btn-outline"
+                              onClick={() => { setEvalModalModelId(m.id); setEvalProtocol('standard'); setEvalResult(''); }}
+                              style={{ padding: '6px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <Play size={14} /> Evaluate
+                            </button>
+                          )}
                         </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -848,6 +973,7 @@ export default function CompetitionDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
               {[
                 { value: 'standard', label: 'Standard (80/20 Split)', desc: 'Random 80% train / 20% test split' },
+                { value: 'kfold', label: '5-Fold Cross Validation', desc: 'Averages accuracy across 5 unique splits' },
                 { value: 'loto', label: 'LOTO (Leave-One-Team-Out)', desc: 'Test on submitting team, train on all others' },
                 { value: 'toto', label: 'TOTO (Train-On-One-Team-Only)', desc: 'Train only on submitting team, test on others' },
               ].map((p) => (
@@ -871,6 +997,72 @@ export default function CompetitionDetail() {
                 <Play size={16} />
                 {evaluating ? 'Running Docker Container...' : 'Run Evaluation'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {historyModalModelId !== null && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '800px' }}>
+            <h3 style={{ marginBottom: '8px' }}>Evaluation History</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
+              Past evaluation attempts and execution logs for this model.
+            </p>
+            {loadingHistory ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading history...</div>
+            ) : modelHistory.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No evaluation history found.</div>
+            ) : (
+              <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '24px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>Date</th>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>Status</th>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>Score</th>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modelHistory.map(h => {
+                      const metrics = h.metrics_json ? JSON.parse(h.metrics_json) : null;
+                      return (
+                        <tr key={h.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ padding: '12px 8px', fontSize: '13px' }}>
+                            {new Date(h.evaluated_at + 'Z').toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 8px' }}>
+                            <span className={`badge badge-${h.status === 'completed' ? 'primary' : h.status === 'failed' ? 'error' : 'warning'}`}>
+                              {h.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 8px', fontWeight: 'bold', color: 'var(--primary)' }}>
+                            {h.score !== null ? `${(h.score * 100).toFixed(2)}%` : '-'}
+                          </td>
+                          <td style={{ padding: '12px 8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            {metrics ? (
+                              <div>
+                                <div><span style={{ color: 'white' }}>Protocol:</span> {metrics.protocol}</div>
+                                {metrics.per_class_accuracy && (
+                                  <div style={{ marginTop: '4px' }}>
+                                    <span style={{ color: 'white' }}>Per Class:</span>{' '}
+                                    {Object.entries(metrics.per_class_accuracy).map(([cls, acc]) => `${cls}: ${((acc as number)*100).toFixed(0)}%`).join(', ')}
+                                  </div>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn-secondary" onClick={() => setHistoryModalModelId(null)}>Close</button>
             </div>
           </div>
         </div>
