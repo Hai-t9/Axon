@@ -29,8 +29,9 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
   bool _loading = true;
 
   final _teamNameCtl = TextEditingController();
-  final _teamEmailsCtl = TextEditingController();
   final _memberEmailCtl = TextEditingController();
+  final List<String> _pendingEmails = [];
+  final _emailCtl = TextEditingController();
 
   @override
   void initState() {
@@ -41,8 +42,8 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
   @override
   void dispose() {
     _teamNameCtl.dispose();
-    _teamEmailsCtl.dispose();
     _memberEmailCtl.dispose();
+    _emailCtl.dispose();
     super.dispose();
   }
 
@@ -81,27 +82,17 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
 
   Future<void> _createTeam() async {
     final name = _teamNameCtl.text.trim();
-    final emailsStr = _teamEmailsCtl.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty || _pendingEmails.isEmpty) return;
 
     try {
       final api = ref.read(apiClientProvider);
-      if (emailsStr.isNotEmpty) {
-        final emails = emailsStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-        await api.postJson(
-          '/competitions/${widget.competitionId}/teams/bulk',
-          {'teams': {name: emails}},
-          headers: _authHeaders,
-        );
-      } else {
-        await api.postJson(
-          '/competitions/${widget.competitionId}/teams',
-          {'name': name},
-          headers: _authHeaders,
-        );
-      }
+      await api.postJson(
+        '/competitions/${widget.competitionId}/teams/bulk',
+        {'teams': {name: List.from(_pendingEmails)}},
+        headers: _authHeaders,
+      );
       _teamNameCtl.clear();
-      _teamEmailsCtl.clear();
+      setState(() => _pendingEmails.clear());
       _showMsg('Team "$name" created.');
       await _loadTeams();
     } catch (e) {
@@ -134,6 +125,16 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
       await _loadTeams();
     } catch (e) {
       _showMsg(e.toString(), isError: true);
+    }
+  }
+
+  void _addEmail() {
+    final v = _emailCtl.text.trim().toLowerCase();
+    if (v.isNotEmpty && !_pendingEmails.contains(v)) {
+      setState(() {
+        _pendingEmails.add(v);
+        _emailCtl.clear();
+      });
     }
   }
 
@@ -218,37 +219,51 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
                   Text('Create a new team',
                       style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _teamNameCtl,
+                    decoration: const InputDecoration(
+                      labelText: 'Team name',
+                      hintText: 'Team Alpha',
+                      prefixIcon: Icon(Icons.group_add_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   Row(children: [
                     Expanded(
                       child: TextField(
-                        controller: _teamNameCtl,
+                        controller: _emailCtl,
                         decoration: const InputDecoration(
-                          labelText: 'Team name',
-                          hintText: 'Team Alpha',
-                          prefixIcon: Icon(Icons.group_add_outlined),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _teamEmailsCtl,
-                        decoration: const InputDecoration(
-                          labelText: 'Member emails (comma separated, optional)',
-                          hintText: 'alice@ex.com, bob@ex.com',
+                          labelText: 'Member email',
+                          hintText: 'alice@example.com',
                           prefixIcon: Icon(Icons.email_outlined),
                         ),
-                        onSubmitted: (_) => _createTeam(),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.md),
-                    ElevatedButton.icon(
-                      onPressed: _createTeam,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Create'),
+                    const SizedBox(width: AppSpacing.sm),
+                    ElevatedButton(
+                      onPressed: _addEmail,
+                      child: const Text('Add'),
                     ),
                   ]),
+                  if (_pendingEmails.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: _pendingEmails.map((e) {
+                        return Chip(
+                          label: Text(e),
+                          onDeleted: () => setState(() => _pendingEmails.remove(e)),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+                  ElevatedButton.icon(
+                    onPressed: (_pendingEmails.isEmpty || _teamNameCtl.text.trim().isEmpty) ? null : _createTeam,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text('Create team with ${_pendingEmails.length} member${_pendingEmails.length == 1 ? '' : 's'}'),
+                  ),
                 ],
               ),
             ),
@@ -306,7 +321,7 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
                           else
                             ...userEmails.entries.map((entry) {
                               final email = entry.key;
-                              final joined = entry.value == true;
+                              final joined = entry.value == 1;
                               return ListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,

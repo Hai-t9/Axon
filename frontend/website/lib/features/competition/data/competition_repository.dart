@@ -149,6 +149,27 @@ class CompetitionRepository {
     return Competition.fromJson(response);
   }
 
+  Future<String?> getUserRole(String competitionId) async {
+    try {
+      final response = await _apiClient.getJson(
+        '/competitions/$competitionId/dashboard/role',
+        headers: _authHeaders(),
+      );
+      return response['role'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> leaveCompetition(String competitionId) async {
+    final response = await _apiClient.postJson(
+      '/competitions/$competitionId/leave',
+      {},
+      headers: _authHeaders(),
+    );
+    return response;
+  }
+
   Map<String, String> _authHeaders() {
     final token = _session?.accessToken;
     if (token == null || token.isEmpty) {

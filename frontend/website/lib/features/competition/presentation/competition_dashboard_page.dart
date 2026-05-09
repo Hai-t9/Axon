@@ -11,6 +11,7 @@ import '../../../features/model_submission/presentation/model_submission_page.da
 import '../../../features/validation/presentation/validation_page.dart';
 import '../../../features/evaluation/presentation/evaluation_page.dart';
 import '../../../features/data_validation/presentation/data_validation_page.dart';
+import '../data/competition_repository.dart';
 import '../state/competition_details_controller.dart';
 import '../state/dashboard_controller.dart';
 import '../data/dashboard_models.dart';
@@ -51,10 +52,89 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
     super.dispose();
   }
 
+  Widget _buildActionButtons(
+    String competitionId,
+    AsyncValue<DashboardBase> dashboardState,
+    AsyncValue<String?> roleState,
+  ) {
+    final role = roleState.asData?.value;
+    // Role is loading or unknown → show nothing
+    if (role == null) return const SizedBox.shrink();
+    // Host or staff → show Teams + Manage
+    if (role == 'host' || role == 'staff') {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => context.go(
+              TeamsControlPage.routeForId(competitionId),
+            ),
+            icon: const Icon(Icons.group_outlined),
+            label: const Text('Teams'),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: () => context.go(
+              CompetitionSettingsPage.routeForId(competitionId),
+            ),
+            icon: const Icon(Icons.settings),
+            label: const Text('Manage'),
+          ),
+        ],
+      );
+    }
+    // Participant → show Leave button
+    return OutlinedButton.icon(
+      onPressed: () => _leaveCompetition(competitionId),
+      icon: const Icon(Icons.exit_to_app),
+      label: const Text('Leave'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.error,
+        side: const BorderSide(color: AppColors.error),
+      ),
+    );
+  }
+
+  Future<void> _leaveCompetition(String competitionId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave competition'),
+        content: const Text(
+          'Are you sure you want to leave this competition? '
+          'You can rejoin later with the invitation link if invited.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      final repo = ref.read(competitionRepositoryProvider);
+      await repo.leaveCompetition(competitionId);
+      if (!mounted) return;
+      final m = ScaffoldMessenger.of(context);
+      m.showSnackBar(const SnackBar(content: Text('Left competition.')));
+      context.go(HomePage.routePath);
+    } catch (e) {
+      if (!mounted) return;
+      final m = ScaffoldMessenger.of(context);
+      m.showSnackBar(SnackBar(content: Text('Failed to leave: $e'), backgroundColor: AppColors.error));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final competitionState = ref.watch(competitionDetailsProvider(widget.competitionId));
     final dashboardState = ref.watch(dashboardProvider(widget.competitionId));
+    final roleState = ref.watch(competitionRoleProvider(widget.competitionId));
 
     return AxonScaffold(
       child: competitionState.when(
@@ -71,21 +151,8 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                       subtitle: 'Competition dashboard',
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () => context.go(
-                      TeamsControlPage.routeForId(competition.id),
-                    ),
-                    icon: const Icon(Icons.group_outlined),
-                    label: const Text('Teams'),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  OutlinedButton.icon(
-                    onPressed: () => context.go(
-                      CompetitionSettingsPage.routeForId(competition.id),
-                    ),
-                    icon: const Icon(Icons.settings),
-                    label: const Text('Manage'),
-                  ),
+                  // Host/staff see Teams & Manage; participants see Leave
+                  _buildActionButtons(competition.id, dashboardState, roleState),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),

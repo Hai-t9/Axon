@@ -60,3 +60,7 @@ class DashboardCachedResponse(BaseModel):
 
 class DashboardCacheClearResponse(BaseModel):
     cleared: bool
+
+
+class RoleResponse(BaseModel):
+    role: str | None

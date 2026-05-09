@@ -58,7 +58,8 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
   // ── Teams ──
   final Map<String, List<String>> _teams = {};
   final _teamNameCtl = TextEditingController();
-  final _teamEmailsCtl = TextEditingController();
+  final List<String> _pendingEmails = [];
+  final _emailCtl = TextEditingController();
 
   // ── Model spec ──
   final _modelDirCtl = TextEditingController(text: 'model');
@@ -85,7 +86,7 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
       _nameCtl, _descCtl, _dateCtl, _overviewCtl, _termsCtl,
       _dataMdCtl, _dataFmtCtl, _dataExCtl, _evalCtl, _scoringExCtl,
       _maxValCtl, _dupThreshCtl, _modelDirCtl, _dataDirCtl,
-      _infFuncCtl, _maxSizeMbCtl, _pyMinCtl, _labelCtl, _teamNameCtl, _teamEmailsCtl,
+      _infFuncCtl, _maxSizeMbCtl, _pyMinCtl, _labelCtl, _teamNameCtl, _emailCtl,
     ]) {
       c.dispose();
     }
@@ -527,39 +528,55 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
               onToggle: () => setState(() => _toggle(6)),
               children: [
                 Text(
-                  'Add teams manually or upload a JSON file summarizing teams and emails.',
+                  'Add teams and their members. Add one email at a time.',
                   style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: _teamNameCtl,
+                  decoration: const InputDecoration(
+                    labelText: 'Team Name',
+                    hintText: 'Team Alpha',
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
-                        controller: _teamNameCtl,
+                        controller: _emailCtl,
                         decoration: const InputDecoration(
-                          labelText: 'Team Name',
-                          hintText: 'Team Alpha',
+                          labelText: 'Member email',
+                          hintText: 'alice@example.com',
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _teamEmailsCtl,
-                        decoration: const InputDecoration(
-                          labelText: 'Member Emails (comma separated)',
-                          hintText: 'alice@example.com, bob@example.com',
-                        ),
-                        onSubmitted: (_) => _addTeam(),
+                        onSubmitted: (_) => _addEmail(),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     ElevatedButton(
-                      onPressed: _addTeam,
-                      child: const Text('Add Team'),
+                      onPressed: _addEmail,
+                      child: const Text('Add'),
                     ),
                   ],
+                ),
+                if (_pendingEmails.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: _pendingEmails.map((e) {
+                      return Chip(
+                        label: Text(e),
+                        onDeleted: () => setState(() => _pendingEmails.remove(e)),
+                      );
+                    }).toList(),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                ElevatedButton.icon(
+                  onPressed: _pendingEmails.isEmpty ? null : _addTeam,
+                  icon: const Icon(Icons.group_add_outlined, size: 18),
+                  label: Text('Add Team with ${_pendingEmails.length} member${_pendingEmails.length == 1 ? '' : 's'}'),
                 ),
 
                 if (_teams.isNotEmpty) ...[
@@ -599,18 +616,24 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
     }
   }
 
+  void _addEmail() {
+    final v = _emailCtl.text.trim().toLowerCase();
+    if (v.isNotEmpty && !_pendingEmails.contains(v)) {
+      setState(() {
+        _pendingEmails.add(v);
+        _emailCtl.clear();
+      });
+    }
+  }
+
   void _addTeam() {
     final name = _teamNameCtl.text.trim();
-    final emailsStr = _teamEmailsCtl.text.trim();
-    if (name.isNotEmpty && emailsStr.isNotEmpty) {
-      final emails = emailsStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      if (emails.isNotEmpty) {
-        setState(() {
-          _teams[name] = emails;
-          _teamNameCtl.clear();
-          _teamEmailsCtl.clear();
-        });
-      }
+    if (name.isNotEmpty && _pendingEmails.isNotEmpty) {
+      setState(() {
+        _teams[name] = List.from(_pendingEmails);
+        _teamNameCtl.clear();
+        _pendingEmails.clear();
+      });
     }
   }
 

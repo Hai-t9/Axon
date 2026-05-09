@@ -56,9 +56,6 @@ class Validators {
     if (trimmed.isEmpty) {
       return 'Invitation link is required.';
     }
-    if (!trimmed.contains('/') && !trimmed.contains('.')) {
-      return 'Enter a valid invitation link.';
-    }
     return null;
   }
 }

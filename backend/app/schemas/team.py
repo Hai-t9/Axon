@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from .user import UserResponse
 
@@ -33,8 +34,20 @@ class TeamListResponse(BaseModel):
     limit: int
 
 
+class MemberWithStatus(BaseModel):
+    id: UUID | int | str
+    fullname: str
+    email: EmailStr
+    phone: Optional[str] = None
+    created_at: Optional[datetime] = None
+    joined: int  # 0=invited/not joined, 1=joined
+
+    class Config:
+        from_attributes = True
+
+
 class TeamMembersResponse(BaseModel):
-    members: List[UserResponse]
+    members: List[MemberWithStatus]
     total: int
 
 

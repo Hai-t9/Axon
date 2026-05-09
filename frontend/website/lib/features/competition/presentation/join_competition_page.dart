@@ -43,7 +43,7 @@ class _JoinCompetitionPageState extends ConsumerState<JoinCompetitionPage> {
           },
           data: (competition) {
             if (!mounted) return;
-            if (competition != null && previous?.isLoading == true) {
+            if (competition != null) {
               _showMessage('Invitation accepted.');
               context.go(CompetitionDashboardPage.routeForId(competition.id));
             }

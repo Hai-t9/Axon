@@ -5,8 +5,6 @@ from app.schemas.competition import CompetitionCreate, CompetitionUpdate
 
 from .repository import CompetitionRepository
 
-from .repository import CompetitionRepository
-
 
 class CompetitionService:
     def __init__(self, repository: CompetitionRepository):
@@ -112,4 +110,36 @@ class CompetitionService:
 
         self.repository.create_role(user_id, competition.id, RoleType.participant)
         return competition
+
+    def leave_competition(self, user_id: UUID, competition_id: UUID) -> dict:
+        """Leave a competition. Sets user_emails status to 0 and removes the participant role."""
+        competition = self.get_competition(competition_id)
+
+        existing_role = self.repository.get_role(user_id, competition.id)
+        if not existing_role:
+            raise ValidationError("You are not a member of this competition.")
+
+        user = self.repository.get_user_by_email_by_id(user_id)
+        if not user:
+            raise NotFoundError("User not found")
+
+        user_email = user.email.strip().lower()
+
+        teams = self.repository.get_teams_for_competition(competition.id)
+        found_team = None
+        for team in teams:
+            emails_dict = team.user_emails or {}
+            if user_email in {k.lower() for k in emails_dict.keys()}:
+                found_team = team
+                break
+
+        if found_team:
+            emails_dict = {k.lower(): v for k, v in (found_team.user_emails or {}).items()}
+            emails_dict[user_email] = 0
+            found_team.user_emails = emails_dict
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(found_team, "user_emails")
+
+        self.repository.remove_role(user_id, competition.id)
+        return {"left": True, "competition_id": str(competition.id)}
 

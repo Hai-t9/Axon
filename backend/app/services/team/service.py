@@ -92,12 +92,35 @@ class TeamService:
         return self.repository.set_user_emails(team, user_emails)
 
     def get_members(self, team_id: UUID):
-        """Get full user objects for team members that exist in the system."""
+        """Get full user objects for team members with their join status."""
         team = self.get_team(team_id)
-        user_emails = self._normalize_emails(team.user_emails)
-        if not user_emails:
+        email_status = self._normalize_emails(team.user_emails)
+        if not email_status:
             return []
-        return self.repository.get_members_by_emails(list(user_emails.keys()))
+        users = self.repository.get_members_by_emails(list(email_status.keys()))
+        email_to_user = {u.email.strip().lower(): u for u in users}
+        result = []
+        for email, status in email_status.items():
+            user = email_to_user.get(email)
+            if user:
+                result.append({
+                    "id": user.id,
+                    "fullname": user.fullname,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "created_at": user.created_at,
+                    "joined": status,
+                })
+            else:
+                result.append({
+                    "id": "",
+                    "fullname": email,
+                    "email": email,
+                    "phone": None,
+                    "created_at": None,
+                    "joined": status,
+                })
+        return result
 
     def get_statistics(self, team_id: UUID):
         team = self.get_team(team_id)
