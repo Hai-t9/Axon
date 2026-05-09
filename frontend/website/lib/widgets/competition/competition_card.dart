@@ -49,7 +49,7 @@ class CompetitionCard extends StatelessWidget {
                     child: Text(
                       dateLabel,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.black87,
+                        color: Colors.white,
                       ),
                     ),
                   ),

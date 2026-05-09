@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
-import '../../../theme/theme_provider.dart';
 import '../../../widgets/layout/axon_scaffold.dart';
 import '../../auth/state/auth_controller.dart';
 import '../../auth/presentation/login_page.dart';
@@ -42,8 +41,6 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 _infoCard(context, profile),
-                const SizedBox(height: AppSpacing.xl),
-                _ThemeSelector(),
                 const SizedBox(height: AppSpacing.xl),
                 SizedBox(
                   width: double.infinity,
@@ -114,29 +111,6 @@ class ProfilePage extends ConsumerWidget {
           Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600))),
         ],
       ),
-    );
-  }
-}
-
-class _ThemeSelector extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Theme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        const SizedBox(height: AppSpacing.sm),
-        SegmentedButton<ThemeMode>(
-          segments: const [
-            ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto)),
-            ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode)),
-            ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode)),
-          ],
-          selected: {themeMode},
-          onSelectionChanged: (sel) => ref.read(themeModeProvider.notifier).state = sel.first,
-        ),
-      ],
     );
   }
 }
