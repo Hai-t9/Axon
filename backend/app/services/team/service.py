@@ -99,6 +99,12 @@ class TeamService:
             return []
         return self.repository.get_members_by_emails(list(user_emails.keys()))
 
+    def add_member_by_email(self, team_id: UUID, email: str):
+        user = self.repository.get_user_by_email(email)
+        if not user:
+            raise NotFoundError(f"User with email '{email}' not found")
+        return self.add_member(team_id, user.id)
+
     def get_statistics(self, team_id: UUID):
         team = self.get_team(team_id)
         total_members = len(self._normalize_emails(team.user_emails))
