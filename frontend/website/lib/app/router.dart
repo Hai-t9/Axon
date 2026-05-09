@@ -24,6 +24,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: HomePage.routePath,
     redirect: (context, state) {
+      if (authState.isLoading) return null;
+
       final isAuthRoute = state.matchedLocation == LoginPage.routePath ||
           state.matchedLocation == SignupPage.routePath;
       if (!isLoggedIn && !isAuthRoute) {
