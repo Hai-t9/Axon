@@ -7,6 +7,11 @@ class ImageRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_comp_id(self, team_id: UUID) -> UUID | None:
+        from app.models.model_team import Team
+        team = self.db.query(Team).filter(Team.id == team_id).first()
+        return team.comp_id if team else None
+
     def create(self, image_data: dict, metadata_data: dict):
         db_image = Image(**image_data)
         self.db.add(db_image)

@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import UploadFile
 from app.services.image.repository import ImageRepository
 from app.storage.minio_client import storage_service
+from app.storage.paths import image_key, image_local_path
 
 class ImageService:
     def __init__(self, repository: ImageRepository):
@@ -71,17 +72,17 @@ class ImageService:
         ext = file.filename.split(".")[-1]
         filename = f"{uuid.uuid4()}.{ext}"
 
-        # Uploading to MinIO
-        object_name = f"images/{filename}"
+        comp_id = self.repository.get_comp_id(team_id)
+        if not comp_id:
+            raise ValueError("Team not found")
+
+        safe_label = parsed_label.replace(" ", "_").lower() if parsed_label else "unlabeled"
+
+        object_name = image_key(comp_id, team_id, safe_label, filename)
         storage_service.upload_file(contents, object_name)
 
-        # We also keep a local copy for Pillow compatibility with current codebase or we just use filepath.
-        # But wait, local codebase uses `filepath` heavily. Let's write locally too for now, or just return s3 link?
-        # The Cleaner uses local files for Pillow ops. I will continue writing locally, but add MinIO upload.
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-        filepath = os.path.join(upload_dir, filename)
-        
+        filepath = image_local_path(comp_id, team_id, safe_label, filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "wb") as f:
             f.write(contents)
 
@@ -202,9 +203,8 @@ class ImageService:
                 os.remove(image.filepath)
             except OSError:
                 pass
-            # Extract object name if it exists in Minio
-            filename = os.path.basename(image.filepath)
-            storage_service.delete_file(f"images/{filename}")
+            s3_key = image.filepath[len("uploads/"):]
+            storage_service.delete_file(s3_key)
 
         success = self.repository.delete(image_id)
         if not success:

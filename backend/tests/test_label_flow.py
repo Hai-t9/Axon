@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -66,13 +67,24 @@ def _to_uuid(value) -> UUID:
     return UUID(str(value))
 
 
-def _create_image(db_session, team_id, author_id) -> Image:
+def _create_image(db_session, team_id, author_id, comp_id=None, label=None) -> Image:
     team_uuid = _to_uuid(team_id)
     author_uuid = _to_uuid(author_id)
+    filename = f"img_{team_uuid}_{author_uuid}.jpg"
+
+    if comp_id is not None:
+        safe_label = label.replace(" ", "_").lower() if label else "unlabeled"
+        filepath = f"uploads/{comp_id}/images/{team_uuid}/{safe_label}/{filename}"
+    else:
+        filepath = f"uploads/images/{filename}"
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    Path(filepath).touch()
+
     image = Image(
         team_id=team_uuid,
         author_id=author_uuid,
-        filepath=f"/tmp/image_{team_uuid}_{author_uuid}.jpg",
+        filepath=filepath,
         image_hash=f"hash_{team_uuid}_{author_uuid}",
     )
     db_session.add(image)
@@ -111,38 +123,59 @@ def test_label_flow_create_get_update_validate(client, db_session):
     assert team_response.status_code == 200
     team_id = team_response.json()["id"]
 
-    image = _create_image(db_session, team_id=team_id, author_id=host_id)
+    old_filepath, new_filepath = None, None
+    try:
+        image = _create_image(db_session, team_id=team_id, author_id=host_id,
+                               comp_id=competition_id, label="cat")
+        old_filepath = image.filepath
 
-    create_response = client.post(
-        f"/api/v1/images/{image.id}/labels",
-        headers={"Authorization": f"Bearer {host_token}"},
-        json={"label": "cat"},
-    )
-    assert create_response.status_code == 200
-    assert create_response.json()["label"] == "cat"
-    assert create_response.json()["validated"] is False
+        create_response = client.post(
+            f"/api/v1/images/{image.id}/labels",
+            headers={"Authorization": f"Bearer {host_token}"},
+            json={"label": "cat"},
+        )
+        assert create_response.status_code == 200
+        assert create_response.json()["label"] == "cat"
+        assert create_response.json()["validated"] is False
 
-    get_response = client.get(
-        f"/api/v1/images/{image.id}/labels",
-        headers={"Authorization": f"Bearer {host_token}"},
-    )
-    assert get_response.status_code == 200
-    assert get_response.json()["label"] == "cat"
+        get_response = client.get(
+            f"/api/v1/images/{image.id}/labels",
+            headers={"Authorization": f"Bearer {host_token}"},
+        )
+        assert get_response.status_code == 200
+        assert get_response.json()["label"] == "cat"
 
-    update_response = client.put(
-        f"/api/v1/images/{image.id}/labels",
-        headers={"Authorization": f"Bearer {host_token}"},
-        json={"label": "dog"},
-    )
-    assert update_response.status_code == 200
-    assert update_response.json()["label"] == "dog"
+        update_response = client.put(
+            f"/api/v1/images/{image.id}/labels",
+            headers={"Authorization": f"Bearer {host_token}"},
+            json={"label": "dog"},
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["label"] == "dog"
 
-    validate_response = client.post(
-        f"/api/v1/images/{image.id}/labels/validate",
-        headers={"Authorization": f"Bearer {host_token}"},
-    )
-    assert validate_response.status_code == 200
-    assert validate_response.json()["validated"] is True
+        # Refresh image from DB to get updated filepath
+        db_session.refresh(image)
+        new_filepath = image.filepath
+
+        # Verify old file was moved to new location
+        assert not os.path.exists(old_filepath), f"Old file should not exist: {old_filepath}"
+        assert os.path.exists(new_filepath), f"New file should exist: {new_filepath}"
+        assert "dog" in new_filepath
+
+        validate_response = client.post(
+            f"/api/v1/images/{image.id}/labels/validate",
+            headers={"Authorization": f"Bearer {host_token}"},
+        )
+        assert validate_response.status_code == 200
+        assert validate_response.json()["validated"] is True
+    finally:
+        for p in (old_filepath, new_filepath):
+            if p and os.path.exists(p):
+                os.remove(p)
+                try:
+                    os.removedirs(os.path.dirname(p))
+                except OSError:
+                    pass
 
 
 if __name__ == "__main__":

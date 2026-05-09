@@ -11,6 +11,7 @@ from fastapi import UploadFile
 from app.core.exceptions import NotFoundError, ValidationError
 from app.models.model_model import ModelStatus
 from app.storage.minio_client import storage_service
+from app.storage.paths import submission_key
 
 from .repository import ModelSubmissionRepository
 
@@ -106,13 +107,13 @@ class ModelSubmissionService:
                 f"(model ID: {existing.id}). Modify your submission before resubmitting."
             )
 
-        # 6. Store zip
-        size_mb = len(file_content) / (1024 * 1024)
-        storage_path = self._store_submission(file.filename, file_content)
-
-        # 7. Persist
+        # 6. Determine next version before storage (needed for path)
         latest = self.repository.find_latest_by_team(team_id, competition_id)
         next_version: int = (latest.version + 1) if latest else 1  # type: ignore[operator]
+
+        # 7. Store zip
+        size_mb = len(file_content) / (1024 * 1024)
+        storage_path = self._store_submission(competition_id, team_id, next_version, file.filename, file_content)
 
         model = self.repository.save_model_record(
             team_id=team_id,
@@ -469,10 +470,8 @@ class ModelSubmissionService:
     #  Storage & scheduling helpers                                        #
     # ------------------------------------------------------------------ #
 
-    def _store_submission(self, original_filename: str, content: bytes) -> str:
-        """Upload the zip to MinIO (or local fallback) and return the storage path."""
-        unique_name = f"{uuid4()}.zip"
-        object_name = f"models/{unique_name}"
+    def _store_submission(self, competition_id: UUID, team_id: UUID, version: int, original_filename: str, content: bytes) -> str:
+        object_name = submission_key(competition_id, team_id, version, original_filename)
         storage_service.upload_file(content, object_name)
         return object_name
 
