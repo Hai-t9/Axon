@@ -120,8 +120,16 @@ def _build_expected_validation_assignments(db_session, competition_id: UUID) -> 
     # Per-participant assignments (shuffled)
     participant_assignments: dict[str, list[int]] = {}
     for team in teams:
-        for raw_participant_id in team.user_ids or []:
-            participant_id = UUID(str(raw_participant_id))
+        from app.models import User
+
+        email_keys = list((team.user_emails or {}).keys())
+        members = (
+            db_session.query(User)
+            .filter(User.email.in_(email_keys))
+            .all()
+        )
+        for member in members:
+            participant_id = UUID(str(member.id))
             participant_assignments[str(participant_id)] = _deterministic_shuffle(
                 team_assignments[str(team.id)],
                 participant_id,
@@ -176,7 +184,13 @@ def test_validation_batch_generation_list_and_finalize_flow(client, db_session):
     own_team_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Validation Own Team", "user_ids": [host_id, teammate_id]},
+        json={
+            "name": "Validation Own Team",
+            "user_emails": {
+                "validation-host@example.com": True,
+                "validation-teammate@example.com": True,
+            },
+        },
     )
     assert own_team_response.status_code == 200
     own_team_id = UUID(own_team_response.json()["id"])
@@ -195,7 +209,10 @@ def test_validation_batch_generation_list_and_finalize_flow(client, db_session):
     other_team_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Validation Other Team", "user_ids": [other_user_id]},
+        json={
+            "name": "Validation Other Team",
+            "user_emails": {"validation-other@example.com": True},
+        },
     )
     assert other_team_response.status_code == 200
     other_team_id = UUID(other_team_response.json()["id"])
@@ -325,7 +342,10 @@ def test_validation_assignment_redis_keys_and_ttl(db_session):
     team = Team(
         name="Redis Team",
         comp_id=competition.id,
-        user_ids=[str(participant_a), str(participant_b)],
+        user_emails={
+            f"{participant_a.hex}@example.com": True,
+            f"{participant_b.hex}@example.com": True,
+        },
     )
     db_session.add(team)
     db_session.commit()
@@ -369,7 +389,7 @@ def test_round_robin_assignment(db_session):
         team = Team(
             name=f"Team {i}",
             comp_id=competition.id,
-            user_ids=[str(uuid4())],
+            user_emails={f"team-{i}@example.com": True},
         )
         db_session.add(team)
         db_session.commit()
@@ -381,7 +401,7 @@ def test_round_robin_assignment(db_session):
     for i in range(4):
         image = Image(
             team_id=teams[0].id,
-            author_id=UUID(teams[0].user_ids[0]),
+            author_id=uuid4(),
             filepath=f"/tmp/round-robin-{i}.jpg",
             image_hash=f"rr-hash-{i}",
         )
