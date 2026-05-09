@@ -77,6 +77,27 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
     'onnx': true,
   };
 
+  // ── Phase deadlines ──
+  final Map<String, DateTime?> _phaseDeadlines = {
+    '1': null,
+    '2': null,
+    '3': null,
+    '4': null,
+  };
+  final Map<String, TextEditingController> _deadlineCtrls = {
+    '1': TextEditingController(),
+    '2': TextEditingController(),
+    '3': TextEditingController(),
+    '4': TextEditingController(),
+  };
+
+  static const Map<String, String> _phaseLabels = {
+    '1': 'Data Collection',
+    '2': 'Data Validation',
+    '3': 'Model Submission',
+    '4': 'Model Evaluation',
+  };
+
   // Expanded sections
   final Set<int> _expanded = {0}; // Basic info open by default
 
@@ -87,6 +108,7 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
       _dataMdCtl, _dataFmtCtl, _dataExCtl, _evalCtl, _scoringExCtl,
       _maxValCtl, _dupThreshCtl, _modelDirCtl, _dataDirCtl,
       _infFuncCtl, _maxSizeMbCtl, _pyMinCtl, _labelCtl, _teamNameCtl, _emailCtl,
+      ..._deadlineCtrls.values,
     ]) {
       c.dispose();
     }
@@ -119,6 +141,29 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
     }
   }
 
+  Future<void> _pickDeadline(String phase) async {
+    FocusScope.of(context).unfocus();
+    final now = DateTime.now();
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _phaseDeadlines[phase] ?? now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (d == null || !mounted) return;
+    final t = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 23))),
+    );
+    if (t == null || !mounted) return;
+    final deadline = DateTime(d.year, d.month, d.day, t.hour, t.minute).toUtc();
+    setState(() {
+      _phaseDeadlines[phase] = deadline;
+      _deadlineCtrls[phase]!.text =
+          '${d.year}-${_two(d.month)}-${_two(d.day)}  ${_two(t.hour)}:${_two(t.minute)}';
+    });
+  }
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() != true) {
@@ -138,6 +183,13 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
         if (_pyMinCtl.text.trim().isNotEmpty) 'python_version_min': _pyMinCtl.text.trim(),
       };
 
+      final deadlines = <String, String>{};
+      for (final e in _phaseDeadlines.entries) {
+        if (e.value != null) {
+          deadlines[e.key] = e.value!.toUtc().toIso8601String();
+        }
+      }
+
       final comp =
           await ref.read(competitionCreateProvider.notifier).createCompetition(
                 name: _nameCtl.text,
@@ -155,6 +207,7 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
                 labels: labelsMap,
                 modelSpec: modelSpecMap,
                 teamsData: _teams,
+                phaseDeadlines: deadlines.isEmpty ? null : deadlines,
               );
       if (!mounted || comp == null) return;
       _showMsg('Competition created!');
@@ -597,6 +650,48 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
                     );
                   }),
                 ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            _Section(
+              index: 7,
+              icon: Icons.schedule_outlined,
+              title: 'Phase deadlines (optional)',
+              expanded: _expanded,
+              onToggle: () => setState(() => _toggle(7)),
+              children: [
+                Text(
+                  'Set deadlines for each phase. Phases without a deadline will not enforce a time limit.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ..._phaseLabels.entries.map((e) {
+                  final phase = e.key;
+                  final label = e.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: TextFormField(
+                      controller: _deadlineCtrls[phase],
+                      readOnly: true,
+                      onTap: () => _pickDeadline(phase),
+                      decoration: InputDecoration(
+                        labelText: 'Phase $phase: $label',
+                        hintText: 'Set deadline...',
+                        prefixIcon: const Icon(Icons.calendar_month_outlined),
+                        suffixIcon: _phaseDeadlines[phase] != null
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () => setState(() {
+                                  _phaseDeadlines[phase] = null;
+                                  _deadlineCtrls[phase]!.clear();
+                                }),
+                              )
+                            : null,
+                      ),
+                    ),
+                  );
+                }),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),

@@ -30,6 +30,7 @@ class CompetitionCreateController extends AsyncNotifier<Competition?> {
     Map<String, dynamic>? labels,
     Map<String, dynamic>? modelSpec,
     Map<String, List<String>>? teamsData,
+    Map<String, String>? phaseDeadlines,
   }) async {
     state = const AsyncLoading();
     try {
@@ -49,6 +50,7 @@ class CompetitionCreateController extends AsyncNotifier<Competition?> {
                 duplicateThreshold: duplicateThreshold,
                 labels: labels,
                 modelSpec: modelSpec,
+                phaseDeadlines: phaseDeadlines,
               );
 
       if (teamsData != null && teamsData.isNotEmpty) {

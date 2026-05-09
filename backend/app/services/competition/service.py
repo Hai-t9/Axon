@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from app.core.exceptions import NotFoundError, ValidationError
 from uuid import UUID, uuid4
 from app.models import RoleType
 from app.schemas.competition import CompetitionCreate, CompetitionUpdate
+from app.services.phase.repository import PhaseRepository
 
 from .repository import CompetitionRepository
 
@@ -30,6 +33,34 @@ class CompetitionService:
         competition.config = config
 
         self.repository.create_role(host_id, competition.id, RoleType.host)
+
+        if payload.phase_deadlines:
+            if "5" in payload.phase_deadlines:
+                raise ValidationError("Cannot set deadline for the final phase")
+            now = datetime.utcnow().isoformat()
+            deadlines = {}
+            for phase, deadline_str in payload.phase_deadlines.items():
+                dt = datetime.fromisoformat(deadline_str)
+                deadlines[phase] = dt.isoformat()
+
+            phase_repo = PhaseRepository(self.repository.db)
+            phase_repo.create(
+                competition.id,
+                "0",
+                {
+                    "transition_mode": "manual",
+                    "deadlines": deadlines,
+                    "timeline": [
+                        {
+                            "phase": "0",
+                            "start": now,
+                            "deadline": deadlines.get("0"),
+                            "status": "in_progress",
+                        }
+                    ],
+                    "history": [],
+                },
+            )
 
         return competition
 
