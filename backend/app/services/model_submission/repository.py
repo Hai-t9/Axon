@@ -183,6 +183,11 @@ class ModelSubmissionRepository:
         """Fetch a team by ID (used for eligibility checks)"""
         return self.db.query(Team).filter(Team.id == team_id).first()
 
+    def find_user_by_id(self, user_id) -> Optional["User"]:
+        """Fetch a user by ID (used for email-based membership checks)"""
+        from app.models import User
+        return self.db.query(User).filter(User.id == user_id).first()
+
     def find_phase(self, comp_id: int) -> Optional[PhaseLog]:
         """Fetch the current phase log for a competition"""
         return (

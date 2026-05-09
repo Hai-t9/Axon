@@ -28,22 +28,32 @@ class CompetitionRepository:
     def get_teams_for_competition(self, competition_id: UUID) -> list[Team]:
         return self.db.query(Team).filter(Team.comp_id == competition_id).all()
 
+    def get_user_by_email_by_id(self, user_id: UUID) -> User | None:
+        return self.db.query(User).filter(User.id == user_id).first()
+
     def list_competitions_for_user(self, user_id: UUID, offset: int, limit: int) -> list[Competition]:
         from sqlalchemy import cast, String, or_
         from app.models.model_team import Team
 
-        user_id_str = str(user_id)
         role_subq = self.db.query(Role.competition_id).filter(Role.user_id == user_id)
-        team_subq = self.db.query(Team.comp_id).filter(cast(Team.user_ids, String).like(f'%{user_id_str}%'))
-        
+
+        # Also find competitions where user's email is in a team
+        user = self.get_user_by_email_by_id(user_id)
+        if user:
+            user_email = user.email.strip().lower()
+            team_subq = self.db.query(Team.comp_id).filter(
+                cast(Team.user_emails, String).like(f'%{user_email}%')
+            )
+            filter_cond = or_(
+                Competition.id.in_(role_subq),
+                Competition.id.in_(team_subq),
+            )
+        else:
+            filter_cond = Competition.id.in_(role_subq)
+
         return (
             self.db.query(Competition)
-            .filter(
-                or_(
-                    Competition.id.in_(role_subq),
-                    Competition.id.in_(team_subq)
-                )
-            )
+            .filter(filter_cond)
             .order_by(Competition.id.desc())
             .offset(offset)
             .limit(limit)
@@ -54,18 +64,24 @@ class CompetitionRepository:
         from sqlalchemy import cast, String, or_
         from app.models.model_team import Team
 
-        user_id_str = str(user_id)
         role_subq = self.db.query(Role.competition_id).filter(Role.user_id == user_id)
-        team_subq = self.db.query(Team.comp_id).filter(cast(Team.user_ids, String).like(f'%{user_id_str}%'))
-        
+
+        user = self.get_user_by_email_by_id(user_id)
+        if user:
+            user_email = user.email.strip().lower()
+            team_subq = self.db.query(Team.comp_id).filter(
+                cast(Team.user_emails, String).like(f'%{user_email}%')
+            )
+            filter_cond = or_(
+                Competition.id.in_(role_subq),
+                Competition.id.in_(team_subq),
+            )
+        else:
+            filter_cond = Competition.id.in_(role_subq)
+
         return int(
             self.db.query(func.count(Competition.id))
-            .filter(
-                or_(
-                    Competition.id.in_(role_subq),
-                    Competition.id.in_(team_subq)
-                )
-            )
+            .filter(filter_cond)
             .scalar() or 0
         )
 

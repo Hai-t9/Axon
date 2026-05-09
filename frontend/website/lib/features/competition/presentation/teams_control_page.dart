@@ -26,15 +26,10 @@ class TeamsControlPage extends ConsumerStatefulWidget {
 
 class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
   List<Map<String, dynamic>> _teams = [];
-  // team_id -> list of {id, fullname, email}
-  Map<String, List<Map<String, dynamic>>> _teamMembers = {};
   bool _loading = true;
 
-  // Create team
   final _teamNameCtl = TextEditingController();
   final _teamEmailsCtl = TextEditingController();
-
-  // Add member
   final _memberEmailCtl = TextEditingController();
 
   @override
@@ -52,7 +47,6 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
   }
 
   String? get _token => ref.read(authSessionProvider)?.accessToken;
-
   Map<String, String> get _authHeaders => {'Authorization': 'Bearer $_token'};
 
   Future<void> _loadTeams() async {
@@ -64,27 +58,8 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
         headers: _authHeaders,
       );
       final items = (resp['items'] as List<dynamic>?) ?? [];
-      final teams = items.cast<Map<String, dynamic>>();
-
-      // Fetch member details for each team
-      final Map<String, List<Map<String, dynamic>>> members = {};
-      for (final team in teams) {
-        final teamId = team['id'].toString();
-        try {
-          final membersResp = await api.getJson(
-            '/teams/$teamId/members',
-            headers: _authHeaders,
-          );
-          final memberList = (membersResp['members'] as List<dynamic>?) ?? [];
-          members[teamId] = memberList.cast<Map<String, dynamic>>();
-        } catch (_) {
-          members[teamId] = [];
-        }
-      }
-
       setState(() {
-        _teams = teams;
-        _teamMembers = members;
+        _teams = items.cast<Map<String, dynamic>>();
         _loading = false;
       });
     } catch (e) {
@@ -191,7 +166,7 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
     try {
       final api = ref.read(apiClientProvider);
       await api.postJson(
-        '/teams/$teamId/members/by-email',
+        '/teams/$teamId/members',
         {'email': email.trim()},
         headers: _authHeaders,
       );
@@ -202,10 +177,10 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
     }
   }
 
-  Future<void> _removeMember(String teamId, String userId) async {
+  Future<void> _removeMember(String teamId, String email) async {
     try {
       final api = ref.read(apiClientProvider);
-      await api.delete('/teams/$teamId/members/$userId', headers: _authHeaders);
+      await api.delete('/teams/$teamId/members/$email', headers: _authHeaders);
       _showMsg('Member removed.');
       await _loadTeams();
     } catch (e) {
@@ -233,7 +208,7 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
           ]),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Create team card ──
+          // Create team card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -280,7 +255,7 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
           ),
           const SizedBox(height: AppSpacing.lg),
 
-          // ── Teams list ──
+          // Teams list
           Text('Existing teams',
               style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: AppSpacing.sm),
@@ -301,7 +276,7 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
             ..._teams.map((team) {
               final teamId = team['id'].toString();
               final teamName = team['name'] as String;
-              final members = _teamMembers[teamId] ?? [];
+              final userEmails = (team['user_emails'] as Map<String, dynamic>?) ?? {};
 
               return Card(
                 margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -315,41 +290,48 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
                     child: Icon(Icons.group, color: theme.colorScheme.primary, size: 18),
                   ),
                   title: Text(teamName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('${members.length} member${members.length == 1 ? '' : 's'}'),
+                  subtitle: Text('${userEmails.length} member${userEmails.length == 1 ? '' : 's'}'),
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (members.isEmpty)
+                          if (userEmails.isEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                               child: Text('No members yet.',
                                   style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
                             )
                           else
-                            ...members.map((member) {
-                              final userId = member['id'].toString();
-                              final name = member['fullname'] ?? 'Unknown';
-                              final email = member['email'] ?? '';
+                            ...userEmails.entries.map((entry) {
+                              final email = entry.key;
+                              final joined = entry.value == true;
                               return ListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
                                 leading: CircleAvatar(
                                   radius: 16,
-                                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                                  child: Text(
-                                    name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                    style: TextStyle(color: theme.colorScheme.primary, fontSize: 14, fontWeight: FontWeight.w600),
+                                  backgroundColor: joined
+                                      ? AppColors.success.withValues(alpha: 0.15)
+                                      : theme.colorScheme.primary.withValues(alpha: 0.15),
+                                  child: Icon(
+                                    joined ? Icons.check : Icons.hourglass_empty,
+                                    size: 16,
+                                    color: joined ? AppColors.success : theme.colorScheme.primary,
                                   ),
                                 ),
-                                title: Text(name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-                                subtitle: Text(email, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                                title: Text(email, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                                subtitle: Text(
+                                  joined ? 'Joined' : 'Invited (not yet joined)',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: joined ? AppColors.success : AppColors.textSecondary,
+                                  ),
+                                ),
                                 trailing: IconButton(
                                   icon: const Icon(Icons.remove_circle_outline, color: AppColors.error, size: 20),
                                   tooltip: 'Remove member',
-                                  onPressed: () => _removeMember(teamId, userId),
+                                  onPressed: () => _removeMember(teamId, email),
                                 ),
                               );
                             }),

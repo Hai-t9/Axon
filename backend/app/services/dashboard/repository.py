@@ -49,6 +49,14 @@ class DashboardRepository:
         )
 
     def find_team_for_participant(self, comp_id: UUID, participant_id: UUID) -> Team | None:
+        from sqlalchemy import func
+        from app.models import User
+
+        user = self.db.query(User).filter(User.id == participant_id).first()
+        if not user:
+            return None
+        user_email = user.email.strip().lower()
+
         teams = (
             self.db.query(Team)
             .filter(Team.comp_id == comp_id)
@@ -56,7 +64,8 @@ class DashboardRepository:
             .all()
         )
         for team in teams:
-            if str(participant_id) in (team.user_ids or []):
+            emails_dict = team.user_emails or {}
+            if user_email in {k.lower() for k in emails_dict.keys()}:
                 return team
         return None
 

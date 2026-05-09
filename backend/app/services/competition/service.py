@@ -72,7 +72,7 @@ class CompetitionService:
         return self.repository.update_config(config, updates)
 
     def join_competition(self, user_id: UUID, invitation_link: str):
-        """Join a competition via invitation link. User must be in a team."""
+        """Join a competition via invitation link. User's email must be in a team."""
         competition = self.repository.get_by_invitation_link(invitation_link.strip())
         if not competition:
             raise NotFoundError("Invalid invitation link")
@@ -81,21 +81,35 @@ class CompetitionService:
         if existing_role:
             return competition  # already joined
 
-        # Check if user is in any team for this competition
+        # Look up the user's email
+        user = self.repository.get_user_by_email_by_id(user_id)
+        if not user:
+            raise NotFoundError("User not found")
+
+        user_email = user.email.strip().lower()
+
+        # Check if user's email is in any team for this competition
         teams = self.repository.get_teams_for_competition(competition.id)
-        user_id_str = str(user_id)
-        in_team = False
+        found_team = None
         for team in teams:
-            member_ids = team.user_ids or []
-            if user_id_str in member_ids:
-                in_team = True
+            emails_dict = team.user_emails or {}
+            if user_email in {k.lower() for k in emails_dict.keys()}:
+                found_team = team
                 break
 
-        if not in_team:
+        if not found_team:
             raise ValidationError(
                 "You are not a member of any team in this competition. "
                 "Ask the host to add your email to a team first."
             )
 
+        # Mark member as joined
+        emails_dict = {k.lower(): v for k, v in (found_team.user_emails or {}).items()}
+        emails_dict[user_email] = True
+        found_team.user_emails = emails_dict
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(found_team, "user_emails")
+
         self.repository.create_role(user_id, competition.id, RoleType.participant)
         return competition
+

@@ -9,7 +9,6 @@ from app.models import RoleType
 from app.schemas.team import (
     TeamCreate,
     TeamListResponse,
-    TeamMemberAddRequest,
     TeamMembersResponse,
     TeamResponse,
     TeamStatisticsResponse,
@@ -68,10 +67,7 @@ async def bulk_create_teams(
     auth_service: AuthService = Depends(get_auth_service),
     team_service: TeamService = Depends(get_team_service),
 ):
-    """
-    Bulk-create teams from a dict of {team_name: [email1, email2, ...]}.
-    Emails are resolved to user IDs.
-    """
+    """Bulk-create teams from a dict of {team_name: [email1, email2, ...]}."""
     try:
         token = extract_bearer_token(authorization)
         auth_service.require_roles(token, comp_id, {RoleType.host, RoleType.staff})
@@ -184,58 +180,12 @@ async def get_team_members(
 @router.post("/teams/{team_id}/members", response_model=TeamResponse)
 async def add_team_member(
     team_id: UUID,
-    payload: TeamMemberAddRequest,
-    authorization: str = Header(...),
-    auth_service: AuthService = Depends(get_auth_service),
-    team_service: TeamService = Depends(get_team_service),
-):
-    try:
-        token = extract_bearer_token(authorization)
-        team = team_service.get_team(team_id)
-        auth_service.require_roles(token, team.comp_id, {RoleType.host, RoleType.staff})
-        return team_service.add_member(team_id, payload.user_id)
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
-    except AuthorizationError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
-    except ValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-
-
-@router.delete("/teams/{team_id}/members/{user_id}")
-async def remove_team_member(
-    team_id: UUID,
-    user_id: UUID,
-    authorization: str = Header(...),
-    auth_service: AuthService = Depends(get_auth_service),
-    team_service: TeamService = Depends(get_team_service),
-):
-    try:
-        token = extract_bearer_token(authorization)
-        team = team_service.get_team(team_id)
-        auth_service.require_roles(token, team.comp_id, {RoleType.host, RoleType.staff})
-        team_service.remove_member(team_id, user_id)
-        return {"removed": True, "team_id": team_id, "user_id": user_id}
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
-    except AuthorizationError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
-    except ValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except NotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-
-
-@router.post("/teams/{team_id}/members/by-email", response_model=TeamResponse)
-async def add_team_member_by_email(
-    team_id: UUID,
     payload: dict,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     team_service: TeamService = Depends(get_team_service),
 ):
+    """Add a member by email."""
     try:
         token = extract_bearer_token(authorization)
         team = team_service.get_team(team_id)
@@ -244,6 +194,31 @@ async def add_team_member_by_email(
         if not email:
             raise ValidationError("Email is required")
         return team_service.add_member_by_email(team_id, email)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.delete("/teams/{team_id}/members/{email:path}")
+async def remove_team_member(
+    team_id: UUID,
+    email: str,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    team_service: TeamService = Depends(get_team_service),
+):
+    """Remove a member by email."""
+    try:
+        token = extract_bearer_token(authorization)
+        team = team_service.get_team(team_id)
+        auth_service.require_roles(token, team.comp_id, {RoleType.host, RoleType.staff})
+        team_service.remove_member_by_email(team_id, email)
+        return {"removed": True, "team_id": team_id, "email": email}
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except AuthorizationError as exc:
@@ -269,4 +244,3 @@ async def get_team_statistics(
         raise HTTPException(status_code=401, detail=str(exc))
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-
