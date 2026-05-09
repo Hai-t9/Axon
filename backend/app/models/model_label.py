@@ -10,7 +10,7 @@ class Label(Base):
     __tablename__ = "label"
 
     id = Column(Integer, primary_key=True)
-    image_id = Column(PostgresUUID(as_uuid=True), ForeignKey("image.id"), nullable=False)
+    image_id = Column(Integer, ForeignKey("image.id"), nullable=False)
     label = Column(String, nullable=False)
     validated = Column(Boolean, nullable=False, server_default="false")
 
