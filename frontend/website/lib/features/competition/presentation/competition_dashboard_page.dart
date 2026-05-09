@@ -746,7 +746,7 @@ class _ModuleCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.border),
-            color: AppColors.surface,
+            color: AppColors.surfaceAlt,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
