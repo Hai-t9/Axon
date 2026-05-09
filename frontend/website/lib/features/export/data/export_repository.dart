@@ -1,3 +1,5 @@
+import 'dart:html' as html;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
@@ -42,6 +44,32 @@ class ExportRepository {
       headers: _authHeaders(),
     );
     return ExportResponse.fromJson(response);
+  }
+
+  Future<void> downloadTeamDataset(String competitionId) async {
+    final bytes = await _apiClient.getBytes(
+      '/competitions/$competitionId/export/team-dataset',
+      headers: _authHeaders(),
+    );
+    _triggerDownload(bytes, 'dataset.zip');
+  }
+
+  Future<void> downloadFullDataset(String competitionId) async {
+    final bytes = await _apiClient.getBytes(
+      '/competitions/$competitionId/export/full-dataset',
+      headers: _authHeaders(),
+    );
+    _triggerDownload(bytes, 'full_dataset.zip');
+  }
+
+  void _triggerDownload(List<int> bytes, String filename) {
+    final blob = html.Blob([bytes], 'application/zip');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    (html.document.createElement('a') as html.AnchorElement)
+      ..href = url
+      ..download = filename
+      ..click();
+    html.Url.revokeObjectUrl(url);
   }
 }
 

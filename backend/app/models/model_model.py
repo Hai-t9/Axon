@@ -98,7 +98,7 @@ class ModelMetadata(Base):
 
     __tablename__ = "model_metadata"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     model_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("model.id"), unique=True, nullable=False
     )

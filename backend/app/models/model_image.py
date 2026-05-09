@@ -11,7 +11,7 @@ from .model_enums import image_status_enum
 class Image(Base):
     __tablename__ = "image"
 
-    id = Column(PostgresUUID(as_uuid=True), primary_key=True)
+    id = Column(Integer, primary_key=True)
     team_id = Column(PostgresUUID(as_uuid=True), ForeignKey("team.id"), nullable=False)
     author_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("user.id"), nullable=False
@@ -48,7 +48,7 @@ class ImageMetadata(Base):
     __tablename__ = "image_metadata"
 
     id = Column(Integer, primary_key=True)
-    image_id = Column(PostgresUUID(as_uuid=True), ForeignKey("image.id"), unique=True, nullable=False)
+    image_id = Column(Integer, ForeignKey("image.id"), unique=True, nullable=False)
     gps_info = Column("GPSInfo", String, nullable=True)
     image_width = Column("ImageWidth", Float, nullable=True)
     image_length = Column("ImageLength", Float, nullable=True)

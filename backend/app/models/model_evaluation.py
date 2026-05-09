@@ -16,7 +16,7 @@ from app.models.model_enums import (
 class Evaluation(Base):
     __tablename__ = "evaluation"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     model_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("model.id"), unique=True, nullable=False
     )

@@ -27,9 +27,13 @@ class ExportPage extends ConsumerStatefulWidget {
 
 class _ExportPageState extends ConsumerState<ExportPage> {
   bool _exportingTeam = false;
+  bool _exportingTeamZip = false;
   bool _exportingFull = false;
+  bool _exportingFullZip = false;
   String? _teamError;
+  String? _teamZipError;
   String? _fullError;
+  String? _fullZipError;
 
   Future<void> _doExportTeam() async {
     setState(() {
@@ -49,6 +53,23 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     }
   }
 
+  Future<void> _doExportTeamZip() async {
+    setState(() {
+      _exportingTeamZip = true;
+      _teamZipError = null;
+    });
+    try {
+      final repo = ref.read(exportRepositoryProvider);
+      await repo.downloadTeamDataset(widget.competitionId);
+    } on ApiException catch (e) {
+      setState(() => _teamZipError = e.message);
+    } catch (e) {
+      setState(() => _teamZipError = e.toString());
+    } finally {
+      if (mounted) setState(() => _exportingTeamZip = false);
+    }
+  }
+
   Future<void> _doExportFull() async {
     setState(() {
       _exportingFull = true;
@@ -64,6 +85,23 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       setState(() => _fullError = e.toString());
     } finally {
       if (mounted) setState(() => _exportingFull = false);
+    }
+  }
+
+  Future<void> _doExportFullZip() async {
+    setState(() {
+      _exportingFullZip = true;
+      _fullZipError = null;
+    });
+    try {
+      final repo = ref.read(exportRepositoryProvider);
+      await repo.downloadFullDataset(widget.competitionId);
+    } on ApiException catch (e) {
+      setState(() => _fullZipError = e.message);
+    } catch (e) {
+      setState(() => _fullZipError = e.toString());
+    } finally {
+      if (mounted) setState(() => _exportingFullZip = false);
     }
   }
 
@@ -136,41 +174,14 @@ class _ExportPageState extends ConsumerState<ExportPage> {
                   subtitle: 'Export images, labels, and metadata for analysis')),
         ]),
         const SizedBox(height: AppSpacing.xl),
-        _buildSectionCard(
-          icon: Icons.cloud_download,
-          title: 'Export Your Team Data',
-          description: 'Download all images, labels, and validation records '
-              'for your team in JSON format. Available after the Data Validation phase.',
-          color: AppColors.accent,
-          loading: _exportingTeam,
-          error: _teamError,
-          onExport: _doExportTeam,
-        ),
+        _buildTeamSection(),
         const SizedBox(height: AppSpacing.lg),
-        _buildSectionCard(
-          icon: Icons.download_for_offline,
-          title: 'Export All Data (Host Only)',
-          description: 'Download all teams images, labels, validation records, '
-              'and image metadata (EXIF, camera info, GPS, etc.) in JSON format. '
-              'Requires host privileges.',
-          color: AppColors.primaryDark,
-          loading: _exportingFull,
-          error: _fullError,
-          onExport: _doExportFull,
-        ),
+        _buildFullSection(),
       ]),
     );
   }
 
-  Widget _buildSectionCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required Color color,
-    required bool loading,
-    String? error,
-    required VoidCallback onExport,
-  }) {
+  Widget _buildTeamSection() {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -185,65 +196,145 @@ class _ExportPageState extends ConsumerState<ExportPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
+                    color: AppColors.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: color, size: 28),
+                child: const Icon(Icons.cloud_download, color: AppColors.accent, size: 28),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Text(title,
+                child: Text('Export Your Team Data',
                     style: Theme.of(context).textTheme.titleLarge
                         ?.copyWith(fontWeight: FontWeight.w700)),
               ),
             ]),
             const SizedBox(height: AppSpacing.md),
-            Text(description,
-                style: const TextStyle(
-                    color: AppColors.textSecondary, height: 1.5)),
+            const Text('Download all images, labels, and validation records '
+                'for your team in JSON format. Available after the Data Validation phase.',
+                style: TextStyle(color: AppColors.textSecondary, height: 1.5)),
             const SizedBox(height: AppSpacing.lg),
-            if (loading)
-              const Center(
-                  child: Padding(
-                      padding: EdgeInsets.all(8),
-                      child: CircularProgressIndicator()))
-            else
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: onExport,
-                  icon: const Icon(Icons.file_download, size: 20),
-                  label: const Text('Download JSON',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: color,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            if (error != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8)),
-                child: Row(children: [
-                  const Icon(Icons.error_outline,
-                      size: 16, color: AppColors.error),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                      child: Text(error,
-                          style: const TextStyle(
-                              color: AppColors.error, fontSize: 13))),
-                ]),
-              ),
-            ],
+            _buildButtonRow(
+              label: 'JSON Metadata',
+              icon: Icons.description,
+              loading: _exportingTeam,
+              error: _teamError,
+              onPressed: _doExportTeam,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildButtonRow(
+              label: 'Dataset (Images + Labels)',
+              icon: Icons.folder_zip,
+              loading: _exportingTeamZip,
+              error: _teamZipError,
+              onPressed: _doExportTeamZip,
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFullSection() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.border)),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: AppColors.primaryDark.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.download_for_offline, color: AppColors.primaryDark, size: 28),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text('Export All Data (Host Only)',
+                    style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+              ),
+            ]),
+            const SizedBox(height: AppSpacing.md),
+            const Text('Download all teams images, labels, validation records, '
+                'and image metadata (EXIF, camera info, GPS, etc.) in JSON format. '
+                'Requires host privileges.',
+                style: TextStyle(color: AppColors.textSecondary, height: 1.5)),
+            const SizedBox(height: AppSpacing.lg),
+            _buildButtonRow(
+              label: 'JSON Metadata',
+              icon: Icons.description,
+              loading: _exportingFull,
+              error: _fullError,
+              onPressed: _doExportFull,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildButtonRow(
+              label: 'Dataset (Images + Labels)',
+              icon: Icons.folder_zip,
+              loading: _exportingFullZip,
+              error: _fullZipError,
+              onPressed: _doExportFullZip,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButtonRow({
+    required String label,
+    required IconData icon,
+    required bool loading,
+    String? error,
+    required VoidCallback onPressed,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (loading)
+          const Center(
+              child: Padding(
+                  padding: EdgeInsets.all(8),
+                  child: CircularProgressIndicator()))
+        else
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: onPressed,
+              icon: Icon(icon, size: 20),
+              label: Text(label,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        if (error != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8)),
+            child: Row(children: [
+              const Icon(Icons.error_outline,
+                  size: 16, color: AppColors.error),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                  child: Text(error,
+                      style: const TextStyle(
+                          color: AppColors.error, fontSize: 13))),
+            ]),
+          ),
+        ],
+      ],
     );
   }
 }

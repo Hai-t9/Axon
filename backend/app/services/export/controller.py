@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -30,6 +31,56 @@ def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
 
 def get_export_service(db: Session = Depends(get_db)) -> ExportService:
     return ExportService(ExportRepository(db), db=db)
+
+
+@router.get("/team-dataset")
+async def export_team_dataset(
+    comp_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    export_service: ExportService = Depends(get_export_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        zip_buffer = export_service.export_team_dataset(comp_id, user.id)
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=dataset.zip"},
+        )
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/full-dataset")
+async def export_full_dataset(
+    comp_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    export_service: ExportService = Depends(get_export_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        auth_service.require_roles(token, comp_id, {RoleType.host})
+        zip_buffer = export_service.export_full_dataset(comp_id)
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=full_dataset.zip"},
+        )
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/team-data", response_model=ExportResponse)
