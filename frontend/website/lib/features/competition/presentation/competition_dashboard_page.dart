@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -359,7 +360,23 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                 if (dashboard.isHost && competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xl),
                   _buildSectionHeader(context, 'Invitation Link'),
-                  SelectableText(competition.invitationLink!, style: const TextStyle(color: AppColors.primaryDark)),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SelectableText(competition.invitationLink!, style: const TextStyle(color: AppColors.primaryDark)),
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 18),
+                        tooltip: 'Copy invitation link',
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: competition.invitationLink!));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Invitation link copied'),
+                            duration: Duration(seconds: 2),
+                          ));
+                        },
+                      ),
+                    ],
+                  ),
                 ],
               ],
             );
