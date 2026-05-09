@@ -25,7 +25,15 @@ class LeaderboardPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const PageHeader(title: 'Leaderboard', subtitle: 'Team rankings'),
+          PageHeader(
+            title: 'Leaderboard', 
+            subtitle: 'Team rankings',
+            trailing: IconButton.filledTonal(
+              onPressed: () => ref.refresh(leaderboardProvider(competitionId)),
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'Refresh',
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
           state.when(
             data: (raw) {

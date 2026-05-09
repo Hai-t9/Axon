@@ -45,12 +45,37 @@ def db_session():
 @pytest.fixture(autouse=True)
 def reset_validation_in_memory_store():
     from app.services.validation import repository as validation_repo
+    from app.core.cache import get_validation_cache
 
+    # Clear in-memory store before test
     validation_repo._memory_assignment_store.clear()
     validation_repo._memory_assignment_expiry.clear()
+    
+    # Clear Redis before test if available
+    cache = get_validation_cache()
+    if cache and cache.client:
+        try:
+            # Delete all validation-related keys
+            keys = cache.client.keys("validation:*")
+            if keys:
+                cache.client.delete(*keys)
+        except Exception:
+            pass
+    
     yield
+    
+    # Clear in-memory store after test
     validation_repo._memory_assignment_store.clear()
     validation_repo._memory_assignment_expiry.clear()
+    
+    # Clear Redis after test if available
+    if cache and cache.client:
+        try:
+            keys = cache.client.keys("validation:*")
+            if keys:
+                cache.client.delete(*keys)
+        except Exception:
+            pass
 
 
 @pytest.fixture()
