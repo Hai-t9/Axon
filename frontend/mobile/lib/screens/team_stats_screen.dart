@@ -429,6 +429,7 @@ class _TeamStatsScreenState extends ConsumerState<TeamStatsScreen>
             builder: (_) => MemberProfileScreen(
               member: member,
               rank: rank,
+              competitionName: widget.competitionName,
             ),
           ),
         );

@@ -8,7 +8,7 @@ from app.core.auth import extract_bearer_token
 from app.core.exceptions import AuthenticationError
 from app.services.auth.repository import AuthRepository
 from app.services.auth.service import AuthService
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
 
@@ -71,14 +71,22 @@ def get_image(image_id: int, db: Session = Depends(get_db)):
 def get_team_images(
     team_id: UUID,
     status: str = None,
+    author_id: UUID = None,
+    label: str = None,
     page: int = 1,
+    limit: int = 50,
     db: Session = Depends(get_db)
 ):
     repo = ImageRepository(db)
     service = ImageService(repo)
-    images, total = service.get_images_by_team(team_id, status, page)
+    images, total = service.get_images_by_team(team_id, status, author_id, label, page, limit)
+    result = []
+    for img in images:
+        d = ImageResponse.model_validate(img).model_dump()
+        d['author_name'] = img.author.fullname if img.author else None
+        result.append(d)
     return {
-        "images": [ImageResponse.model_validate(img).model_dump() for img in images],
+        "images": result,
         "total": total,
         "page": page
     }
