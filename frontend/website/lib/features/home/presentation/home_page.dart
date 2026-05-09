@@ -147,7 +147,7 @@ class _HeroCard extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
+                ?.copyWith(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.87)),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
@@ -166,8 +166,9 @@ class _HeroCard extends StatelessWidget {
               ),
               OutlinedButton.icon(
                 onPressed: onJoin,
-                icon: const Icon(Icons.link),
-                label: const Text('Join with invitation link'),
+                icon: Icon(Icons.link, color: AppColors.primaryDark),
+                label: const Text('Join with invitation link', style: TextStyle(color: AppColors.primaryDark)),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryDark),
               ),
             ],
           ),
