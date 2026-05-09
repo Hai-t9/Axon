@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -38,7 +38,7 @@ class CompetitionConfigBase(BaseModel):
     overview: Optional[str] = None
     terms_conditions: Optional[str] = None
     data_md: Optional[str] = None
-    data_format: Optional[str] = None
+    data_format: Optional[List[str]] = None
     evaluation: Optional[str] = None
     duplicate_threshhold: Optional[float] = None
     max_validations: Optional[int] = None
@@ -58,6 +58,7 @@ class CompetitionCreate(BaseModel):
     description: Optional[str] = None
     launch_date: Optional[date] = None
     config: Optional[CompetitionConfigBase] = None
+    phase_deadlines: Optional[Dict[str, str]] = None
 
 
 class CompetitionUpdate(BaseModel):

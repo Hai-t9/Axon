@@ -28,6 +28,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
   int _currentIndex = 0;
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isSkipping = false;
   bool _isComplete = false;
   String? _errorMessage;
 
@@ -165,12 +166,40 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
     }
   }
 
-  void _skipImage() {
-    setState(() => _currentIndex++);
-    if (_currentIndex >= _imageIds.length) {
-      setState(() => _isComplete = true);
-    } else {
-      _loadCurrentImage();
+  Future<void> _skipImage() async {
+    setState(() => _isSkipping = true);
+    try {
+      final repo = ref.read(validationRepositoryProvider);
+      await repo.skipImage(_imageIds[_currentIndex]);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Image skipped.'),
+          backgroundColor: AppColors.textSecondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      setState(() {
+        _isSkipping = false;
+        _currentIndex++;
+      });
+      if (_currentIndex >= _imageIds.length) {
+        setState(() => _isComplete = true);
+      } else {
+        _loadCurrentImage();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSkipping = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
     }
   }
 
@@ -406,9 +435,18 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _isSubmitting ? null : _skipImage,
-                      icon: const Icon(Icons.skip_next_rounded, size: 20),
-                      label: const Text('Skip'),
+                      onPressed: (_isSubmitting || _isSkipping) ? null : _skipImage,
+                      icon: _isSkipping
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryDark,
+                              ),
+                            )
+                          : const Icon(Icons.skip_next_rounded, size: 20),
+                      label: Text(_isSkipping ? 'Skipping...' : 'Skip'),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 52),
                         side: const BorderSide(color: AppColors.border),
@@ -422,7 +460,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
                   Expanded(
                     flex: 2,
                     child: ElevatedButton.icon(
-                      onPressed: _isSubmitting ? null : _submitVote,
+                      onPressed: (_isSubmitting || _isSkipping) ? null : _submitVote,
                       icon: _isSubmitting
                           ? const SizedBox(
                               width: 18,

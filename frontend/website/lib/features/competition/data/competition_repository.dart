@@ -50,7 +50,7 @@ class CompetitionRepository {
     String? description,
     DateTime? launchDate,
     String? overview,
-    String? dataFormat,
+    List<String>? dataFormat,
     String? evaluation,
     String? termsConditions,
     String? dataMarkdown,
@@ -60,10 +60,11 @@ class CompetitionRepository {
     double? duplicateThreshold,
     Map<String, dynamic>? labels,
     Map<String, dynamic>? modelSpec,
+    Map<String, String>? phaseDeadlines,
   }) async {
     final config = <String, dynamic>{};
     if (overview != null && overview.trim().isNotEmpty) config['overview'] = overview.trim();
-    if (dataFormat != null && dataFormat.trim().isNotEmpty) config['data_format'] = dataFormat.trim();
+    if (dataFormat != null && dataFormat.isNotEmpty) config['data_format'] = dataFormat;
     if (evaluation != null && evaluation.trim().isNotEmpty) config['evaluation'] = evaluation.trim();
     if (termsConditions != null && termsConditions.trim().isNotEmpty) config['terms_conditions'] = termsConditions.trim();
     if (dataMarkdown != null && dataMarkdown.trim().isNotEmpty) config['data_md'] = dataMarkdown.trim();
@@ -80,6 +81,8 @@ class CompetitionRepository {
         'description': description.trim(),
       if (launchDate != null) 'launch_date': _formatDate(launchDate),
       if (config.isNotEmpty) 'config': config,
+      if (phaseDeadlines != null && phaseDeadlines.isNotEmpty)
+        'phase_deadlines': phaseDeadlines,
     };
     final response = await _apiClient.postJson(
       '/competitions',

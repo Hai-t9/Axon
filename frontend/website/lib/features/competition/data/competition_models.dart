@@ -23,7 +23,7 @@ class CompetitionConfig {
   final String? overview;
   final String? termsConditions;
   final String? dataMarkdown;
-  final String? dataFormat;
+  final List<String>? dataFormat;
   final String? evaluation;
   final double? duplicateThreshold;
   final int? maxValidations;
@@ -39,7 +39,7 @@ class CompetitionConfig {
       overview: json['overview'] as String?,
       termsConditions: json['terms_conditions'] as String?,
       dataMarkdown: json['data_md'] as String?,
-      dataFormat: json['data_format'] as String?,
+      dataFormat: json['data_format'] == null ? null : List<String>.from(json['data_format'] as List),
       evaluation: json['evaluation'] as String?,
       duplicateThreshold: (json['duplicate_threshhold'] as num?)?.toDouble(),
       maxValidations: json['max_validations'] as int?,

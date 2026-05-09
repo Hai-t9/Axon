@@ -54,7 +54,7 @@ class Config(Base):
     overview = Column(String, nullable=True)
     terms_conditions = Column(String, nullable=True)
     data_md = Column(String, nullable=True)
-    data_format = Column(String, nullable=True)
+    data_format = Column(JSON, nullable=True)
     evaluation = Column(String, nullable=True)
     duplicate_threshhold = Column(Float, nullable=True)
     max_validations = Column("maxValidations", Integer, nullable=True)
