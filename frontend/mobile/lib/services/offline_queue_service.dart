@@ -61,7 +61,7 @@ class QueuedUpload {
         filePath: json['filePath'] as String,
         teamId: json['teamId'] as String,
         label: json['label'] as String,
-        metadata: json['metadata'] as Map<String, dynamic>,
+        metadata: Map<String, dynamic>.from(json['metadata'] as Map),
         queuedAt: DateTime.parse(json['queuedAt'] as String),
         status: json['status'] != null
             ? UploadStatus.values.firstWhere(
@@ -90,7 +90,7 @@ class OfflineQueueNotifier extends Notifier<List<QueuedUpload>> {
   List<QueuedUpload> _loadFromHive() {
     final raw = _box.get('queue', defaultValue: <dynamic>[]) as List<dynamic>;
     return raw
-        .map((e) => QueuedUpload.fromJson(e as Map<String, dynamic>))
+        .map((e) => QueuedUpload.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
@@ -173,7 +173,13 @@ class OfflineQueueNotifier extends Notifier<List<QueuedUpload>> {
         } else {
           msg = e.toString();
         }
-        markFailed(i, msg);
+
+        // If the server rejects it as a duplicate, it's already safely in the DB!
+        if (msg.toLowerCase().contains('duplicate')) {
+          removeFromQueue(i);
+        } else {
+          markFailed(i, msg);
+        }
       }
     }
 

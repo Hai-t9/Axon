@@ -11,12 +11,14 @@ class CameraScreen extends ConsumerStatefulWidget {
   final List<CameraDescription> cameras;
   final String teamId;
   final String competitionId;
+  final List<String>? availableLabels;
 
   const CameraScreen({
     super.key,
     required this.cameras,
     required this.teamId,
     required this.competitionId,
+    this.availableLabels,
   });
 
   @override
@@ -35,18 +37,19 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   bool _isCapturing = false;
   bool _showFlash = false;
 
-  final List<String> _availableLabels = [
-    'seedling',
-    'tillering',
-    'flowering',
-    'maturity',
-    'disease',
-    'pest'
-  ];
+  late final List<String> _availableLabels;
 
   @override
   void initState() {
     super.initState();
+    _availableLabels = widget.availableLabels ?? [
+      'seedling',
+      'tillering',
+      'flowering',
+      'maturity',
+      'disease',
+      'pest'
+    ];
     _checkCameraPermission();
   }
 
@@ -133,6 +136,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
               teamId: widget.teamId,
               competitionId: widget.competitionId,
               capturedMetadata: metadata,
+              availableLabels: _availableLabels,
             ),
           ),
         );

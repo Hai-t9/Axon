@@ -26,8 +26,10 @@ class ImageBase(BaseModel):
     old_height: float
     device: str
 
+from typing import Optional, Union
+
 class ImageResponse(ImageBase):
-    id: int
+    id: Union[int, UUID]
     team_id: UUID
     author_id: UUID
     time: datetime

@@ -26,6 +26,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<TeamModel> _teams = [];
   bool _loadingCompetitions = true;
   bool _loadingTeams = false;
+  List<String>? _dynamicLabels;
 
   @override
   void initState() {
@@ -66,6 +67,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  Future<void> _loadLabels(String competitionId) async {
+    try {
+      final service = ref.read(competitionServiceProvider);
+      final labels = await service.getCompetitionLabels(competitionId);
+      if (mounted && labels != null && labels.isNotEmpty) {
+        setState(() => _dynamicLabels = labels);
+      }
+    } catch (_) {}
+  }
+
   void _startCapture() {
     if (_selectedCompetition == null || _selectedTeam == null) return;
     Navigator.of(context).push(
@@ -74,6 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           cameras: cameras,
           teamId: _selectedTeam!.id,
           competitionId: _selectedCompetition!.id,
+          availableLabels: _dynamicLabels,
         ),
       ),
     );
@@ -137,8 +149,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             );
           },
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+          child: RefreshIndicator(
+            color: const Color(0xFF5F75EE),
+            backgroundColor: const Color(0xFF252536),
+            onRefresh: () async {
+              await _loadCompetitions();
+              if (_selectedCompetition != null) {
+                await _loadTeams(_selectedCompetition!.id);
+              }
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -253,8 +275,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       _selectedCompetition = comp;
                                       _selectedTeam = null;
                                       _teams = [];
+                                      _dynamicLabels = null;
                                     });
-                                    if (comp != null) _loadTeams(comp.id);
+                                    if (comp != null) {
+                                      _loadTeams(comp.id);
+                                      _loadLabels(comp.id);
+                                    }
                                   },
                                 ),
                       const SizedBox(height: 24),
@@ -317,6 +343,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
             ),
+          ),
           ),
         ),
       ),
