@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -13,6 +13,12 @@ class DashboardImageStats(BaseModel):
     on_hold: int
 
 
+class LocationMetadata(BaseModel):
+    image_id: Any
+    gps_info: Optional[str] = None
+    location_metadata: Optional[Dict[str, Any]] = None
+
+
 class DashboardTeamInfo(BaseModel):
     items: List[TeamResponse]
     total: int
@@ -23,6 +29,9 @@ class DashboardResponse(BaseModel):
     config: CompetitionConfigResponse
     image_stats: DashboardImageStats
     team_info: DashboardTeamInfo
+    device_stats: Dict[str, int]
+    label_distribution: Dict[str, int]
+    locations: List[LocationMetadata]
 
 
 class DashboardParticipantConfig(BaseModel):
@@ -39,6 +48,9 @@ class DashboardParticipantResponse(BaseModel):
     config: DashboardParticipantConfig
     image_stats: DashboardImageStats
     team_info: TeamResponse
+    device_stats: Dict[str, int]
+    label_distribution: Dict[str, int]
+    locations: List[LocationMetadata]
 
 
 class DashboardCachedResponse(BaseModel):

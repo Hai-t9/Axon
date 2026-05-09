@@ -81,3 +81,88 @@ class DashboardRepository:
             "verified": verified,
             "on_hold": on_hold,
         }
+
+    def find_device_stats(self, comp_id: UUID) -> dict:
+        """Return device counts across all images in the competition."""
+        images = (
+            self.db.query(Image)
+            .join(Team, Team.id == Image.team_id)
+            .filter(Team.comp_id == comp_id)
+            .all()
+        )
+        devices = {}
+        for img in images:
+            if img.device:
+                devices[img.device] = devices.get(img.device, 0) + 1
+        return devices
+
+    def find_label_distribution(self, comp_id: UUID) -> dict:
+        """Return count of images per label in the competition."""
+        images = (
+            self.db.query(Image)
+            .join(Team, Team.id == Image.team_id)
+            .filter(Team.comp_id == comp_id)
+            .all()
+        )
+        labels = {}
+        for img in images:
+            if img.label:
+                labels[img.label] = labels.get(img.label, 0) + 1
+        return labels
+
+    def find_locations(self, comp_id: UUID) -> list[dict]:
+        """Return locations (GPS info) for images in the competition."""
+        from app.models import ImageMetadata
+        metadata = (
+            self.db.query(ImageMetadata)
+            .join(Image, Image.id == ImageMetadata.image_id)
+            .join(Team, Team.id == Image.team_id)
+            .filter(Team.comp_id == comp_id, ImageMetadata.gps_info.isnot(None))
+            .all()
+        )
+        return [{
+            "image_id": m.image_id,
+            "gps_info": m.gps_info,
+            "location_metadata": {
+                "make": m.make,
+                "model": m.camera_model,
+                "datetime": m.date_time.isoformat() if m.date_time else None,
+            }
+        } for m in metadata]
+
+    def find_team_device_stats(self, team_id: UUID) -> dict:
+        """Return device counts for a specific team."""
+        images = self.db.query(Image).filter(Image.team_id == team_id).all()
+        devices = {}
+        for img in images:
+            if img.device:
+                devices[img.device] = devices.get(img.device, 0) + 1
+        return devices
+
+    def find_team_label_distribution(self, team_id: UUID) -> dict:
+        """Return label distribution for a specific team."""
+        images = self.db.query(Image).filter(Image.team_id == team_id).all()
+        labels = {}
+        for img in images:
+            if img.label:
+                labels[img.label] = labels.get(img.label, 0) + 1
+        return labels
+
+    def find_team_locations(self, team_id: UUID) -> list[dict]:
+        """Return locations (GPS info) for a specific team's images."""
+        from app.models import ImageMetadata
+        metadata = (
+            self.db.query(ImageMetadata)
+            .join(Image, Image.id == ImageMetadata.image_id)
+            .filter(Image.team_id == team_id, ImageMetadata.gps_info.isnot(None))
+            .all()
+        )
+        return [{
+            "image_id": m.image_id,
+            "gps_info": m.gps_info,
+            "location_metadata": {
+                "make": m.make,
+                "model": m.camera_model,
+                "datetime": m.date_time.isoformat() if m.date_time else None,
+            }
+        } for m in metadata]

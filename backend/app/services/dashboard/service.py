@@ -62,6 +62,9 @@ class DashboardService:
 
         image_stats = self.repository.find_image_stats(comp_id)
         teams = self.repository.find_team_info(comp_id)
+        device_stats = self.repository.find_device_stats(comp_id)
+        label_distribution = self.repository.find_label_distribution(comp_id)
+        locations = self.repository.find_locations(comp_id)
 
         return {
             "phase_info": self._serialize_phase_info(phase_info),
@@ -71,6 +74,9 @@ class DashboardService:
                 "items": [self._serialize_team(team) for team in teams],
                 "total": len(teams),
             },
+            "device_stats": device_stats,
+            "label_distribution": label_distribution,
+            "locations": locations,
         }
 
     def _build_participant_payload(self, comp_id: UUID, participant_id: UUID) -> dict:
@@ -87,12 +93,18 @@ class DashboardService:
             raise NotFoundError("Participant team not found")
 
         image_stats = self.repository.find_team_image_stats(team.id)
+        device_stats = self.repository.find_team_device_stats(team.id)
+        label_distribution = self.repository.find_team_label_distribution(team.id)
+        locations = self.repository.find_team_locations(team.id)
 
         return {
             "phase_info": self._serialize_phase_info(phase_info),
             "config": self._serialize_config_participant(config),
             "image_stats": image_stats,
             "team_info": self._serialize_team(team),
+            "device_stats": device_stats,
+            "label_distribution": label_distribution,
+            "locations": locations,
         }
 
     def get_dashboard(self, comp_id: UUID) -> dict:

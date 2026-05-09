@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../auth/data/auth_models.dart';
 import '../../auth/state/auth_session_provider.dart';
 import 'competition_models.dart';
+import 'dashboard_models.dart';
 
 final competitionRepositoryProvider = Provider<CompetitionRepository>((ref) {
   return CompetitionRepository(
@@ -34,6 +35,14 @@ class CompetitionRepository {
       headers: _authHeaders(),
     );
     return Competition.fromJson(response);
+  }
+
+  Future<DashboardBase> getDashboard(String competitionId) async {
+    final response = await _apiClient.getJson(
+      '/competitions/$competitionId/dashboard',
+      headers: _authHeaders(),
+    );
+    return DashboardBase.fromJson(response);
   }
 
   Future<Competition> createCompetition({

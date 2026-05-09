@@ -61,8 +61,8 @@ def get_model_service(db: Session = Depends(get_db)) -> ModelSubmissionService:
     ),
 )
 async def submit_model(
-    comp_id: int,
-    team_id: int = Query(..., description="ID of the team submitting"),
+    comp_id: str,
+    team_id: str = Query(..., description="ID of the team submitting"),
     model_name: str = Query(..., description="Human-readable model name"),
     framework: str = Query(
         ..., description="ML framework (pytorch | tensorflow | sklearn | keras | onnx)"
@@ -76,9 +76,12 @@ async def submit_model(
     model_service: ModelSubmissionService = Depends(get_model_service),
 ):
     try:
+        comp_uuid = UUID(comp_id)
+        team_uuid = UUID(team_id)
+
         token = extract_bearer_token(authorization)
         user = auth_service.get_current_user(token)
-        auth_service.require_roles(token, comp_id, {RoleType.participant})
+        auth_service.require_roles(token, comp_uuid, {RoleType.participant})
 
         metadata = {
             "model_name": model_name,
@@ -94,8 +97,8 @@ async def submit_model(
         }
 
         result = await model_service.submit_model(
-            team_id=team_id,
-            competition_id=comp_id,
+            team_id=team_uuid,
+            competition_id=comp_uuid,
             file=file,
             metadata=metadata,
             user_id=user.id,  # type: ignore[arg-type]
@@ -109,6 +112,8 @@ async def submit_model(
         raise HTTPException(status_code=403, detail=str(exc))
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
 # ------------------------------------------------------------------ #
@@ -122,7 +127,7 @@ async def submit_model(
     description="Returns the organizer-defined requirements for model submissions (required files, model format, etc.).",
 )
 async def get_submission_spec(
-    comp_id: int,
+    comp_id: str,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     model_service: ModelSubmissionService = Depends(get_model_service),
@@ -131,16 +136,17 @@ async def get_submission_spec(
         token = extract_bearer_token(authorization)
         auth_service.get_current_user(token)
 
-        spec = model_service.get_competition_model_spec(comp_id)
+        spec = model_service.get_competition_model_spec(UUID(comp_id))
         return {"competition_id": comp_id, "model_spec": spec}
 
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
 # ------------------------------------------------------------------ #
 #  List                                                               #
-# ------------------------------------------------------------------ #
 
 
 @router.get(
@@ -149,7 +155,7 @@ async def get_submission_spec(
     summary="List all model submissions for a competition",
 )
 async def list_models_by_competition(
-    comp_id: int,
+    comp_id: str,
     authorization: str = Header(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -160,7 +166,7 @@ async def list_models_by_competition(
         token = extract_bearer_token(authorization)
         auth_service.get_current_user(token)
 
-        result = model_service.get_models_by_competition(comp_id, page, limit)
+        result = model_service.get_models_by_competition(UUID(comp_id), page, limit)
         return ModelListResponse(
             items=result["models"],
             total=result["total"],
@@ -170,6 +176,8 @@ async def list_models_by_competition(
 
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
 @router.get(
@@ -178,7 +186,7 @@ async def list_models_by_competition(
     summary="List all models submitted by a team",
 )
 async def list_team_models(
-    team_id: int,
+    team_id: str,
     authorization: str = Header(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -189,7 +197,7 @@ async def list_team_models(
         token = extract_bearer_token(authorization)
         auth_service.get_current_user(token)
 
-        result = model_service.get_team_models(team_id, page, limit)
+        result = model_service.get_team_models(UUID(team_id), page, limit)
         return ModelListResponse(
             items=result["models"],
             total=result["total"],
@@ -199,6 +207,8 @@ async def list_team_models(
 
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
 @router.get(
@@ -207,8 +217,8 @@ async def list_team_models(
     summary="Get a team's full submission history",
 )
 async def get_team_model_history(
-    team_id: int,
-    competition_id: int = Query(..., description="Competition ID"),
+    team_id: str,
+    competition_id: str = Query(..., description="Competition ID"),
     authorization: str = Header(...),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -220,7 +230,7 @@ async def get_team_model_history(
         auth_service.get_current_user(token)
 
         result = model_service.get_team_model_history(
-            team_id, competition_id, page, limit
+            UUID(team_id), UUID(competition_id), page, limit
         )
         return ModelHistoryResponse(
             models=result["models"],
@@ -230,6 +240,8 @@ async def get_team_model_history(
 
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
 # ------------------------------------------------------------------ #
