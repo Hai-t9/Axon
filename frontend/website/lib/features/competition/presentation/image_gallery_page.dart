@@ -177,6 +177,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
   @override
   Widget build(BuildContext context) {
     return AxonScaffold(
+      scrollable: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

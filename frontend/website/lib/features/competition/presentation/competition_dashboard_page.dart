@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../widgets/layout/axon_scaffold.dart';
@@ -13,6 +14,7 @@ import '../../../features/model_submission/presentation/model_submission_page.da
 import '../../../features/validation/presentation/validation_page.dart';
 import '../../../features/evaluation/presentation/evaluation_page.dart';
 import '../../../features/data_validation/presentation/data_validation_page.dart';
+import '../../auth/state/auth_session_provider.dart';
 import '../data/competition_repository.dart';
 import '../state/competition_details_controller.dart';
 import '../state/dashboard_controller.dart';
@@ -21,6 +23,7 @@ import '../data/competition_models.dart';
 import '../../home/presentation/home_page.dart';
 import '../../gallery/presentation/gallery_page.dart';
 import 'competition_settings_page.dart';
+import 'image_gallery_page.dart';
 import 'phase_control_page.dart';
 import 'teams_control_page.dart';
 
@@ -520,56 +523,9 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           );
         } else {
           final partDash = dashboard as DashboardParticipantResponse;
-          final team = partDash.teamInfo;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildInfoCard(
-                title: 'Your Team: ${team.name}',
-                icon: Icons.groups,
-                iconColor: AppColors.success,
-                children: [
-                  _buildStatRow('Images Uploaded', team.imagesUploaded.toString()),
-                  if (team.deviceStats.isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Devices Used', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: team.deviceStats.entries.map((e) => Chip(
-                        avatar: const Icon(Icons.smartphone, size: 14),
-                        label: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: AppColors.background,
-                        side: const BorderSide(color: AppColors.border),
-                      )).toList(),
-                    ),
-                  ],
-                  if (team.labelDistribution.isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Label Distribution', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: team.labelDistribution.entries.map((e) => Chip(
-                        label: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: AppColors.surfaceAlt,
-                        side: BorderSide.none,
-                      )).toList(),
-                    ),
-                  ],
-                ],
-              ),
-            ],
+          return _ParticipantTeamView(
+            competitionId: widget.competitionId,
+            partDash: partDash,
           );
         }
       },
@@ -720,6 +676,243 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
   }
 }
 
+class _ParticipantTeamView extends ConsumerStatefulWidget {
+  final String competitionId;
+  final DashboardParticipantResponse partDash;
+
+  const _ParticipantTeamView({
+    required this.competitionId,
+    required this.partDash,
+  });
+
+  @override
+  ConsumerState<_ParticipantTeamView> createState() => _ParticipantTeamViewState();
+}
+
+class _ParticipantTeamViewState extends ConsumerState<_ParticipantTeamView> {
+  List<Map<String, dynamic>>? _members;
+  Map<String, dynamic>? _results;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final token = ref.read(authSessionProvider)?.accessToken;
+      final headers = <String, String>{'Authorization': 'Bearer $token'};
+
+      final results = await _fetchResults(api, headers);
+      final members = await _fetchMembers(api, headers);
+
+      if (mounted) {
+        setState(() {
+          _members = members;
+          _results = results;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _fetchResults(ApiClient api, Map<String, String> headers) async {
+    try {
+      return await api.getJson('/competitions/${widget.competitionId}/results', headers: headers);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchMembers(ApiClient api, Map<String, String> headers) async {
+    try {
+      final resp = await api.getJson('/teams/${widget.partDash.teamInfo.id}/members', headers: headers);
+      return (resp['members'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final team = widget.partDash.teamInfo;
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    Map<String, dynamic>? teamResult;
+    if (_results != null) {
+      final rankings = _results!['final_rankings'] as List<dynamic>? ?? [];
+      for (final r in rankings) {
+        if (r['team_id'] == team.id) {
+          teamResult = r as Map<String, dynamic>;
+          break;
+        }
+      }
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: _buildStatsCard(context, team, teamResult)),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            children: [
+              _buildTeamCard(context, team),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ImageGalleryPage(
+                        teamId: team.id,
+                        teamName: team.name,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Image Gallery'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsCard(BuildContext context, DashboardParticipantTeam team, Map<String, dynamic>? teamResult) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.analytics, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Text('Statistics', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _statRow('Images Uploaded', team.imagesUploaded.toString()),
+            if (teamResult != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              _statRow('Evaluation Score', (teamResult['mean_accuracy'] as num).toStringAsFixed(4)),
+            ],
+            if (team.labelDistribution.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Labels', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: team.labelDistribution.entries.map((e) => Chip(
+                  label: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: AppColors.surfaceAlt,
+                  side: BorderSide.none,
+                )).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeamCard(BuildContext context, DashboardParticipantTeam team) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.groups, color: AppColors.success),
+                const SizedBox(width: AppSpacing.sm),
+                Text(team.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (_members == null || _members!.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Text('No members found', style: const TextStyle(color: AppColors.textSecondary)),
+              )
+            else
+              ...(_members!.map((member) {
+                final name = member['fullname'] as String? ?? 'Unknown';
+                final email = member['email'] as String? ?? '';
+                final joined = member['joined'] == 1;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 12)),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            Text(email, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        joined ? Icons.check_circle : Icons.hourglass_empty,
+                        color: joined ? AppColors.success : Colors.orange,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                );
+              })),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ModuleData {
   final IconData icon;
   final String title;
@@ -754,7 +947,7 @@ class _ModuleCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.border),
-            color: AppColors.surface,
+            color: AppColors.surfaceAlt,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

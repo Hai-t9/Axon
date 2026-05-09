@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/competition_model.dart';
+import '../models/leaderboard_model.dart';
 import '../models/team_model.dart';
 import '../models/team_stats_model.dart';
 import '../models/uploaded_image_model.dart';
@@ -87,6 +88,16 @@ class CompetitionService {
     } catch (e) {
       return [];
     }
+  }
+
+  Future<LeaderboardResponse> getLeaderboard(String competitionId,
+      {String type = 'public'}) async {
+    final response = await _dio.get(
+      '/api/v1/competitions/$competitionId/leaderboard',
+      queryParameters: {'type': type},
+    );
+    return LeaderboardResponse.fromJson(
+        response.data as Map<String, dynamic>);
   }
 }
 final competitionServiceProvider = Provider<CompetitionService>((ref) {
