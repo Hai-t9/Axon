@@ -60,6 +60,41 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
     ));
   }
 
+  void _confirmDelete(GalleryImage image) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Image'),
+        content: Text('Are you sure you want to delete this image${image.label != null ? ' (${image.label})' : ''}? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteImage(image);
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteImage(GalleryImage image) async {
+    try {
+      await ref.read(galleryRepositoryProvider).deleteImage(image.id);
+      if (!mounted) return;
+      _showMsg('Image deleted');
+      _loadImages();
+    } catch (e) {
+      if (!mounted) return;
+      _showMsg('Failed to delete image: $e', isError: true);
+    }
+  }
+
   String _getImageUrl(String filepath) {
     final base = AppConfig.apiBaseUrl.replaceFirst('/api/v1', '');
     final normalizedPath = filepath.replaceAll('\\', '/');
@@ -219,33 +254,52 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                              child: Align(
-                                alignment: Alignment.bottomRight,
-                                child: Container(
-                                  margin: const EdgeInsets.all(8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black87,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        image.label != null ? Icons.label : Icons.label_off,
-                                        size: 14,
-                                        color: image.label != null ? Colors.amber : Colors.white54,
+                              child: Stack(
+                                children: [
+                                  Align(
+                                    alignment: Alignment.bottomRight,
+                                    child: Container(
+                                      margin: const EdgeInsets.all(8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black87,
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                      if (image.label != null) ...[
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          image.label!,
-                                          style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ],
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            image.label != null ? Icons.label : Icons.label_off,
+                                            size: 14,
+                                            color: image.label != null ? Colors.amber : Colors.white54,
+                                          ),
+                                          if (image.label != null) ...[
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              image.label!,
+                                              style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  Positioned(
+                                    top: 4,
+                                    left: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _confirmDelete(image),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.delete_outline, size: 14, color: Colors.white70),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           );
