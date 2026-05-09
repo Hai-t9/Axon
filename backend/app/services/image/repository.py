@@ -45,13 +45,13 @@ class ImageRepository:
         self.db.refresh(db_label)
         return db_label
 
-    def find_by_id(self, image_id: int):
+    def find_by_id(self, image_id: UUID):
         return self.db.query(Image).filter(Image.id == image_id).first()
 
     def find_by_hash(self, image_hash: str):
         return self.db.query(Image).filter(Image.image_hash == image_hash).first()
 
-    def update_status(self, image_id: int, status: str):
+    def update_status(self, image_id: UUID, status: str):
         db_image = self.find_by_id(image_id)
         if db_image:
             db_image.status = status
@@ -111,7 +111,7 @@ class ImageRepository:
             "by_label": by_label
         }
 
-    def delete(self, image_id: int):
+    def delete(self, image_id: UUID):
         img = self.find_by_id(image_id)
         if img:
             self.db.query(Label).filter(Label.image_id == image_id).delete()

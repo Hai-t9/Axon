@@ -59,7 +59,7 @@ async def upload_image(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/images/{image_id}", response_model=ImageResponse)
-def get_image(image_id: int, db: Session = Depends(get_db)):
+def get_image(image_id: UUID, db: Session = Depends(get_db)):
     repo = ImageRepository(db)
     service = ImageService(repo)
     image = service.get_image_by_id(image_id)
@@ -115,7 +115,7 @@ def get_comp_image_stats(
     return service.get_image_stats(comp_id)
 
 @router.patch("/images/{image_id}/status", response_model=ImageResponse)
-def update_image_status(image_id: int, status_update: ImageUpdateStatus, db: Session = Depends(get_db)):
+def update_image_status(image_id: UUID, status_update: ImageUpdateStatus, db: Session = Depends(get_db)):
     repo = ImageRepository(db)
     service = ImageService(repo)
     try:
@@ -125,7 +125,7 @@ def update_image_status(image_id: int, status_update: ImageUpdateStatus, db: Ses
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/images/{image_id}")
-def delete_image(image_id: int, db: Session = Depends(get_db)):
+def delete_image(image_id: UUID, db: Session = Depends(get_db)):
     repo = ImageRepository(db)
     service = ImageService(repo)
     try:
