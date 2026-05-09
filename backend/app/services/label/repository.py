@@ -38,6 +38,15 @@ class LabelRepository:
         self.db.refresh(entry)
         return entry
 
+    def get_image_with_team(self, image_id: int) -> Image | None:
+        return self.db.query(Image).filter(Image.id == image_id).first()
+
+    def update_image_filepath(self, image_id: int, new_filepath: str) -> None:
+        img = self.db.query(Image).filter(Image.id == image_id).first()
+        if img:
+            img.filepath = new_filepath  # type: ignore[assignment]
+            self.db.commit()
+
     def set_label_validated(self, image_id: int) -> Label | None:
         entry = self.find_by_image_id(image_id)
         if not entry:

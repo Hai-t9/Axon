@@ -19,14 +19,24 @@ class LocationMetadata(BaseModel):
     location_metadata: Optional[Dict[str, Any]] = None
 
 
+class DashboardTeamWithStats(BaseModel):
+    id: Any
+    name: str
+    comp_id: Any
+    user_emails: Optional[Dict[str, int]] = None
+    device_stats: Dict[str, int]
+    label_distribution: Dict[str, int]
+    images_uploaded: int
+
+
 class DashboardTeamInfo(BaseModel):
-    items: List[TeamResponse]
+    items: List[DashboardTeamWithStats]
     total: int
 
 
 class DashboardResponse(BaseModel):
     phase_info: PhaseResponse
-    config: CompetitionConfigResponse
+    config: Optional[CompetitionConfigResponse] = None
     image_stats: DashboardImageStats
     team_info: DashboardTeamInfo
     device_stats: Dict[str, int]
@@ -45,9 +55,9 @@ class DashboardParticipantConfig(BaseModel):
 
 class DashboardParticipantResponse(BaseModel):
     phase_info: PhaseResponse
-    config: DashboardParticipantConfig
+    config: Optional[DashboardParticipantConfig] = None
     image_stats: DashboardImageStats
-    team_info: TeamResponse
+    team_info: DashboardTeamWithStats
     device_stats: Dict[str, int]
     label_distribution: Dict[str, int]
     locations: List[LocationMetadata]

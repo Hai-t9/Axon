@@ -1,6 +1,7 @@
 import os
 import sys
 import random
+from pathlib import Path
 
 import pytest
 from uuid import UUID, uuid4
@@ -62,11 +63,25 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def _create_image(db_session, team_id: str, author_id: str, suffix: str) -> Image:
+def _create_image(db_session, team_id: str, author_id: str, suffix: str,
+                   comp_id: str | None = None, label: str | None = None) -> Image:
+    team_uuid = UUID(team_id)
+    author_uuid = UUID(author_id)
+    filename = f"validation-{suffix}.jpg"
+
+    if comp_id is not None:
+        safe_label = label.replace(" ", "_").lower() if label else "unlabeled"
+        filepath = f"uploads/{comp_id}/images/{team_uuid}/{safe_label}/{filename}"
+    else:
+        filepath = f"uploads/{filename}"
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    Path(filepath).touch()
+
     image = Image(
-        team_id=UUID(team_id),
-        author_id=UUID(author_id),
-        filepath=f"/tmp/validation-{suffix}.jpg",
+        team_id=team_uuid,
+        author_id=author_uuid,
+        filepath=filepath,
         image_hash=f"validation-hash-{suffix}",
     )
     db_session.add(image)
@@ -204,87 +219,101 @@ def test_validation_batch_generation_list_and_finalize_flow(client, db_session):
     assert other_team_response.status_code == 200
     other_team_id = UUID(other_team_response.json()["id"])
 
+    created_files = []
     own_images = []
-    for idx in range(6):
-        image = _create_image(db_session, str(own_team_id), host_id, f"batch-own-{idx}")
-        _create_label(db_session, image.id, "cat")
-        own_images.append(image)
+    try:
+        for idx in range(6):
+            image = _create_image(db_session, str(own_team_id), host_id, f"batch-own-{idx}",
+                                   comp_id=str(competition_id), label="cat")
+            created_files.append(image.filepath)
+            _create_label(db_session, image.id, "cat")
+            own_images.append(image)
 
-    for idx in range(4):
-        image = _create_image(db_session, str(other_team_id), other_user_id, f"batch-other-{idx}")
-        _create_label(db_session, image.id, "dog")
+        for idx in range(4):
+            image = _create_image(db_session, str(other_team_id), other_user_id, f"batch-other-{idx}",
+                                   comp_id=str(competition_id), label="dog")
+            created_files.append(image.filepath)
+            _create_label(db_session, image.id, "dog")
 
-    generate_response = client.post(
-        f"/api/v1/competitions/{competition_id}/validations/generate",
-        headers={"Authorization": f"Bearer {host_token}"},
-    )
-    assert generate_response.status_code == 200
-    assert generate_response.json() == {"success": True}
-
-    team_assignments, participant_assignments = _build_expected_validation_assignments(
-        db_session,
-        competition_id,
-    )
-
-    host_list_response = client.get(
-        f"/api/v1/competitions/{competition_id}/validations/list",
-        headers={"Authorization": f"Bearer {host_token}"},
-    )
-    assert host_list_response.status_code == 200
-    host_list = host_list_response.json()["image_ids"]
-
-    teammate_list_response = client.get(
-        f"/api/v1/competitions/{competition_id}/validations/list",
-        headers={"Authorization": f"Bearer {teammate_token}"},
-    )
-    assert teammate_list_response.status_code == 200
-    teammate_list = teammate_list_response.json()["image_ids"]
-
-    assert host_list == participant_assignments[host_id]
-    assert teammate_list == participant_assignments[teammate_id]
-    assert sorted(host_list) == sorted(teammate_list)
-    assert host_list == client.get(
-        f"/api/v1/competitions/{competition_id}/validations/list",
-        headers={"Authorization": f"Bearer {host_token}"},
-    ).json()["image_ids"]
-    assert team_assignments[str(own_team_id)] == sorted(team_assignments[str(own_team_id)], key=lambda value: team_assignments[str(own_team_id)].index(value))
-
-    target_image_id = host_list[0]
-
-    voter_tokens = [host_token, teammate_token]
-    for index in range(1):
-        voter_signup = client.post(
-            "/api/v1/register/signup",
-            json={
-                "email": f"validation-voter-{index}@example.com",
-                "password": "Secure1234",
-                "full_name": f"Validation Voter {index}",
-            },
+        generate_response = client.post(
+            f"/api/v1/competitions/{competition_id}/validations/generate",
+            headers={"Authorization": f"Bearer {host_token}"},
         )
-        assert voter_signup.status_code == 200
-        voter_tokens.append(voter_signup.json()["access_token"])
+        assert generate_response.status_code == 200
+        assert generate_response.json() == {"success": True}
 
-    for token in voter_tokens:
-        vote_response = client.post(
-            f"/api/v1/images/{target_image_id}/validations",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"label": "cat"},
+        team_assignments, participant_assignments = _build_expected_validation_assignments(
+            db_session,
+            competition_id,
         )
-        assert vote_response.status_code == 200
-        assert vote_response.json()["label"] == "cat"
 
-    label_entry = db_session.query(Label).filter(Label.image_id == target_image_id).first()
-    assert label_entry is not None
-    assert label_entry.validated is True
-    assert label_entry.label == "cat"
+        host_list_response = client.get(
+            f"/api/v1/competitions/{competition_id}/validations/list",
+            headers={"Authorization": f"Bearer {host_token}"},
+        )
+        assert host_list_response.status_code == 200
+        host_list = host_list_response.json()["image_ids"]
 
-    pending_response = client.get(
-        f"/api/v1/competitions/{competition_id}/validations/pending",
-        headers={"Authorization": f"Bearer {host_token}"},
-    )
-    assert pending_response.status_code == 200
-    pending_ids = {item["id"] for item in pending_response.json()["images"]}
-    assert target_image_id not in pending_ids
+        teammate_list_response = client.get(
+            f"/api/v1/competitions/{competition_id}/validations/list",
+            headers={"Authorization": f"Bearer {teammate_token}"},
+        )
+        assert teammate_list_response.status_code == 200
+        teammate_list = teammate_list_response.json()["image_ids"]
+
+        assert host_list == participant_assignments[host_id]
+        assert teammate_list == participant_assignments[teammate_id]
+        assert sorted(host_list) == sorted(teammate_list)
+        assert host_list == client.get(
+            f"/api/v1/competitions/{competition_id}/validations/list",
+            headers={"Authorization": f"Bearer {host_token}"},
+        ).json()["image_ids"]
+        assert team_assignments[str(own_team_id)] == sorted(team_assignments[str(own_team_id)], key=lambda value: team_assignments[str(own_team_id)].index(value))
+
+        target_image_id = host_list[0]
+
+        voter_tokens = [host_token, teammate_token]
+        for index in range(1):
+            voter_signup = client.post(
+                "/api/v1/register/signup",
+                json={
+                    "email": f"validation-voter-{index}@example.com",
+                    "password": "Secure1234",
+                    "full_name": f"Validation Voter {index}",
+                },
+            )
+            assert voter_signup.status_code == 200
+            voter_tokens.append(voter_signup.json()["access_token"])
+
+        for token in voter_tokens:
+            vote_response = client.post(
+                f"/api/v1/images/{target_image_id}/validations",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"label": "cat"},
+            )
+            assert vote_response.status_code == 200
+            assert vote_response.json()["label"] == "cat"
+
+        label_entry = db_session.query(Label).filter(Label.image_id == target_image_id).first()
+        assert label_entry is not None
+        assert label_entry.validated is True
+        assert label_entry.label == "cat"
+
+        pending_response = client.get(
+            f"/api/v1/competitions/{competition_id}/validations/pending",
+            headers={"Authorization": f"Bearer {host_token}"},
+        )
+        assert pending_response.status_code == 200
+        pending_ids = {item["id"] for item in pending_response.json()["images"]}
+        assert target_image_id not in pending_ids
+    finally:
+        for fp in created_files:
+            if fp and os.path.exists(fp):
+                os.remove(fp)
+                try:
+                    os.removedirs(os.path.dirname(fp))
+                except OSError:
+                    pass
 
 
 class _FakeRedisClient:
