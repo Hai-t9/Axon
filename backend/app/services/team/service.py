@@ -1,6 +1,7 @@
-from app.core.exceptions import NotFoundError, ValidationError
-from uuid import UUID
 import logging
+from uuid import UUID
+
+from app.core.exceptions import NotFoundError, ValidationError
 from app.schemas.team import TeamCreate, TeamUpdate
 
 from .repository import TeamRepository
@@ -118,7 +119,9 @@ class TeamService:
 
     def bulk_create_teams(self, comp_id: UUID, teams_data: dict) -> dict:
         """Create multiple teams from a dict of {team_name: [email1, email2, ...]}"""
-        logger.info(f"bulk_create_teams called for comp {comp_id} with {len(teams_data)} teams")
+        logger.info(
+            f"bulk_create_teams called for comp {comp_id} with {len(teams_data)} teams"
+        )
         created = []
         errors = []
         for team_name, member_emails in teams_data.items():
@@ -135,11 +138,13 @@ class TeamService:
             team = self.repository.create(
                 {"comp_id": comp_id, "name": team_name, "user_emails": user_emails}
             )
-            created.append({
-                "id": str(team.id),
-                "name": team.name,
-                "comp_id": str(team.comp_id),
-                "user_emails": team.user_emails,
-            })
+            created.append(
+                {
+                    "id": str(team.id),
+                    "name": team.name,
+                    "comp_id": str(team.comp_id),
+                    "user_emails": team.user_emails,
+                }
+            )
 
         return {"created": created, "errors": errors}
