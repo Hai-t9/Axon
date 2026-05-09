@@ -23,4 +23,12 @@ class TeamModel {
       userEmails: raw?.map((k, v) => MapEntry(k, (v as num).toInt())) ?? {},
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TeamModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

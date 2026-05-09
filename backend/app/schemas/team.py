@@ -51,7 +51,15 @@ class TeamMembersResponse(BaseModel):
     total: int
 
 
+class MemberStats(BaseModel):
+    user_id: UUID
+    name: str
+    email: str
+    images_uploaded: int
+    images_validated: int
+
 class TeamStatisticsResponse(BaseModel):
     total_members: int
     images_uploaded: int
     models_submitted: int
+    members: Optional[List[MemberStats]] = None

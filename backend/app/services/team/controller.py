@@ -257,7 +257,7 @@ async def add_team_member_by_email(
 
 @router.get("/teams/{team_id}/statistics", response_model=TeamStatisticsResponse)
 async def get_team_statistics(
-    team_id: int,
+    team_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     team_service: TeamService = Depends(get_team_service),
