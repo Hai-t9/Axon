@@ -51,12 +51,27 @@ class DashboardService:
             "user_emails": team.user_emails,
         }
 
+    def _serialize_team_with_stats(self, team) -> dict:
+        # Per-team aggregates
+        image_stats = self.repository.find_team_image_stats(team.id)
+        device_stats = self.repository.find_team_device_stats(team.id)
+        label_distribution = self.repository.find_team_label_distribution(team.id)
+
+        return {
+            "id": team.id,
+            "name": team.name,
+            "comp_id": team.comp_id,
+            "user_emails": team.user_emails,
+            "device_stats": device_stats,
+            "label_distribution": label_distribution,
+            "images_uploaded": image_stats.get("total", 0) if isinstance(image_stats, dict) else 0,
+        }
+
+
     def _build_dashboard_payload(self, comp_id: UUID) -> dict:
         phase_info = self.repository.ensure_phase_info(comp_id)
 
         config = self.repository.find_config(comp_id)
-        if not config:
-            raise NotFoundError("Competition config not found")
 
         image_stats = self.repository.find_image_stats(comp_id)
         teams = self.repository.find_team_info(comp_id)
@@ -66,10 +81,10 @@ class DashboardService:
 
         return {
             "phase_info": self._serialize_phase_info(phase_info),
-            "config": self._serialize_config(config),
+            "config": self._serialize_config(config) if config else None,
             "image_stats": image_stats,
             "team_info": {
-                "items": [self._serialize_team(team) for team in teams],
+                "items": [self._serialize_team_with_stats(team) for team in teams],
                 "total": len(teams),
             },
             "device_stats": device_stats,
@@ -81,8 +96,6 @@ class DashboardService:
         phase_info = self.repository.ensure_phase_info(comp_id)
 
         config = self.repository.find_config(comp_id)
-        if not config:
-            raise NotFoundError("Competition config not found")
 
         team = self.repository.find_team_for_participant(comp_id, participant_id)
         if not team:
@@ -95,9 +108,9 @@ class DashboardService:
 
         return {
             "phase_info": self._serialize_phase_info(phase_info),
-            "config": self._serialize_config_participant(config),
+            "config": self._serialize_config_participant(config) if config else None,
             "image_stats": image_stats,
-            "team_info": self._serialize_team(team),
+            "team_info": self._serialize_team_with_stats(team),
             "device_stats": device_stats,
             "label_distribution": label_distribution,
             "locations": locations,

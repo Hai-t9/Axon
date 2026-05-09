@@ -31,8 +31,8 @@ class CompetitionConfig {
 
   factory CompetitionConfig.fromJson(Map<String, dynamic> json) {
     return CompetitionConfig(
-      id: json['id'].toString(),
-      competitionId: json['competition_id'].toString(),
+      id: json['id']?.toString() ?? '',
+      competitionId: json['competition_id']?.toString() ?? '',
       labels: json['labels'] as Map<String, dynamic>?,
       dataExample: json['data_ex'] as String?,
       scoringExample: json['scoring_ex'] as String?,
