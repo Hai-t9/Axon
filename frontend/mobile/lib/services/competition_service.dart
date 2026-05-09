@@ -55,6 +55,15 @@ class CompetitionService {
       return null;
     }
   }
+  Future<TeamModel?> getMyTeam(String competitionId) async {
+    try {
+      final response = await _dio.get('/api/v1/competitions/$competitionId/my-team');
+      return TeamModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> joinWithInvitationLink(String link) async {
     final response = await _dio.post('/api/v1/competitions/join', data: {
       'invitation_link': link,

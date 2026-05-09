@@ -57,7 +57,7 @@ class CompetitionService:
         team_id = None
         team_name = None
         if role and role.role == RoleType.participant:
-            team = self.repository.get_team_for_user(competition.id, user.email)
+            team = self.repository.get_team_for_user(competition.id, user.id)
             if team:
                 team_id = team.id
                 team_name = team.name
@@ -93,6 +93,14 @@ class CompetitionService:
             return config
 
         return self.repository.update_config(config, updates)
+
+    def get_my_team(self, user: User, competition_id: UUID):
+        """Get the team the current user belongs to in a competition."""
+        self.get_competition(competition_id)
+        team = self.repository.get_team_for_user(competition_id, user.id)
+        if not team:
+            raise NotFoundError("You are not assigned to any team in this competition")
+        return team
 
     def join_competition(self, user_id: UUID, invitation_link: str):
         """Join a competition via invitation link. User's email must be in a team."""

@@ -27,9 +27,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   TeamModel? _selectedTeam;
   TeamStatsModel? _teamStats;
   List<CompetitionModel> _competitions = [];
-  List<TeamModel> _teams = [];
   bool _loadingCompetitions = true;
-  bool _loadingTeams = false;
+  bool _loadingMyTeam = false;
   bool _loadingStats = false;
   List<String>? _dynamicLabels;
 
@@ -54,7 +53,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _selectedCompetition = match.isNotEmpty ? match.first : null;
             if (_selectedCompetition == null) {
               _selectedTeam = null;
-              _teams = [];
               _teamStats = null;
             }
           }
@@ -70,27 +68,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _loadTeams(String competitionId) async {
-    setState(() => _loadingTeams = true);
+  Future<void> _loadMyTeam(String competitionId) async {
+    setState(() => _loadingMyTeam = true);
     try {
       final service = ref.read(competitionServiceProvider);
-      final teams = await service.getTeams(competitionId);
+      final team = await service.getMyTeam(competitionId);
       if (mounted) {
         setState(() {
-          _teams = teams;
-          _loadingTeams = false;
-          // Re-match selected team by ID in the new list
-          if (_selectedTeam != null) {
-            final match = teams.where((t) => t.id == _selectedTeam!.id);
-            _selectedTeam = match.isNotEmpty ? match.first : null;
-            if (_selectedTeam == null) {
-              _teamStats = null;
-            }
+          _selectedTeam = team;
+          _loadingMyTeam = false;
+          if (team != null) {
+            _loadTeamStats(team.id);
+          } else {
+            _teamStats = null;
           }
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _loadingTeams = false);
+      if (mounted) setState(() => _loadingMyTeam = false);
     }
   }
 
@@ -201,7 +196,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onRefresh: () async {
               await _loadCompetitions();
               if (_selectedCompetition != null) {
-                await _loadTeams(_selectedCompetition!.id);
+                await _loadMyTeam(_selectedCompetition!.id);
                 if (_selectedTeam != null) {
                   await _loadTeamStats(_selectedTeam!.id);
                 }
@@ -323,54 +318,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     setState(() {
                                       _selectedCompetition = comp;
                                       _selectedTeam = null;
-                                      _teams = [];
                                       _dynamicLabels = null;
                                       _teamStats = null;
                                     });
                                     if (comp != null) {
-                                      _loadTeams(comp.id);
+                                      _loadMyTeam(comp.id);
                                       _loadLabels(comp.id);
                                     }
                                   },
                                 ),
                       const SizedBox(height: 24),
                       Text(
-                        'Select Team',
+                        'Your Team',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.white70),
                       ),
                       const SizedBox(height: 12),
-                      _loadingTeams
+                      _loadingMyTeam
                           ? const Center(child: CircularProgressIndicator(color: Color(0xFF5F75EE)))
-                          : _teams.isEmpty
-                              ? const Text('No teams available',
+                          : _selectedTeam == null
+                              ? const Text('You are not assigned to any team',
                                   style: TextStyle(color: Colors.white38))
-                              : DropdownButtonFormField<TeamModel>(
-                                  value: _selectedTeam,
-                                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF5F75EE)),
-                                  decoration: InputDecoration(
-                                    fillColor: const Color(0xFF1C1C28),
-                                    filled: true,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1C1C28),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  dropdownColor: const Color(0xFF252536),
-                                  hint: const Text('Choose a team'),
-                                  isExpanded: true,
-                                  items: _teams
-                                      .map(
-                                        (t) => DropdownMenuItem(
-                                          value: t,
-                                          child: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.groups_rounded, color: Color(0xFF5F75EE), size: 20),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        _selectedTeam!.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                          fontSize: 16,
                                         ),
-                                      )
-                                      .toList(),
-                                  onChanged: (team) {
-                                    setState(() => _selectedTeam = team);
-                                    if (team != null) _loadTeamStats(team.id);
-                                  },
+                                      ),
+                                    ],
+                                  ),
                                 ),
                     ],
                   ),
