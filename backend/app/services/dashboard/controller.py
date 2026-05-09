@@ -12,6 +12,7 @@ from app.schemas.dashboard import (
     DashboardCacheClearResponse,
     DashboardParticipantResponse,
     DashboardResponse,
+    RoleResponse,
 )
 from app.services.auth.repository import AuthRepository
 from app.services.auth.service import AuthService
@@ -67,6 +68,21 @@ async def get_dashboard(
         raise HTTPException(status_code=403, detail=str(exc))
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/role", response_model=RoleResponse)
+async def get_dashboard_role(
+    comp_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        role = auth_service.get_user_role(comp_id, user.id)
+        return RoleResponse(role=role.value if role else None)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
 
 
 @router.get("/cache", response_model=DashboardCachedResponse)

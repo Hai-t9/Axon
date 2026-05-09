@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.auth import extract_bearer_token
 from app.core.database import SessionLocal
@@ -43,7 +44,7 @@ def get_phase_service(db: Session = Depends(get_db)) -> PhaseService:
 
 @router.get("", response_model=PhaseResponse)
 async def get_current_phase(
-    competition_id: int,
+    competition_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     phase_service: PhaseService = Depends(get_phase_service),
@@ -58,7 +59,7 @@ async def get_current_phase(
 
 @router.post("/advance", response_model=PhaseAdvanceResponse)
 async def advance_phase(
-    competition_id: int,
+    competition_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     phase_service: PhaseService = Depends(get_phase_service),
@@ -75,9 +76,28 @@ async def advance_phase(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/decrement", response_model=PhaseAdvanceResponse)
+async def decrement_phase(
+    competition_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    phase_service: PhaseService = Depends(get_phase_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.require_roles(token, competition_id, {RoleType.host})
+        return phase_service.decrement_phase(competition_id, user.id)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.put("/override")
 async def override_phase(
-    competition_id: int,
+    competition_id: UUID,
     payload: PhaseOverrideRequest,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -99,7 +119,7 @@ async def override_phase(
 
 @router.put("/deadline")
 async def adjust_deadline(
-    competition_id: int,
+    competition_id: UUID,
     payload: PhaseDeadlineRequest,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -121,7 +141,7 @@ async def adjust_deadline(
 
 @router.put("/transition-mode")
 async def set_transition_mode(
-    competition_id: int,
+    competition_id: UUID,
     payload: PhaseTransitionModeRequest,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -141,7 +161,7 @@ async def set_transition_mode(
 
 @router.get("/timeline", response_model=PhaseTimelineResponse)
 async def get_timeline(
-    competition_id: int,
+    competition_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     phase_service: PhaseService = Depends(get_phase_service),
@@ -157,7 +177,7 @@ async def get_timeline(
 
 @router.get("/history", response_model=PhaseHistoryResponse)
 async def get_history(
-    competition_id: int,
+    competition_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     phase_service: PhaseService = Depends(get_phase_service),
@@ -173,7 +193,7 @@ async def get_history(
 
 @router.post("/validate", response_model=PhaseValidationResponse)
 async def validate_transition(
-    competition_id: int,
+    competition_id: UUID,
     payload: PhaseValidateRequest,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),

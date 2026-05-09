@@ -8,6 +8,7 @@ import '../features/competition/presentation/competition_dashboard_page.dart';
 import '../features/competition/presentation/competition_settings_page.dart';
 import '../features/competition/presentation/host_competition_page.dart';
 import '../features/competition/presentation/join_competition_page.dart';
+import '../features/competition/presentation/phase_control_page.dart';
 import '../features/competition/presentation/teams_control_page.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/leaderboard/presentation/leaderboard_page.dart';
@@ -89,6 +90,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id'];
           if (id == null || id.isEmpty) return const HomePage();
           return TeamsControlPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: PhaseControlPage.routePath,
+        name: PhaseControlPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return PhaseControlPage(competitionId: id);
         },
       ),
       GoRoute(

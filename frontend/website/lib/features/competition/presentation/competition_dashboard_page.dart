@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,13 +13,24 @@ import '../../../features/model_submission/presentation/model_submission_page.da
 import '../../../features/validation/presentation/validation_page.dart';
 import '../../../features/evaluation/presentation/evaluation_page.dart';
 import '../../../features/data_validation/presentation/data_validation_page.dart';
+import '../data/competition_repository.dart';
 import '../state/competition_details_controller.dart';
 import '../state/dashboard_controller.dart';
 import '../data/dashboard_models.dart';
 import '../data/competition_models.dart';
 import '../../home/presentation/home_page.dart';
 import 'competition_settings_page.dart';
+import 'phase_control_page.dart';
 import 'teams_control_page.dart';
+
+const Map<String, String> _phaseLabels = {
+  '0': 'Awaiting Initialisation',
+  '1': 'Data Collection',
+  '2': 'Data Validation',
+  '3': 'Model Submission',
+  '4': 'Model Evaluation',
+  '5': 'Finale & Leaderboard',
+};
 
 class CompetitionDashboardPage extends ConsumerStatefulWidget {
   const CompetitionDashboardPage({super.key, required this.competitionId});
@@ -51,10 +64,97 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
     super.dispose();
   }
 
+  Widget _buildActionButtons(
+    String competitionId,
+    AsyncValue<DashboardBase> dashboardState,
+    AsyncValue<String?> roleState,
+  ) {
+    final role = roleState.asData?.value;
+    // Role is loading or unknown → show nothing
+    if (role == null) return const SizedBox.shrink();
+    // Host or staff → show Teams + Manage
+    if (role == 'host' || role == 'staff') {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => context.go(
+              TeamsControlPage.routeForId(competitionId),
+            ),
+            icon: const Icon(Icons.group_outlined),
+            label: const Text('Teams'),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: () => context.go(
+              PhaseControlPage.routeForId(competitionId),
+            ),
+            icon: const Icon(Icons.lan_outlined),
+            label: const Text('Phases'),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: () => context.go(
+              CompetitionSettingsPage.routeForId(competitionId),
+            ),
+            icon: const Icon(Icons.settings),
+            label: const Text('Manage'),
+          ),
+        ],
+      );
+    }
+    // Participant → show Leave button
+    return OutlinedButton.icon(
+      onPressed: () => _leaveCompetition(competitionId),
+      icon: const Icon(Icons.exit_to_app),
+      label: const Text('Leave'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.error,
+        side: const BorderSide(color: AppColors.error),
+      ),
+    );
+  }
+
+  Future<void> _leaveCompetition(String competitionId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave competition'),
+        content: const Text(
+          'Are you sure you want to leave this competition? '
+          'You can rejoin later with the invitation link if invited.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      final repo = ref.read(competitionRepositoryProvider);
+      await repo.leaveCompetition(competitionId);
+      if (!mounted) return;
+      final m = ScaffoldMessenger.of(context);
+      m.showSnackBar(const SnackBar(content: Text('Left competition.')));
+      context.go(HomePage.routePath);
+    } catch (e) {
+      if (!mounted) return;
+      final m = ScaffoldMessenger.of(context);
+      m.showSnackBar(SnackBar(content: Text('Failed to leave: $e'), backgroundColor: AppColors.error));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final competitionState = ref.watch(competitionDetailsProvider(widget.competitionId));
     final dashboardState = ref.watch(dashboardProvider(widget.competitionId));
+    final roleState = ref.watch(competitionRoleProvider(widget.competitionId));
 
     return AxonScaffold(
       child: competitionState.when(
@@ -71,21 +171,8 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                       subtitle: 'Competition dashboard',
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () => context.go(
-                      TeamsControlPage.routeForId(competition.id),
-                    ),
-                    icon: const Icon(Icons.group_outlined),
-                    label: const Text('Teams'),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  OutlinedButton.icon(
-                    onPressed: () => context.go(
-                      CompetitionSettingsPage.routeForId(competition.id),
-                    ),
-                    icon: const Icon(Icons.settings),
-                    label: const Text('Manage'),
-                  ),
+                  // Host/staff see Teams & Manage; participants see Leave
+                  _buildActionButtons(competition.id, dashboardState, roleState),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -194,15 +281,59 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           Text(competition.description!, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: AppSpacing.xl),
         ],
-        _buildSectionHeader(context, 'Phase Information'),
+        Row(
+          children: [
+            Expanded(child: _buildSectionHeader(context, 'Phase Information')),
+            IconButton(
+              onPressed: () => ref.invalidate(dashboardProvider(widget.competitionId)),
+              icon: const Icon(Icons.refresh, size: 18),
+              tooltip: 'Refresh phase info',
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
         dashboardState.when(
           data: (dashboard) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInfoCard(
-                children: [
-                  _buildStatRow('Current Phase', dashboard.phaseInfo.currentPhase),
-                ],
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      children: [
+                        Text(
+                          _phaseLabels[dashboard.phaseInfo.currentPhase] ?? dashboard.phaseInfo.currentPhase,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Phase ${dashboard.phaseInfo.currentPhase}',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _PhaseCountdown(
+                          phaseDates: dashboard.phaseInfo.phaseDates,
+                          currentPhase: dashboard.phaseInfo.currentPhase,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
               if (dashboard.isHost && competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.xl),
@@ -533,6 +664,111 @@ class _ModuleCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PhaseCountdown extends StatefulWidget {
+  final Map<String, dynamic> phaseDates;
+  final String currentPhase;
+
+  const _PhaseCountdown({
+    required this.phaseDates,
+    required this.currentPhase,
+  });
+
+  @override
+  State<_PhaseCountdown> createState() => _PhaseCountdownState();
+}
+
+class _PhaseCountdownState extends State<_PhaseCountdown> {
+  Timer? _timer;
+  Duration _remaining = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateRemaining();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+  }
+
+  @override
+  void didUpdateWidget(_PhaseCountdown old) {
+    super.didUpdateWidget(old);
+    if (old.currentPhase != widget.currentPhase || old.phaseDates != widget.phaseDates) {
+      _updateRemaining();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _updateRemaining() {
+    final deadlines = widget.phaseDates['deadlines'] as Map<String, dynamic>?;
+    final deadlineStr = deadlines?[widget.currentPhase] as String?;
+    if (deadlineStr == null) {
+      if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
+      return;
+    }
+    final deadline = DateTime.tryParse(deadlineStr);
+    if (deadline == null) {
+      if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
+      return;
+    }
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining.isNegative) {
+      if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
+    } else {
+      setState(() => _remaining = remaining);
+    }
+  }
+
+  String _format(Duration d) {
+    if (d == Duration.zero) return '';
+    final days = d.inDays;
+    final hours = d.inHours.remainder(24);
+    final minutes = d.inMinutes.remainder(60);
+    final seconds = d.inSeconds.remainder(60);
+    if (days > 0) return '$days days  ${hours.toString().padLeft(2, '0')}h  ${minutes.toString().padLeft(2, '0')}m';
+    if (hours > 0) return '${hours.toString().padLeft(2, '0')}h  ${minutes.toString().padLeft(2, '0')}m  ${seconds.toString().padLeft(2, '0')}s';
+    if (minutes > 0) return '${minutes.toString().padLeft(2, '0')}m  ${seconds.toString().padLeft(2, '0')}s';
+    return '${seconds.toString().padLeft(2, '0')}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_remaining == Duration.zero) {
+      return Text(
+        'No deadline set',
+        style: TextStyle(
+          fontSize: 13,
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+    return Column(
+      children: [
+        Text(
+          _format(_remaining),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryDark,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'remaining in this phase',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }

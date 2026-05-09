@@ -77,6 +77,25 @@ async def join_competition(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/{competition_id}/leave")
+async def leave_competition(
+    competition_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    competition_service: CompetitionService = Depends(get_competition_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        return competition_service.leave_competition(user.id, competition_id)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("", response_model=CompetitionListResponse)
 async def list_competitions(
     authorization: str = Header(...),

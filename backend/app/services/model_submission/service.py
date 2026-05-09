@@ -187,7 +187,7 @@ class ModelSubmissionService:
 
     def _validate_submission_phase(self, competition_id: UUID) -> None:
         """
-        Ensure the competition is in the 'evaluation' phase.
+        Ensure the competition is in the model submission phase.
         Submissions are only accepted during that phase.
         """
         phase_log = self.repository.find_phase(competition_id)
@@ -196,10 +196,10 @@ class ModelSubmissionService:
                 "Competition phase has not been initialised yet. Contact the organizer."
             )
 
-        current = str(phase_log.current_phase).lower().strip()
-        if current != "evaluation":
+        current = str(phase_log.current_phase).strip()
+        if current != "3":
             raise ValidationError(
-                f"Model submissions are only accepted during the evaluation phase. "
+                f"Model submissions are only accepted during the Model Submission phase. "
                 f"Current phase: '{current}'."
             )
 
