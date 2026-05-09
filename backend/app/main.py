@@ -91,9 +91,28 @@ app.include_router(cleaner_router, prefix=API_PREFIX)
 app.include_router(evaluation_router, prefix=API_PREFIX)
 app.include_router(model_submission_router, prefix=API_PREFIX)
 
-import os
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 
-# Create uploads directory if it doesn't exist
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+from app.storage.minio_client import storage_service
+import os
+
+
+MIME_MAP = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".zip": "application/zip",
+    ".h5": "application/x-hdf5",
+}
+
+
+@app.get("/uploads/{path:path}")
+async def serve_upload(path: str):
+    """Serve uploaded files from storage (local or S3 fallback)."""
+    content = storage_service.get_file(path)
+    if not content:
+        return Response(status_code=404)
+    ext = os.path.splitext(path)[1].lower()
+    media_type = MIME_MAP.get(ext, "application/octet-stream")
+    return Response(content=content, media_type=media_type)
