@@ -1,3 +1,7 @@
+import csv
+import io
+import os
+import zipfile
 from datetime import datetime
 from uuid import UUID
 
@@ -124,6 +128,51 @@ class ExportService:
             "total_teams": len(team_ids),
             "exported_at": datetime.utcnow(),
         }
+
+    def _build_dataset_zip(self, images: list, labels_data: list[dict]) -> io.BytesIO:
+        label_map: dict = {}
+        for lb in labels_data:
+            label_map[lb["image_id"]] = lb["label"]
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for img in images:
+                label = label_map.get(img.id) or img.label or "unlabeled"
+                safe_label = label.replace(" ", "_").lower()
+                filename = os.path.basename(img.filepath)
+                zf.write(img.filepath, f"{safe_label}/{filename}")
+
+            csv_buf = io.StringIO()
+            writer = csv.writer(csv_buf)
+            writer.writerow(["filename", "label"])
+            for img in images:
+                label = label_map.get(img.id) or img.label or "unlabeled"
+                filename = os.path.basename(img.filepath)
+                writer.writerow([filename, label])
+            zf.writestr("dataset.csv", csv_buf.getvalue())
+
+        buf.seek(0)
+        return buf
+
+    def export_team_dataset(self, comp_id: UUID, user_id: UUID) -> io.BytesIO:
+        self._check_phase_gate(comp_id)
+
+        team = self.repository.get_team_for_user(comp_id, user_id)
+        if not team:
+            raise NotFoundError("You are not assigned to any team in this competition")
+
+        images = self.repository.get_team_images_with_labels(team.id)
+        image_ids = [img.id for img in images]
+        labels_data = self._build_labels_by_image(image_ids)
+        return self._build_dataset_zip(images, labels_data)
+
+    def export_full_dataset(self, comp_id: UUID) -> io.BytesIO:
+        self._check_phase_gate(comp_id)
+
+        images = self.repository.get_all_competition_images(comp_id)
+        image_ids = [img.id for img in images]
+        labels_data = self._build_labels_by_image(image_ids)
+        return self._build_dataset_zip(images, labels_data)
 
     def export_team_data(self, comp_id: UUID, user_id: UUID) -> dict:
         phase, phase_label = self._check_phase_gate(comp_id)

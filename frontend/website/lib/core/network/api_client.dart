@@ -93,6 +93,23 @@ class ApiClient {
     throw const ApiException(500, 'Unexpected response format');
   }
 
+  Future<List<int>> getBytes(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
+    final uri = Uri.parse(_normalize(baseUrl, path));
+    final response = await _client.get(
+      uri,
+      headers: headers,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(response.statusCode, _parseError(response.body));
+    }
+
+    return response.bodyBytes;
+  }
+
   Future<void> delete(
     String path, {
     Map<String, String>? headers,
