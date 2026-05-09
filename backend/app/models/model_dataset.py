@@ -8,7 +8,7 @@ from app.core.database import Base
 class Dataset(Base):
     __tablename__ = "dataset"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     team_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("team.id"), unique=True, nullable=False
     )

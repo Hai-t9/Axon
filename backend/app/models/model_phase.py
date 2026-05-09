@@ -9,7 +9,7 @@ from app.core.database import Base
 class PhaseLog(Base):
     __tablename__ = "phase_log"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     competition_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("competition.id"), nullable=False
     )
