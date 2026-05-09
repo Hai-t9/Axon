@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/competition_model.dart';
 import '../models/team_model.dart';
+import '../models/team_stats_model.dart';
 import 'api_client.dart';
 
 class CompetitionService {
@@ -25,6 +26,15 @@ class CompetitionService {
     return items
         .map((item) => TeamModel.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<TeamStatsModel?> getTeamStats(String teamId) async {
+    try {
+      final response = await _dio.get('/api/v1/teams/$teamId/statistics');
+      return TeamStatsModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<List<String>?> getCompetitionLabels(String competitionId) async {

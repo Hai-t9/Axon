@@ -97,6 +97,10 @@ async def list_competitions(
         }
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/{competition_id}", response_model=CompetitionResponse)

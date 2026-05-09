@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/competition_model.dart';
 import '../models/team_model.dart';
+import '../models/team_stats_model.dart';
 import '../services/auth_service.dart';
 import '../services/competition_service.dart';
 import '../services/offline_queue_service.dart';
@@ -10,6 +11,7 @@ import 'camera_screen.dart';
 import 'login_screen.dart';
 import 'upload_history_screen.dart';
 import 'profile_screen.dart';
+import 'team_stats_screen.dart';
 import '../main.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -22,10 +24,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   CompetitionModel? _selectedCompetition;
   TeamModel? _selectedTeam;
+  TeamStatsModel? _teamStats;
   List<CompetitionModel> _competitions = [];
   List<TeamModel> _teams = [];
   bool _loadingCompetitions = true;
   bool _loadingTeams = false;
+  bool _loadingStats = false;
   List<String>? _dynamicLabels;
 
   @override
@@ -39,13 +43,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final service = ref.read(competitionServiceProvider);
       final comps = await service.getCompetitions();
-      setState(() {
-        _competitions = comps;
-        _loadingCompetitions = false;
-      });
-    } catch (e) {
-      setState(() => _loadingCompetitions = false);
       if (mounted) {
+        setState(() {
+          _competitions = comps;
+          _loadingCompetitions = false;
+          // Re-match selected competition by ID in the new list
+          if (_selectedCompetition != null) {
+            final match = comps.where((c) => c.id == _selectedCompetition!.id);
+            _selectedCompetition = match.isNotEmpty ? match.first : null;
+            if (_selectedCompetition == null) {
+              _selectedTeam = null;
+              _teams = [];
+              _teamStats = null;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingCompetitions = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load competitions: $e')),
         );
@@ -58,12 +74,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final service = ref.read(competitionServiceProvider);
       final teams = await service.getTeams(competitionId);
-      setState(() {
-        _teams = teams;
-        _loadingTeams = false;
-      });
+      if (mounted) {
+        setState(() {
+          _teams = teams;
+          _loadingTeams = false;
+          // Re-match selected team by ID in the new list
+          if (_selectedTeam != null) {
+            final match = teams.where((t) => t.id == _selectedTeam!.id);
+            _selectedTeam = match.isNotEmpty ? match.first : null;
+            if (_selectedTeam == null) {
+              _teamStats = null;
+            }
+          }
+        });
+      }
     } catch (e) {
-      setState(() => _loadingTeams = false);
+      if (mounted) setState(() => _loadingTeams = false);
     }
   }
 
@@ -75,6 +101,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() => _dynamicLabels = labels);
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadTeamStats(String teamId) async {
+    setState(() {
+      _loadingStats = true;
+      _teamStats = null;
+    });
+    try {
+      final service = ref.read(competitionServiceProvider);
+      final stats = await service.getTeamStats(teamId);
+      if (mounted) {
+        setState(() {
+          _teamStats = stats;
+          _loadingStats = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingStats = false);
+    }
   }
 
   void _startCapture() {
@@ -156,6 +201,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               await _loadCompetitions();
               if (_selectedCompetition != null) {
                 await _loadTeams(_selectedCompetition!.id);
+                if (_selectedTeam != null) {
+                  await _loadTeamStats(_selectedTeam!.id);
+                }
               }
             },
             child: SingleChildScrollView(
@@ -276,6 +324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       _selectedTeam = null;
                                       _teams = [];
                                       _dynamicLabels = null;
+                                      _teamStats = null;
                                     });
                                     if (comp != null) {
                                       _loadTeams(comp.id);
@@ -319,11 +368,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       .toList(),
                                   onChanged: (team) {
                                     setState(() => _selectedTeam = team);
+                                    if (team != null) _loadTeamStats(team.id);
                                   },
                                 ),
                     ],
                   ),
                 ),
+                if (_selectedTeam != null) ...[
+                  const SizedBox(height: 24),
+                  _loadingStats
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF5F75EE)))
+                      : _teamStats == null
+                          ? const SizedBox.shrink()
+                          : GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => TeamStatsScreen(
+                                      teamId: _selectedTeam!.id,
+                                      teamName: _selectedTeam!.name,
+                                      competitionName: _selectedCompetition?.name ?? '',
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF252536),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: const Color(0xFF3A3A50), width: 1.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildStatItem(Icons.group_rounded, 'Members', _teamStats!.totalMembers.toString(), const Color(0xFF5F75EE)),
+                                        _buildStatItem(Icons.photo_library_rounded, 'Images', _teamStats!.imagesUploaded.toString(), const Color(0xFFE5A53C)),
+                                        _buildStatItem(Icons.memory_rounded, 'Models', _teamStats!.modelsSubmitted.toString(), const Color(0xFF33E1A6)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Divider(color: Color(0xFF3A3A50), height: 1),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'View Details',
+                                          style: TextStyle(
+                                            color: const Color(0xFF5F75EE).withOpacity(0.9),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.arrow_forward_ios_rounded,
+                                          size: 13,
+                                          color: const Color(0xFF5F75EE).withOpacity(0.9),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                ],
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
@@ -347,6 +466,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String label, String value, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 12),
+        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white60, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }
