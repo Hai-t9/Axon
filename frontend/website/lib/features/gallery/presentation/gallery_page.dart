@@ -7,6 +7,7 @@ import '../../../theme/app_spacing.dart';
 import '../../../widgets/layout/axon_scaffold.dart';
 import '../../../widgets/layout/page_header.dart';
 import '../data/gallery_models.dart';
+import '../data/gallery_repository.dart';
 import '../state/gallery_controller.dart';
 
 class GalleryPage extends ConsumerStatefulWidget {
@@ -49,7 +50,14 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Image Details',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                    tooltip: 'Delete image',
+                    onPressed: () { Navigator.pop(ctx); _confirmDelete(image); },
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ]),
               ]),
               const SizedBox(height: AppSpacing.md),
               ClipRRect(
@@ -79,6 +87,48 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
             ]),
           )),
     );
+  }
+
+  void _confirmDelete(GalleryImage image) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Image'),
+        content: Text('Are you sure you want to delete this image${image.label != null ? ' (${image.label})' : ''}? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteImage(image);
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteImage(GalleryImage image) async {
+    try {
+      await ref.read(galleryRepositoryProvider).deleteImage(image.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Image deleted'),
+        backgroundColor: AppColors.success,
+      ));
+      ref.invalidate(galleryImagesProvider);
+      ref.invalidate(galleryTeamStatsProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Failed to delete image: $e'),
+        backgroundColor: AppColors.error,
+      ));
+    }
   }
 
   Widget _detailRow(String label, String value, {Color? color}) {
@@ -339,6 +389,18 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
                             child: Text(image.status == 'verified' ? 'V' : 'H',
                                 style: const TextStyle(
                                     color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))),
+                    Positioned(
+                        top: 2,
+                        left: 2,
+                        child: GestureDetector(
+                            onTap: () => _confirmDelete(image),
+                            child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                    color: Colors.black54, shape: BoxShape.circle),
+                                child: const Icon(Icons.delete_outline,
+                                    size: 14, color: Colors.white70))),
+                      ),
                     Positioned(
                         bottom: 0,
                         left: 0,
