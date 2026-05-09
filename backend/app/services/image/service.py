@@ -72,16 +72,17 @@ class ImageService:
         ext = file.filename.split(".")[-1]
         filename = f"{uuid.uuid4()}.{ext}"
 
-        comp_id = self.repository.get_comp_id(team_id)
-        if not comp_id:
+        team_info = self.repository.get_team_info(team_id)
+        if not team_info:
             raise ValueError("Team not found")
+        comp_id, comp_name, team_name = team_info
 
         safe_label = parsed_label.replace(" ", "_").lower() if parsed_label else "unlabeled"
 
-        object_name = image_key(comp_id, team_id, safe_label, filename)
+        object_name = image_key(comp_id, team_id, comp_name, team_name, safe_label, filename)
         storage_service.upload_file(contents, object_name)
 
-        filepath = image_local_path(comp_id, team_id, safe_label, filename)
+        filepath = image_local_path(comp_id, team_id, comp_name, team_name, safe_label, filename)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "wb") as f:
             f.write(contents)

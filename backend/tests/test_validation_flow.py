@@ -17,6 +17,7 @@ if ROOT_DIR not in sys.path:
 from app.core.database import Base
 from app.main import app
 from app.models import Competition, Config, Image, Label, Team
+from app.storage.paths import image_local_path
 from app.services.competition.controller import get_db as competition_get_db
 from app.services.phase.controller import get_db as phase_get_db
 from app.services.register.controller import get_db as register_get_db
@@ -100,12 +101,16 @@ def client(db_session):
 
 
 def _create_image(db_session, team_id: str, author_id: str, suffix: str,
-                   comp_id: str | None = None, label: str | None = None) -> Image:
+                   comp_id: str | None = None, comp_name: str | None = None,
+                   team_name: str | None = None, label: str | None = None) -> Image:
     team_uuid = UUID(team_id)
     author_uuid = UUID(author_id)
     filename = f"validation-{suffix}.jpg"
 
-    if comp_id is not None:
+    if comp_id is not None and comp_name and team_name:
+        safe_label = label.replace(" ", "_").lower() if label else "unlabeled"
+        filepath = image_local_path(UUID(comp_id), team_uuid, comp_name, team_name, safe_label, filename)
+    elif comp_id is not None:
         safe_label = label.replace(" ", "_").lower() if label else "unlabeled"
         filepath = f"uploads/{comp_id}/images/{team_uuid}/{safe_label}/{filename}"
     else:
@@ -260,14 +265,16 @@ def test_validation_batch_generation_list_and_finalize_flow(client, db_session):
     try:
         for idx in range(6):
             image = _create_image(db_session, str(own_team_id), host_id, f"batch-own-{idx}",
-                                   comp_id=str(competition_id), label="cat")
+                                   comp_id=str(competition_id), comp_name="Validation Batch Competition",
+                                   team_name="Validation Own Team", label="cat")
             created_files.append(image.filepath)
             _create_label(db_session, image.id, "cat")
             own_images.append(image)
 
         for idx in range(4):
             image = _create_image(db_session, str(other_team_id), other_user_id, f"batch-other-{idx}",
-                                   comp_id=str(competition_id), label="dog")
+                                   comp_id=str(competition_id), comp_name="Validation Batch Competition",
+                                   team_name="Validation Other Team", label="dog")
             created_files.append(image.filepath)
             _create_label(db_session, image.id, "dog")
 

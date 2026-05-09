@@ -383,6 +383,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       teamId: _selectedTeam!.id,
                                       teamName: _selectedTeam!.name,
                                       competitionName: _selectedCompetition?.name ?? '',
+                                      competitionId: _selectedCompetition!.id,
                                     ),
                                   ),
                                 );

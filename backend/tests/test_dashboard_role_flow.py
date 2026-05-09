@@ -156,7 +156,7 @@ def test_dashboard_role_based_response(client, db_session):
     config.overview = "overview"
     config.terms_conditions = "terms"
     config.data_md = "data_md"
-    config.data_format = "data_format"
+    config.data_format = ["data_format"]
     config.scoring_ex = "scoring_ex"
     config.evaluation = "evaluation"
     config.duplicate_threshhold = 0.42
@@ -196,7 +196,7 @@ def test_dashboard_role_based_response(client, db_session):
     assert participant_config["overview"] == "overview"
     assert participant_config["terms_conditions"] == "terms"
     assert participant_config["data_md"] == "data_md"
-    assert participant_config["data_format"] == "data_format"
+    assert participant_config["data_format"] == ["data_format"]
 
     forbidden_keys = {
         "id",
