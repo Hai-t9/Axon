@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/competition_model.dart';
 import '../models/team_model.dart';
+import '../models/team_stats_model.dart';
+import '../models/uploaded_image_model.dart';
 import 'api_client.dart';
 
 class CompetitionService {
@@ -27,6 +29,15 @@ class CompetitionService {
         .toList();
   }
 
+  Future<TeamStatsModel?> getTeamStats(String teamId) async {
+    try {
+      final response = await _dio.get('/api/v1/teams/$teamId/statistics');
+      return TeamStatsModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<List<String>?> getCompetitionLabels(String competitionId) async {
     try {
       final response = await _dio.get('/api/v1/competitions/$competitionId/config');
@@ -44,8 +55,22 @@ class CompetitionService {
       return null;
     }
   }
+  Future<List<UploadedImageModel>> getTeamImages(String teamId, {int page = 1}) async {
+    try {
+      final response = await _dio.get(
+        '/api/v1/teams/$teamId/images',
+        queryParameters: {'page': page},
+      );
+      final data = response.data as Map<String, dynamic>;
+      final images = data['images'] as List<dynamic>;
+      return images
+          .map((img) => UploadedImageModel.fromJson(img as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
 }
-
 final competitionServiceProvider = Provider<CompetitionService>((ref) {
   return CompetitionService(ref.read(dioProvider));
 });

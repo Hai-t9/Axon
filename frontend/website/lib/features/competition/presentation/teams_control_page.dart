@@ -9,6 +9,7 @@ import '../../../widgets/layout/axon_scaffold.dart';
 import '../../../widgets/layout/page_header.dart';
 import '../../auth/state/auth_session_provider.dart';
 import 'competition_dashboard_page.dart';
+import 'image_gallery_page.dart';
 
 class TeamsControlPage extends ConsumerStatefulWidget {
   const TeamsControlPage({super.key, required this.competitionId});
@@ -356,6 +357,21 @@ class _TeamsControlPageState extends ConsumerState<TeamsControlPage> {
                               onPressed: () => _addMember(teamId),
                               icon: const Icon(Icons.person_add_outlined, size: 16),
                               label: const Text('Add member'),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ImageGalleryPage(
+                                      teamId: teamId,
+                                      teamName: teamName,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.photo_library_outlined, size: 16),
+                              label: const Text('Image Gallery'),
                             ),
                             const Spacer(),
                             TextButton.icon(

@@ -90,3 +90,10 @@ app.include_router(image_router, prefix=API_PREFIX)
 app.include_router(cleaner_router, prefix=API_PREFIX)
 app.include_router(evaluation_router, prefix=API_PREFIX)
 app.include_router(model_submission_router, prefix=API_PREFIX)
+
+import os
+from fastapi.staticfiles import StaticFiles
+
+# Create uploads directory if it doesn't exist
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

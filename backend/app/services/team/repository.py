@@ -82,3 +82,19 @@ class TeamRepository:
             self.db.query(func.count(Model.id)).filter(Model.team_id == team_id).scalar()
             or 0
         )
+    def count_images_by_user_in_team(self, team_id: UUID, user_id: UUID) -> int:
+        from app.models.model_image import Image
+        return self.db.query(func.count(Image.id)).filter(
+            Image.team_id == team_id,
+            Image.author_id == user_id
+        ).scalar() or 0
+
+    def count_validations_by_user_in_team(self, team_id: UUID, user_id: UUID) -> int:
+        from app.models.model_image import Image
+        from app.models.model_label import LabelValidation, Label
+        return self.db.query(func.count(LabelValidation.id))\
+            .join(Label, LabelValidation.label_id == Label.id)\
+            .join(Image, Label.image_id == Image.id)\
+            .filter(Image.team_id == team_id)\
+            .filter(LabelValidation.validator_id == user_id)\
+            .scalar() or 0
