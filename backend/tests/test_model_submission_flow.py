@@ -131,7 +131,7 @@ def competition(test_db: Session, host_user: User) -> Competition:
     # Add phase log in evaluation phase
     phase = PhaseLog(
         competition_id=comp.id,
-        current_phase="evaluation",
+        current_phase="3",
         phase_dates={"transition_mode": "manual"},
     )
     test_db.add(phase)
@@ -477,16 +477,16 @@ class TestEligibilityAndPhase:
         model_service: ModelSubmissionService,
         competition: Competition,
     ):
-        """Non-evaluation phase should raise ValidationError."""
+        """Non-submission phase should raise ValidationError."""
         phase = (
             test_db.query(PhaseLog)
             .filter(PhaseLog.competition_id == competition.id)
             .first()
         )
-        phase.current_phase = "creation"
+        phase.current_phase = "1"
         test_db.commit()
 
-        with pytest.raises(ValidationError, match="evaluation phase"):
+        with pytest.raises(ValidationError, match="Model Submission"):
             model_service._validate_submission_phase(competition.id)
 
 

@@ -115,7 +115,7 @@ def test_dashboard_flow_returns_competition_summary(client, db_session):
     db_session.add(
         PhaseLog(
             competition_id=UUID(competition_id),
-            current_phase="active",
+            current_phase="1",
             phase_dates={"timeline": [], "history": []},
         )
     )
@@ -131,7 +131,7 @@ def test_dashboard_flow_returns_competition_summary(client, db_session):
     assert dashboard_response.status_code == 200
     payload = dashboard_response.json()
 
-    assert payload["phase_info"]["current_phase"] == "active"
+    assert payload["phase_info"]["current_phase"] == "1"
     assert payload["config"]["competition_id"] == competition_id
     assert payload["image_stats"] == {"total": 2, "verified": 1, "on_hold": 1}
     assert payload["team_info"]["total"] == 2

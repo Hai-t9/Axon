@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -14,6 +16,28 @@ class DashboardRepository:
             .filter(PhaseLog.competition_id == comp_id)
             .first()
         )
+
+    def ensure_phase_info(self, comp_id: UUID) -> PhaseLog:
+        existing = self.find_phase_info(comp_id)
+        if existing:
+            return existing
+        now = datetime.utcnow().isoformat()
+        entry = PhaseLog(
+            competition_id=comp_id,
+            current_phase="0",
+            phase_dates={
+                "transition_mode": "manual",
+                "deadlines": {},
+                "timeline": [
+                    {"phase": "0", "start": now, "deadline": None, "status": "in_progress"}
+                ],
+                "history": [],
+            },
+        )
+        self.db.add(entry)
+        self.db.commit()
+        self.db.refresh(entry)
+        return entry
 
     def find_config(self, comp_id: UUID) -> Config | None:
         return (

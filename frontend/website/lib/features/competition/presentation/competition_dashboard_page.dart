@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,7 +20,17 @@ import '../data/dashboard_models.dart';
 import '../data/competition_models.dart';
 import '../../home/presentation/home_page.dart';
 import 'competition_settings_page.dart';
+import 'phase_control_page.dart';
 import 'teams_control_page.dart';
+
+const Map<String, String> _phaseLabels = {
+  '0': 'Awaiting Initialisation',
+  '1': 'Data Collection',
+  '2': 'Data Validation',
+  '3': 'Model Submission',
+  '4': 'Model Evaluation',
+  '5': 'Finale & Leaderboard',
+};
 
 class CompetitionDashboardPage extends ConsumerStatefulWidget {
   const CompetitionDashboardPage({super.key, required this.competitionId});
@@ -71,6 +83,14 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
             ),
             icon: const Icon(Icons.group_outlined),
             label: const Text('Teams'),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: () => context.go(
+              PhaseControlPage.routeForId(competitionId),
+            ),
+            icon: const Icon(Icons.lan_outlined),
+            label: const Text('Phases'),
           ),
           const SizedBox(width: AppSpacing.sm),
           OutlinedButton.icon(
@@ -261,15 +281,59 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           Text(competition.description!, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: AppSpacing.xl),
         ],
-        _buildSectionHeader(context, 'Phase Information'),
+        Row(
+          children: [
+            Expanded(child: _buildSectionHeader(context, 'Phase Information')),
+            IconButton(
+              onPressed: () => ref.invalidate(dashboardProvider(widget.competitionId)),
+              icon: const Icon(Icons.refresh, size: 18),
+              tooltip: 'Refresh phase info',
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
         dashboardState.when(
           data: (dashboard) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInfoCard(
-                children: [
-                  _buildStatRow('Current Phase', dashboard.phaseInfo.currentPhase),
-                ],
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      children: [
+                        Text(
+                          _phaseLabels[dashboard.phaseInfo.currentPhase] ?? dashboard.phaseInfo.currentPhase,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Phase ${dashboard.phaseInfo.currentPhase}',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _PhaseCountdown(
+                          phaseDates: dashboard.phaseInfo.phaseDates,
+                          currentPhase: dashboard.phaseInfo.currentPhase,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
               if (dashboard.isHost && competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.xl),
@@ -600,6 +664,111 @@ class _ModuleCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PhaseCountdown extends StatefulWidget {
+  final Map<String, dynamic> phaseDates;
+  final String currentPhase;
+
+  const _PhaseCountdown({
+    required this.phaseDates,
+    required this.currentPhase,
+  });
+
+  @override
+  State<_PhaseCountdown> createState() => _PhaseCountdownState();
+}
+
+class _PhaseCountdownState extends State<_PhaseCountdown> {
+  Timer? _timer;
+  Duration _remaining = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateRemaining();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+  }
+
+  @override
+  void didUpdateWidget(_PhaseCountdown old) {
+    super.didUpdateWidget(old);
+    if (old.currentPhase != widget.currentPhase || old.phaseDates != widget.phaseDates) {
+      _updateRemaining();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _updateRemaining() {
+    final deadlines = widget.phaseDates['deadlines'] as Map<String, dynamic>?;
+    final deadlineStr = deadlines?[widget.currentPhase] as String?;
+    if (deadlineStr == null) {
+      if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
+      return;
+    }
+    final deadline = DateTime.tryParse(deadlineStr);
+    if (deadline == null) {
+      if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
+      return;
+    }
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining.isNegative) {
+      if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
+    } else {
+      setState(() => _remaining = remaining);
+    }
+  }
+
+  String _format(Duration d) {
+    if (d == Duration.zero) return '';
+    final days = d.inDays;
+    final hours = d.inHours.remainder(24);
+    final minutes = d.inMinutes.remainder(60);
+    final seconds = d.inSeconds.remainder(60);
+    if (days > 0) return '$days days  ${hours.toString().padLeft(2, '0')}h  ${minutes.toString().padLeft(2, '0')}m';
+    if (hours > 0) return '${hours.toString().padLeft(2, '0')}h  ${minutes.toString().padLeft(2, '0')}m  ${seconds.toString().padLeft(2, '0')}s';
+    if (minutes > 0) return '${minutes.toString().padLeft(2, '0')}m  ${seconds.toString().padLeft(2, '0')}s';
+    return '${seconds.toString().padLeft(2, '0')}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_remaining == Duration.zero) {
+      return Text(
+        'No deadline set',
+        style: TextStyle(
+          fontSize: 13,
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+    return Column(
+      children: [
+        Text(
+          _format(_remaining),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryDark,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'remaining in this phase',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }

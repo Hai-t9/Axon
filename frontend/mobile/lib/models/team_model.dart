@@ -3,26 +3,24 @@ class TeamModel {
   final String name;
   final String? organization;
   final String compId;
-  final List<String> userIds;
+  final Map<String, int> userEmails;
 
   const TeamModel({
     required this.id,
     required this.name,
     this.organization,
     required this.compId,
-    this.userIds = const [],
+    this.userEmails = const {},
   });
 
   factory TeamModel.fromJson(Map<String, dynamic> json) {
+    final raw = json['user_emails'] as Map<String, dynamic>?;
     return TeamModel(
       id: json['id'].toString(),
       name: json['name'] as String,
       organization: json['organization'] as String?,
       compId: json['comp_id'].toString(),
-      userIds: (json['user_ids'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      userEmails: raw?.map((k, v) => MapEntry(k, (v as num).toInt())) ?? {},
     );
   }
 }

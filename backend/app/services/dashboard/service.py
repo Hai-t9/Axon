@@ -52,9 +52,7 @@ class DashboardService:
         }
 
     def _build_dashboard_payload(self, comp_id: UUID) -> dict:
-        phase_info = self.repository.find_phase_info(comp_id)
-        if not phase_info:
-            raise NotFoundError("Phase information not found")
+        phase_info = self.repository.ensure_phase_info(comp_id)
 
         config = self.repository.find_config(comp_id)
         if not config:
@@ -80,9 +78,7 @@ class DashboardService:
         }
 
     def _build_participant_payload(self, comp_id: UUID, participant_id: UUID) -> dict:
-        phase_info = self.repository.find_phase_info(comp_id)
-        if not phase_info:
-            raise NotFoundError("Phase information not found")
+        phase_info = self.repository.ensure_phase_info(comp_id)
 
         config = self.repository.find_config(comp_id)
         if not config:

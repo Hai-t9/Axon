@@ -11,6 +11,7 @@ import '../../../widgets/auth/delayed_reveal.dart';
 import '../../../widgets/layout/axon_scaffold.dart';
 import '../../../widgets/layout/page_header.dart';
 import '../state/competition_join_controller.dart';
+import '../state/competition_list_controller.dart';
 import 'competition_dashboard_page.dart';
 import '../../home/presentation/home_page.dart';
 
@@ -28,34 +29,9 @@ class JoinCompetitionPage extends ConsumerStatefulWidget {
 class _JoinCompetitionPageState extends ConsumerState<JoinCompetitionPage> {
   final _formKey = GlobalKey<FormState>();
   final _linkController = TextEditingController();
-  late final ProviderSubscription _subscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _subscription = ref.listenManual(
-      competitionJoinProvider,
-      (previous, next) {
-        next.whenOrNull(
-          error: (error, _) {
-            if (!mounted) return;
-            _showMessage(error.toString(), isError: true);
-          },
-          data: (competition) {
-            if (!mounted) return;
-            if (competition != null) {
-              _showMessage('Invitation accepted.');
-              context.go(CompetitionDashboardPage.routeForId(competition.id));
-            }
-          },
-        );
-      },
-    );
-  }
 
   @override
   void dispose() {
-    _subscription.close();
     _linkController.dispose();
     super.dispose();
   }
@@ -83,6 +59,20 @@ class _JoinCompetitionPageState extends ConsumerState<JoinCompetitionPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(competitionJoinProvider, (previous, next) {
+      next.whenOrNull(
+        error: (error, _) {
+          _showMessage(error.toString(), isError: true);
+        },
+        data: (competition) {
+          if (competition != null) {
+            ref.invalidate(competitionListProvider);
+            context.go(CompetitionDashboardPage.routeForId(competition.id));
+          }
+        },
+      );
+    });
+
     final joinState = ref.watch(competitionJoinProvider);
     final isLoading = joinState.isLoading;
 

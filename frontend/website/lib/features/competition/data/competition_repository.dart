@@ -170,6 +170,50 @@ class CompetitionRepository {
     return response;
   }
 
+  Future<Map<String, dynamic>> getPhase(String competitionId) async {
+    final response = await _apiClient.getJson(
+      '/competitions/$competitionId/phase',
+      headers: _authHeaders(),
+    );
+    return response;
+  }
+
+  Future<Map<String, dynamic>> advancePhase(String competitionId) async {
+    final response = await _apiClient.postJson(
+      '/competitions/$competitionId/phase/advance',
+      {},
+      headers: _authHeaders(),
+    );
+    return response;
+  }
+
+  Future<Map<String, dynamic>> decrementPhase(String competitionId) async {
+    final response = await _apiClient.postJson(
+      '/competitions/$competitionId/phase/decrement',
+      {},
+      headers: _authHeaders(),
+    );
+    return response;
+  }
+
+  Future<Map<String, dynamic>> setPhaseDeadline(
+      String competitionId, DateTime newDeadline) async {
+    final response = await _apiClient.putJson(
+      '/competitions/$competitionId/phase/deadline',
+      {'new_deadline': newDeadline.toIso8601String()},
+      headers: _authHeaders(),
+    );
+    return response;
+  }
+
+  Future<Map<String, dynamic>> getPhaseTimeline(String competitionId) async {
+    final response = await _apiClient.getJson(
+      '/competitions/$competitionId/phase/timeline',
+      headers: _authHeaders(),
+    );
+    return response;
+  }
+
   Map<String, String> _authHeaders() {
     final token = _session?.accessToken;
     if (token == null || token.isEmpty) {

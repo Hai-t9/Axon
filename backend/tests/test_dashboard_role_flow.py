@@ -135,7 +135,7 @@ def test_dashboard_role_based_response(client, db_session):
     db_session.add(
         PhaseLog(
             competition_id=UUID(competition_id),
-            current_phase="active",
+            current_phase="1",
             phase_dates={"timeline": [], "history": []},
         )
     )
