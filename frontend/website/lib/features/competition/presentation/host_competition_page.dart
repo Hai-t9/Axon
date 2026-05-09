@@ -40,11 +40,10 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
 
   // ── Data ──
   final _dataMdCtl = TextEditingController();
-  final _dataFmtCtl = TextEditingController();
   final _dataExCtl = TextEditingController();
 
   // ── Evaluation ──
-  final _evalCtl = TextEditingController();
+  String? _selectedEvaluation;
   final _scoringExCtl = TextEditingController();
 
   // ── Settings ──
@@ -98,6 +97,8 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
     '4': 'Model Evaluation',
   };
 
+  final Set<String> _selectedFormats = {};
+
   // Expanded sections
   final Set<int> _expanded = {0}; // Basic info open by default
 
@@ -105,7 +106,7 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
   void dispose() {
     for (final c in [
       _nameCtl, _descCtl, _dateCtl, _overviewCtl, _termsCtl,
-      _dataMdCtl, _dataFmtCtl, _dataExCtl, _evalCtl, _scoringExCtl,
+      _dataMdCtl, _dataExCtl, _scoringExCtl,
       _maxValCtl, _dupThreshCtl, _modelDirCtl, _dataDirCtl,
       _infFuncCtl, _maxSizeMbCtl, _pyMinCtl, _labelCtl, _teamNameCtl, _emailCtl,
       ..._deadlineCtrls.values,
@@ -198,9 +199,9 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
                 overview: _overviewCtl.text.trim().isEmpty ? null : _overviewCtl.text.trim(),
                 termsConditions: _termsCtl.text.trim().isEmpty ? null : _termsCtl.text.trim(),
                 dataMarkdown: _dataMdCtl.text.trim().isEmpty ? null : _dataMdCtl.text.trim(),
-                dataFormat: _dataFmtCtl.text.trim().isEmpty ? null : _dataFmtCtl.text.trim(),
+                dataFormat: _selectedFormats.isEmpty ? null : _selectedFormats.toList(),
                 dataExample: _dataExCtl.text.trim().isEmpty ? null : _dataExCtl.text.trim(),
-                evaluation: _evalCtl.text.trim().isEmpty ? null : _evalCtl.text.trim(),
+                evaluation: _selectedEvaluation,
                 scoringExample: _scoringExCtl.text.trim().isEmpty ? null : _scoringExCtl.text.trim(),
                 maxValidations: int.tryParse(_maxValCtl.text.trim()),
                 duplicateThreshold: double.tryParse(_dupThreshCtl.text.trim()),
@@ -355,13 +356,17 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _dataFmtCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Data format (optional)',
-                    hintText: 'e.g. JPEG 224×224 RGB',
-                    prefixIcon: Icon(Icons.data_object),
-                  ),
+                const Text('Image formats', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: 8,
+                  children: ['PNG', 'JPEG', 'SVG'].map((ext) => FilterChip(
+                    label: Text(ext),
+                    selected: _selectedFormats.contains(ext),
+                    onSelected: (sel) => setState(() {
+                      if (sel) { _selectedFormats.add(ext); } else { _selectedFormats.remove(ext); }
+                    }),
+                  )).toList(),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
@@ -373,16 +378,18 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage> {
                   ),
                 ),
                 const Divider(height: 32),
-                TextFormField(
-                  controller: _evalCtl,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: 'Evaluation criteria (optional)',
-                    hintText: 'F1 score, accuracy, etc...',
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(),
-                  ),
+                const Text('Evaluation metric', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: 8,
+                  children: ['F1 score', 'Accuracy', 'Precision', 'Recall', 'ROC AUC'].map((m) => FilterChip(
+                    label: Text(m),
+                    selected: _selectedEvaluation == m,
+                    onSelected: (sel) => setState(() => _selectedEvaluation = sel ? m : null),
+                  )).toList(),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                const Text('Only one metric can be selected.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _scoringExCtl,

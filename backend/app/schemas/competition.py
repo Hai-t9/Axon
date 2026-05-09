@@ -38,7 +38,7 @@ class CompetitionConfigBase(BaseModel):
     overview: Optional[str] = None
     terms_conditions: Optional[str] = None
     data_md: Optional[str] = None
-    data_format: Optional[str] = None
+    data_format: Optional[List[str]] = None
     evaluation: Optional[str] = None
     duplicate_threshhold: Optional[float] = None
     max_validations: Optional[int] = None

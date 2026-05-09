@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 from uuid import UUID
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.models import Competition
 
 from .repository import PhaseRepository
 
@@ -255,6 +256,12 @@ class PhaseService:
             new_deadline = new_deadline.replace(tzinfo=None)
         if new_deadline <= datetime.utcnow():
             raise ValidationError("Deadline must be in the future")
+
+        competition = self.repository.db.query(Competition).filter(Competition.id == competition_id).first()
+        if competition and competition.launch_date:
+            launch = datetime(competition.launch_date.year, competition.launch_date.month, competition.launch_date.day)
+            if new_deadline < launch:
+                raise ValidationError(f"Deadline must be on or after the launch date ({competition.launch_date.isoformat()})")
 
         entry = self._ensure_phase_log(competition_id)
         current_phase = entry.current_phase
