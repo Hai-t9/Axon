@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../theme/app_spacing.dart';
 import '../auth/axon_logo.dart';
@@ -24,7 +25,11 @@ class AxonScaffold extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const AxonLogo(),
+        title: InkWell(
+          onTap: () => context.go('/'),
+          mouseCursor: SystemMouseCursors.click,
+          child: const AxonLogo(),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
