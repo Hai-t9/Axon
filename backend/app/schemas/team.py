@@ -8,19 +8,19 @@ from .user import UserResponse
 
 class TeamCreate(BaseModel):
     name: str
-    user_emails: Optional[Dict[str, bool]] = None
+    user_emails: Optional[Dict[str, int]] = None
 
 
 class TeamUpdate(BaseModel):
     name: Optional[str] = None
-    user_emails: Optional[Dict[str, bool]] = None
+    user_emails: Optional[Dict[str, int]] = None
 
 
 class TeamResponse(BaseModel):
     id: UUID
     name: str
     comp_id: UUID
-    user_emails: Optional[Dict[str, bool]] = None
+    user_emails: Optional[Dict[str, int]] = None
 
     class Config:
         from_attributes = True

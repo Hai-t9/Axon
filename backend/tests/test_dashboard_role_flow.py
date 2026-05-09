@@ -119,7 +119,7 @@ def test_dashboard_role_based_response(client, db_session):
     team_one_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Alpha Team", "user_ids": [participant_id]},
+        json={"name": "Alpha Team", "user_emails": {"participant@example.com": 0}},
     )
     assert team_one_response.status_code == 200
     team_one_id = team_one_response.json()["id"]
@@ -127,7 +127,7 @@ def test_dashboard_role_based_response(client, db_session):
     team_two_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Beta Team", "user_ids": [host_id]},
+        json={"name": "Beta Team", "user_emails": {"host@example.com": 0}},
     )
     assert team_two_response.status_code == 200
     team_two_id = team_two_response.json()["id"]
@@ -188,7 +188,7 @@ def test_dashboard_role_based_response(client, db_session):
     assert participant_payload["image_stats"] == {"total": 2, "verified": 1, "on_hold": 1}
     assert participant_payload["team_info"]["id"] == team_one_id
     assert participant_payload["team_info"]["comp_id"] == competition_id
-    assert participant_payload["team_info"]["user_ids"] == [participant_id]
+    assert participant_payload["team_info"]["user_emails"] == {"participant@example.com": 0}
 
     participant_config = participant_payload["config"]
     assert participant_config["labels"] == {"cat": 1}

@@ -105,7 +105,7 @@ class CompetitionService:
 
         # Mark member as joined
         emails_dict = {k.lower(): v for k, v in (found_team.user_emails or {}).items()}
-        emails_dict[user_email] = True
+        emails_dict[user_email] = 1
         found_team.user_emails = emails_dict
         from sqlalchemy.orm.attributes import flag_modified
         flag_modified(found_team, "user_emails")

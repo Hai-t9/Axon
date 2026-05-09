@@ -13,11 +13,11 @@ class TeamService:
         self.repository = repository
 
     def _normalize_emails(self, user_emails) -> dict:
-        """Normalize user_emails to a dict of {email_lower: bool}."""
+        """Normalize user_emails to a dict of {email_lower: 0|1}."""
         if not user_emails:
             return {}
         if isinstance(user_emails, dict):
-            return {k.strip().lower(): bool(v) for k, v in user_emails.items()}
+            return {k.strip().lower(): int(1 if v else 0) for k, v in user_emails.items()}
         return {}
 
     def create_team(self, comp_id: UUID, payload: TeamCreate):
@@ -54,7 +54,7 @@ class TeamService:
         return team_id
 
     def add_member_by_email(self, team_id: UUID, email: str):
-        """Add a member email to the team (status=false by default)."""
+        """Add a member email to the team (status=0 by default)."""
         team = self.get_team(team_id)
         email_lower = email.strip().lower()
         if not email_lower:
@@ -64,7 +64,7 @@ class TeamService:
         if email_lower in user_emails:
             raise ValidationError("Email already in team")
 
-        user_emails[email_lower] = False
+        user_emails[email_lower] = 0
         return self.repository.set_user_emails(team, user_emails)
 
     def remove_member_by_email(self, team_id: UUID, email: str):
@@ -79,7 +79,7 @@ class TeamService:
         del user_emails[email_lower]
         return self.repository.set_user_emails(team, user_emails)
 
-    def set_member_joined(self, team_id: UUID, email: str, joined: bool):
+    def set_member_joined(self, team_id: UUID, email: str, joined: int):
         """Set the joined status for a member email."""
         team = self.get_team(team_id)
         email_lower = email.strip().lower()
@@ -98,12 +98,6 @@ class TeamService:
         if not user_emails:
             return []
         return self.repository.get_members_by_emails(list(user_emails.keys()))
-
-    def add_member_by_email(self, team_id: UUID, email: str):
-        user = self.repository.get_user_by_email(email)
-        if not user:
-            raise NotFoundError(f"User with email '{email}' not found")
-        return self.add_member(team_id, user.id)
 
     def get_statistics(self, team_id: UUID):
         team = self.get_team(team_id)
@@ -130,7 +124,7 @@ class TeamService:
             for email in member_emails:
                 clean = email.strip().lower().lstrip("@")
                 if clean:
-                    user_emails[clean] = False
+                    user_emails[clean] = 0
 
             team = self.repository.create(
                 {"comp_id": comp_id, "name": team_name, "user_emails": user_emails}

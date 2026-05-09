@@ -124,7 +124,7 @@ def test_dashboard_cache_endpoints_flow(client, db_session):
     team_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Cache Team", "user_ids": [host_id]},
+        json={"name": "Cache Team", "user_emails": {"host@example.com": 0}},
     )
     assert team_response.status_code == 200
     team_id = team_response.json()["id"]

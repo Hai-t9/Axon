@@ -121,7 +121,7 @@ def team(test_db: Session, competition: Competition, participant_user: User) -> 
     team = Team(
         name="Team A",
         comp_id=competition.id,
-        user_ids=[str(participant_user.id)],
+        user_emails={"part@test.com": 0},
     )
     test_db.add(team)
     test_db.commit()
@@ -131,7 +131,7 @@ def team(test_db: Session, competition: Competition, participant_user: User) -> 
 
 @pytest.fixture
 def team_b(test_db: Session, competition: Competition) -> Team:
-    team = Team(name="Team B", comp_id=competition.id, user_ids=[])
+    team = Team(name="Team B", comp_id=competition.id, user_emails={})
     test_db.add(team)
     test_db.commit()
     test_db.refresh(team)

@@ -16,7 +16,7 @@ class Team(Base):
     comp_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("competition.id"), nullable=False
     )
-    user_emails = Column(JSON, nullable=True)  # {"email": bool} – false=invited, true=joined
+    user_emails = Column(JSON, nullable=True)  # {"email": 0|1} – 0=invited/left, 1=joined
 
     images = relationship("Image", back_populates="team", cascade="all, delete-orphan")
     dataset = relationship(
