@@ -229,6 +229,32 @@ async def remove_team_member(
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@router.post("/teams/{team_id}/members/by-email", response_model=TeamResponse)
+async def add_team_member_by_email(
+    team_id: UUID,
+    payload: dict,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    team_service: TeamService = Depends(get_team_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        team = team_service.get_team(team_id)
+        auth_service.require_roles(token, team.comp_id, {RoleType.host, RoleType.staff})
+        email = payload.get("email", "").strip()
+        if not email:
+            raise ValidationError("Email is required")
+        return team_service.add_member_by_email(team_id, email)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @router.get("/teams/{team_id}/statistics", response_model=TeamStatisticsResponse)
 async def get_team_statistics(
     team_id: int,
