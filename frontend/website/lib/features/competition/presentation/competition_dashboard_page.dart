@@ -465,17 +465,8 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           
           if (dashboard.labelDistribution.isNotEmpty) ...[
             _buildSectionHeader(context, 'Label Distribution'),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: dashboard.labelDistribution.entries.map((e) {
-                return Chip(
-                  label: Text('${e.key}: ${e.value}'),
-                  backgroundColor: AppColors.surfaceAlt,
-                  side: BorderSide.none,
-                );
-              }).toList(),
-            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildLabelHistogram(context, dashboard.labelDistribution),
             const SizedBox(height: AppSpacing.xl),
           ],
 
@@ -496,6 +487,66 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildLabelHistogram(BuildContext context, Map<String, int> distribution) {
+    final cs = Theme.of(context).colorScheme;
+    final entries = distribution.entries.toList();
+    final maxVal = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+
+    final palette = List.generate(8, (i) =>
+        HSLColor.fromAHSL(1.0, (i * 45.0) % 360, 0.80, 0.50).toColor());
+
+    return Column(
+      children: entries.asMap().entries.map((entry) {
+        final i = entry.key;
+        final e = entry.value;
+        final ratio = maxVal > 0 ? e.value / maxVal : 0.0;
+        final color = palette[i % palette.length];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                child: Text(e.key,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          height: 24,
+                          color: cs.surfaceContainerHighest,
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: ratio,
+                            child: Container(color: color),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    SizedBox(
+                      width: 40,
+                      child: Text('${e.value}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, color: color),
+                          textAlign: TextAlign.right),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
