@@ -175,7 +175,7 @@ class DashboardParticipantConfig {
   final String? overview;
   final String? termsConditions;
   final String? dataMarkdown;
-  final String? dataFormat;
+  final List<String>? dataFormat;
 
   const DashboardParticipantConfig({
     this.labels,
@@ -193,7 +193,7 @@ class DashboardParticipantConfig {
       overview: json['overview'] as String?,
       termsConditions: json['terms_conditions'] as String?,
       dataMarkdown: json['data_md'] as String?,
-      dataFormat: json['data_format'] as String?,
+      dataFormat: json['data_format'] == null ? null : List<String>.from(json['data_format'] as List),
     );
   }
 }

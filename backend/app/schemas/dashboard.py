@@ -50,7 +50,7 @@ class DashboardParticipantConfig(BaseModel):
     overview: str | None = None
     terms_conditions: str | None = None
     data_md: str | None = None
-    data_format: str | None = None
+    data_format: list | None = None
 
 
 class DashboardParticipantResponse(BaseModel):

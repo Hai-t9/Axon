@@ -39,6 +39,14 @@ class CompetitionService:
         if payload.phase_deadlines:
             if "5" in payload.phase_deadlines:
                 raise ValidationError("Cannot set deadline for the final phase")
+            if payload.launch_date:
+                launch = datetime(payload.launch_date.year, payload.launch_date.month, payload.launch_date.day)
+                for phase, deadline_str in payload.phase_deadlines.items():
+                    dt = datetime.fromisoformat(deadline_str)
+                    if dt < launch:
+                        raise ValidationError(
+                            f"Deadline for phase {phase} must be on or after the launch date ({payload.launch_date.isoformat()})"
+                        )
             now = datetime.utcnow().isoformat()
             deadlines = {}
             for phase, deadline_str in payload.phase_deadlines.items():

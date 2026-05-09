@@ -43,9 +43,8 @@ class _CompetitionSettingsPageState
   final _overviewCtl = TextEditingController();
   final _termsCtl = TextEditingController();
   final _dataMdCtl = TextEditingController();
-  final _dataFmtCtl = TextEditingController();
   final _dataExCtl = TextEditingController();
-  final _evalCtl = TextEditingController();
+  String? _selectedEvaluation;
   final _scoringExCtl = TextEditingController();
   final _maxValCtl = TextEditingController();
   final _dupThreshCtl = TextEditingController();
@@ -63,6 +62,7 @@ class _CompetitionSettingsPageState
 
   // Labels
   final List<String> _labels = [];
+  final Set<String> _selectedFormats = {};
   final _labelCtl = TextEditingController();
 
   String? _loadedId;
@@ -74,7 +74,7 @@ class _CompetitionSettingsPageState
   void dispose() {
     for (final c in [
       _nameCtl, _descCtl, _dateCtl, _inviteCtl, _overviewCtl, _termsCtl,
-      _dataMdCtl, _dataFmtCtl, _dataExCtl, _evalCtl, _scoringExCtl,
+      _dataMdCtl, _dataExCtl, _scoringExCtl,
       _maxValCtl, _dupThreshCtl, _modelDirCtl, _dataDirCtl, _infFuncCtl,
       _maxSizeMbCtl, _pyMinCtl, _labelCtl,
     ]) {
@@ -99,9 +99,9 @@ class _CompetitionSettingsPageState
       _overviewCtl.text = cfg.overview ?? '';
       _termsCtl.text = cfg.termsConditions ?? '';
       _dataMdCtl.text = cfg.dataMarkdown ?? '';
-      _dataFmtCtl.text = cfg.dataFormat ?? '';
+      if (cfg.dataFormat != null) _selectedFormats.addAll(cfg.dataFormat!);
       _dataExCtl.text = cfg.dataExample ?? '';
-      _evalCtl.text = cfg.evaluation ?? '';
+      _selectedEvaluation = cfg.evaluation;
       _scoringExCtl.text = cfg.scoringExample ?? '';
       _maxValCtl.text = cfg.maxValidations?.toString() ?? '';
       _dupThreshCtl.text = cfg.duplicateThreshold?.toString() ?? '';
@@ -180,9 +180,9 @@ class _CompetitionSettingsPageState
         'overview': _overviewCtl.text.trim(),
         'terms_conditions': _termsCtl.text.trim(),
         'data_md': _dataMdCtl.text.trim(),
-        'data_format': _dataFmtCtl.text.trim(),
+        'data_format': _selectedFormats.isEmpty ? null : _selectedFormats.toList(),
         'data_ex': _dataExCtl.text.trim(),
-        'evaluation': _evalCtl.text.trim(),
+        'evaluation': _selectedEvaluation,
         'scoring_ex': _scoringExCtl.text.trim(),
         'labels': _labels.isEmpty ? null : {for (var l in _labels) l: {}},
         'model_spec': {
@@ -320,11 +320,33 @@ class _CompetitionSettingsPageState
                 _Sec(index: 2, icon: Icons.dataset_outlined, title: 'Data & evaluation', expanded: _expanded, onToggle: () => _toggle(2), children: [
                   TextFormField(controller: _dataMdCtl, maxLines: 5, decoration: const InputDecoration(labelText: 'Dataset description', alignLabelWithHint: true, border: OutlineInputBorder())),
                   const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _dataFmtCtl, decoration: const InputDecoration(labelText: 'Data format', prefixIcon: Icon(Icons.data_object))),
+                  const Text('Image formats', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    children: ['PNG', 'JPEG', 'SVG'].map((ext) => FilterChip(
+                      label: Text(ext),
+                      selected: _selectedFormats.contains(ext),
+                      onSelected: (sel) => setState(() {
+                        if (sel) { _selectedFormats.add(ext); } else { _selectedFormats.remove(ext); }
+                      }),
+                    )).toList(),
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(controller: _dataExCtl, decoration: const InputDecoration(labelText: 'Data example URL', prefixIcon: Icon(Icons.link))),
                   const Divider(height: 32),
-                  TextFormField(controller: _evalCtl, maxLines: 5, decoration: const InputDecoration(labelText: 'Evaluation criteria', alignLabelWithHint: true, border: OutlineInputBorder())),
+                  const Text('Evaluation metric', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    children: ['F1 score', 'Accuracy', 'Precision', 'Recall', 'ROC AUC'].map((m) => FilterChip(
+                      label: Text(m),
+                      selected: _selectedEvaluation == m,
+                      onSelected: (sel) => setState(() => _selectedEvaluation = sel ? m : null),
+                    )).toList(),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text('Only one metric can be selected.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(controller: _scoringExCtl, decoration: const InputDecoration(labelText: 'Scoring example URL', prefixIcon: Icon(Icons.link))),
                 ]),

@@ -19,7 +19,7 @@ class CompetitionCreateController extends AsyncNotifier<Competition?> {
     String? description,
     DateTime? launchDate,
     String? overview,
-    String? dataFormat,
+    List<String>? dataFormat,
     String? evaluation,
     String? termsConditions,
     String? dataMarkdown,
