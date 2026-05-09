@@ -174,7 +174,7 @@ class ImageService:
 
         return record
 
-    def get_image_by_id(self, image_id: int):
+    def get_image_by_id(self, image_id: UUID):
         return self.repository.find_by_id(image_id)
 
     def get_images_by_team(self, team_id: UUID, status: str = None, author_id: UUID = None, label: str = None, page: int = 1, limit: int = 50):
@@ -187,7 +187,7 @@ class ImageService:
     def get_image_stats(self, comp_id: UUID):
         return self.repository.get_stats(comp_id)
 
-    def update_image_status(self, image_id: int, status: str):
+    def update_image_status(self, image_id: UUID, status: str):
         valid_statuses = ["onhold", "verified"]
         if status not in valid_statuses:
             raise ValueError(f"Invalid status. Must be one of {valid_statuses}")
@@ -196,7 +196,7 @@ class ImageService:
             raise ValueError("Image not found")
         return record
 
-    def delete_image(self, image_id: int):
+    def delete_image(self, image_id: UUID):
         image = self.repository.find_by_id(image_id)
         if image:
             try:

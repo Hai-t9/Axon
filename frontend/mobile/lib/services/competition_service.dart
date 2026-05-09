@@ -90,6 +90,10 @@ class CompetitionService {
     }
   }
 
+  Future<void> deleteImage(String imageId) async {
+    await _dio.delete('/api/v1/images/$imageId');
+  }
+
   Future<LeaderboardResponse> getLeaderboard(String competitionId,
       {String type = 'public'}) async {
     final response = await _dio.get(
