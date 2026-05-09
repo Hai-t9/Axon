@@ -108,6 +108,49 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required String fileField,
+    required List<int> fileBytes,
+    required String fileName,
+    Map<String, String>? fields,
+    Map<String, String>? headers,
+  }) async {
+    final uri = Uri.parse(_normalize(baseUrl, path));
+    final request = http.MultipartRequest('POST', uri);
+    if (headers != null) request.headers.addAll(headers);
+    if (fields != null) request.fields.addAll(fields);
+    final ext = fileName.split('.').last.toLowerCase();
+    request.files.add(http.MultipartFile.fromBytes(
+      fileField,
+      fileBytes,
+      filename: fileName,
+      contentType: _mediaTypeForExtension(ext),
+    ));
+    final streamed = await _client.send(request);
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(response.statusCode, _parseError(response.body));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    throw const ApiException(500, 'Unexpected response format');
+  }
+
+  http.MediaType? _mediaTypeForExtension(String ext) {
+    switch (ext) {
+      case 'png':
+        return http.MediaType('image', 'png');
+      case 'jpg':
+      case 'jpeg':
+        return http.MediaType('image', 'jpeg');
+      case 'svg':
+        return http.MediaType('image', 'svg+xml');
+      default:
+        return null;
+    }
+  }
+
   String _normalize(String base, String path) {
     final baseTrimmed = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
     final pathTrimmed = path.startsWith('/') ? path : '/$path';
