@@ -1,63 +1,84 @@
-import boto3
 import os
-from botocore.exceptions import ClientError
-from botocore.config import Config
+import shutil
 from io import BytesIO
+from pathlib import Path
 
-def _env_or_default(name: str, default: str) -> str:
-    value = os.environ.get(name)
-    if value is None or value.strip() == "":
-        return default
-    return value
+
+def _resolve_upload_dir() -> str:
+    return str(
+        Path(__file__).resolve().parent.parent.parent / "uploads"
+    )
 
 
 class MinioStorageService:
     def __init__(self):
-        self.endpoint = _env_or_default("MINIO_ENDPOINT", "http://localhost:9000")
-        self.access_key = _env_or_default("MINIO_ACCESS_KEY", "minioadmin")
-        self.secret_key = _env_or_default("MINIO_SECRET_KEY", "minioadmin")
-        self.bucket_name = _env_or_default("MINIO_BUCKET_NAME", "axon-uploads")
-        self.minio_available = True
+        raw_endpoint = os.environ.get("MINIO_ENDPOINT", "")
 
-        # Configure boto3 to fail fast instead of retrying multiple times
-        boto_config = Config(connect_timeout=2, read_timeout=2, retries={'max_attempts': 0})
+        self.bucket_name = os.getenv("MINIO_BUCKET_NAME", "axon-uploads")
+        self.minio_available = False
+        self.s3_client = None
 
-        self.s3_client = boto3.client(
-            's3',
-            endpoint_url=self.endpoint,
-            aws_access_key_id=self.access_key,
-            aws_secret_access_key=self.secret_key,
-            config=boto_config
-        )
-        self._ensure_bucket()
+        if raw_endpoint and raw_endpoint.strip():
+            import boto3
+            from botocore.config import Config
+            from botocore.exceptions import ClientError
+
+            self.endpoint = raw_endpoint.strip()
+            self.access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+            self.secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+            self.minio_available = True
+
+            boto_config = Config(
+                connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}
+            )
+            self.s3_client = boto3.client(
+                "s3",
+                endpoint_url=self.endpoint,
+                aws_access_key_id=self.access_key,
+                aws_secret_access_key=self.secret_key,
+                region_name=os.getenv("S3_REGION", "us-east-1"),
+                config=boto_config,
+            )
+            self._ensure_bucket()
 
     def _ensure_bucket(self):
+        from botocore.exceptions import ClientError
+        import logging
+        logger = logging.getLogger("storage")
+
         try:
             self.s3_client.head_bucket(Bucket=self.bucket_name)
-        except ClientError:
+            logger.info("S3 bucket '%s' found", self.bucket_name)
+        except ClientError as exc:
+            logger.warning("S3 bucket '%s' not found (will try create): %s", self.bucket_name, exc)
             try:
                 self.s3_client.create_bucket(Bucket=self.bucket_name)
-            except Exception:
-                pass # Probably already created or permissions issue
-        except Exception:
-            self.minio_available = False # Endpoint unreachable
+                logger.info("S3 bucket '%s' created", self.bucket_name)
+            except Exception as create_err:
+                logger.error("Failed to create S3 bucket '%s': %s", self.bucket_name, create_err)
+        except Exception as exc:
+            logger.error("Failed to access S3: %s", exc)
+            self.minio_available = False
+
+    def _local_path(self, object_name: str) -> str:
+        return os.path.join(_resolve_upload_dir(), object_name)
 
     def upload_file(self, file_content: bytes, object_name: str) -> str:
         if self.minio_available:
             try:
                 self.s3_client.upload_fileobj(
-                    BytesIO(file_content),
-                    self.bucket_name,
-                    object_name
+                    BytesIO(file_content), self.bucket_name, object_name
                 )
                 return object_name
-            except Exception as e:
-                self.minio_available = False # Mark unavailable for future requests
+            except Exception as exc:
+                import logging
+                logging.getLogger("storage").error(
+                    "S3 upload failed, falling back to local: %s", exc
+                )
+                self.minio_available = False
 
-        # Fallback to local storage if MinIO is unavailable
-        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-        os.makedirs(upload_dir, exist_ok=True)
-        local_path = os.path.join(upload_dir, os.path.basename(object_name))
+        local_path = self._local_path(object_name)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
         with open(local_path, "wb") as f:
             f.write(file_content)
         return object_name
@@ -65,14 +86,14 @@ class MinioStorageService:
     def get_file(self, object_name: str) -> bytes:
         if self.minio_available:
             try:
-                response = self.s3_client.get_object(Bucket=self.bucket_name, Key=object_name)
-                return response['Body'].read()
+                response = self.s3_client.get_object(
+                    Bucket=self.bucket_name, Key=object_name
+                )
+                return response["Body"].read()
             except Exception:
                 self.minio_available = False
 
-        # Fallback local retrieval
-        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-        local_path = os.path.join(upload_dir, os.path.basename(object_name))
+        local_path = self._local_path(object_name)
         try:
             with open(local_path, "rb") as f:
                 return f.read()
@@ -80,10 +101,40 @@ class MinioStorageService:
             return b""
 
     def delete_file(self, object_name: str) -> bool:
+        if self.minio_available:
+            try:
+                self.s3_client.delete_object(Bucket=self.bucket_name, Key=object_name)
+                return True
+            except Exception:
+                self.minio_available = False
+
+        local_path = self._local_path(object_name)
         try:
-            self.s3_client.delete_object(Bucket=self.bucket_name, Key=object_name)
+            os.remove(local_path)
             return True
-        except ClientError:
+        except FileNotFoundError:
             return False
+
+    def copy_file(self, source_key: str, dest_key: str) -> bool:
+        if self.minio_available:
+            try:
+                self.s3_client.copy_object(
+                    Bucket=self.bucket_name,
+                    CopySource={"Bucket": self.bucket_name, "Key": source_key},
+                    Key=dest_key,
+                )
+                return True
+            except Exception:
+                self.minio_available = False
+
+        src = self._local_path(source_key)
+        dst = self._local_path(dest_key)
+        try:
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+            return True
+        except FileNotFoundError:
+            return False
+
 
 storage_service = MinioStorageService()

@@ -1,4 +1,9 @@
+import os
+import shutil
+
 from app.core.exceptions import NotFoundError, ValidationError
+from app.storage.minio_client import storage_service
+from app.storage.paths import image_key, image_local_path
 
 from .repository import LabelRepository
 
@@ -26,12 +31,44 @@ class LabelService:
             raise NotFoundError("Label not found")
         return label_entry
 
-    def update_label(self, image_id: int, label: str):
+    def update_label(self, image_id: int, new_label: str):
         if not self.repository.get_image_by_id(image_id):
             raise NotFoundError("Image not found")
-        label_entry = self.repository.modify_label(image_id, label)
+        label_entry = self.repository.find_by_image_id(image_id)
         if not label_entry:
             raise NotFoundError("Label not found")
+
+        old_label = label_entry.label
+        if old_label == new_label:
+            return label_entry
+
+        # Move file to new label folder (only if stored in structured layout)
+        image = self.repository.get_image_with_team(image_id)
+        if not image:
+            raise NotFoundError("Image not found")
+
+        comp_id = image.team.comp_id
+        team_id = image.team_id
+        filename = os.path.basename(image.filepath)
+
+        old_local = image_local_path(comp_id, team_id, old_label, filename)
+        new_local = image_local_path(comp_id, team_id, new_label, filename)
+
+        if os.path.exists(old_local):
+            old_s3 = image_key(comp_id, team_id, old_label, filename)
+            new_s3 = image_key(comp_id, team_id, new_label, filename)
+
+            os.makedirs(os.path.dirname(new_local), exist_ok=True)
+            shutil.move(old_local, new_local)
+
+            storage_service.copy_file(old_s3, new_s3)
+            storage_service.delete_file(old_s3)
+
+            self.repository.update_image_filepath(image_id, new_local)
+
+        # Update label in DB
+        label_entry = self.repository.modify_label(image_id, new_label)
+
         return label_entry
 
     def validate_label(self, image_id: int):

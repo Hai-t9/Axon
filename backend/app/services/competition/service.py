@@ -2,6 +2,8 @@ from datetime import datetime
 
 from app.core.exceptions import NotFoundError, ValidationError
 from uuid import UUID, uuid4
+from app.models import RoleType, User
+from app.schemas.competition import CompetitionCreate, CompetitionUpdate, UserCompetitionInfo
 from app.models import RoleType
 from app.schemas.competition import CompetitionCreate, CompetitionUpdate
 from app.services.phase.repository import PhaseRepository
@@ -76,6 +78,31 @@ class CompetitionService:
         total = self.repository.count_competitions_for_user(user_id)
         return items, total
 
+    def list_my_competitions(self, user: User) -> list[UserCompetitionInfo]:
+        competitions = self.repository.list_competitions_for_user(user.id, 0, 100)
+        result = []
+        for comp in competitions:
+            result.append(self.build_user_competition_info(user, comp))
+        return result
+
+    def build_user_competition_info(self, user: User, competition) -> UserCompetitionInfo:
+        role = self.repository.get_role(user.id, competition.id)
+        team_id = None
+        team_name = None
+        if role and role.role == RoleType.participant:
+            team = self.repository.get_team_for_user(competition.id, user.id)
+            if team:
+                team_id = team.id
+                team_name = team.name
+        return UserCompetitionInfo(
+            id=competition.id,
+            name=competition.name,
+            description=competition.description,
+            role=role.role.value if role else 'unknown',
+            team_id=team_id,
+            team_name=team_name,
+        )
+
     def update_competition(self, competition_id: UUID, payload: CompetitionUpdate):
         competition = self.get_competition(competition_id)
         updates = payload.dict(exclude_unset=True)
@@ -99,6 +126,14 @@ class CompetitionService:
             return config
 
         return self.repository.update_config(config, updates)
+
+    def get_my_team(self, user: User, competition_id: UUID):
+        """Get the team the current user belongs to in a competition."""
+        self.get_competition(competition_id)
+        team = self.repository.get_team_for_user(competition_id, user.id)
+        if not team:
+            raise NotFoundError("You are not assigned to any team in this competition")
+        return team
 
     def join_competition(self, user_id: UUID, invitation_link: str):
         """Join a competition via invitation link. User's email must be in a team."""

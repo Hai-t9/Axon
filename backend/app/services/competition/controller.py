@@ -14,9 +14,12 @@ from app.schemas.competition import (
     CompetitionListResponse,
     CompetitionResponse,
     CompetitionUpdate,
+    UserCompetitionInfo,
+    UserCompetitionListResponse,
 )
 from app.services.auth.repository import AuthRepository
 from app.services.auth.service import AuthService
+from app.schemas.team import TeamResponse
 
 from .repository import CompetitionRepository
 from .service import CompetitionService
@@ -57,7 +60,7 @@ async def create_competition(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-@router.post("/join", response_model=CompetitionResponse)
+@router.post("/join", response_model=UserCompetitionInfo)
 async def join_competition(
     payload: dict,
     authorization: str = Header(...),
@@ -68,7 +71,8 @@ async def join_competition(
         token = extract_bearer_token(authorization)
         user = auth_service.get_current_user(token)
         invitation_link = payload.get("invitation_link", "")
-        return competition_service.join_competition(user.id, invitation_link)
+        result = competition_service.join_competition(user.id, invitation_link)
+        return competition_service.build_user_competition_info(user, result)
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except NotFoundError as exc:
@@ -96,6 +100,21 @@ async def leave_competition(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.get("/mine", response_model=UserCompetitionListResponse)
+async def list_my_competitions(
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    competition_service: CompetitionService = Depends(get_competition_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        items = competition_service.list_my_competitions(user)
+        return {"items": items}
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+
 @router.get("", response_model=CompetitionListResponse)
 async def list_competitions(
     authorization: str = Header(...),
@@ -120,6 +139,23 @@ async def list_competitions(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/{competition_id}/my-team", response_model=TeamResponse)
+async def get_my_team(
+    competition_id: UUID,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    competition_service: CompetitionService = Depends(get_competition_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        return competition_service.get_my_team(user, competition_id)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/{competition_id}", response_model=CompetitionResponse)
