@@ -14,7 +14,7 @@ final validationListProvider =
 
 /// Fetches a single image's details by its ID.
 final imageDetailsProvider =
-    FutureProvider.family<ValidationImage, int>((ref, imageId) {
+    FutureProvider.family<ValidationImage, String>((ref, imageId) {
   return ref.read(validationRepositoryProvider).getImageDetails(imageId);
 });
 
