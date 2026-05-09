@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models import Image, Label, Team
+from app.models import Image, ImageStatus, Label, LabelValidation, Team
 
 
 class DataValidationRepository:
@@ -42,24 +42,36 @@ class DataValidationRepository:
             for img, lb in rows
         ]
 
-    def validate_label(self, label_id: int) -> None:
+    def validate_label(self, label_id: int, image_id: UUID, validator_id: UUID, label_value: str) -> None:
         self.db.query(Label).filter(Label.id == label_id).update(
             {"validated": True}
         )
+        self.db.query(Image).filter(Image.id == image_id).update(
+            {"status": ImageStatus.verified}
+        )
+        self.db.add(
+            LabelValidation(label_id=label_id, validator_id=validator_id, label=label_value)
+        )
         self.db.commit()
 
-    def correct_label(self, label_id: int, new_label: str) -> None:
+    def correct_label(self, label_id: int, image_id: UUID, new_label: str, validator_id: UUID) -> None:
         self.db.query(Label).filter(Label.id == label_id).update(
             {"label": new_label, "validated": True}
+        )
+        self.db.query(Image).filter(Image.id == image_id).update(
+            {"status": ImageStatus.verified}
+        )
+        self.db.add(
+            LabelValidation(label_id=label_id, validator_id=validator_id, label=new_label)
         )
         self.db.commit()
 
     def count_validated(self, team_id: UUID) -> int:
         return (
-            self.db.query(Label)
+            self.db.query(LabelValidation)
+            .join(Label, LabelValidation.label_id == Label.id)
             .join(Image, Label.image_id == Image.id)
             .filter(Image.team_id == team_id)
-            .filter(Label.validated.is_(True))
             .count()
         )
 

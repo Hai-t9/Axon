@@ -63,7 +63,7 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
     setState(() => _submitting = true);
     try {
       final service = ref.read(competitionServiceProvider);
-      await service.validateImage(widget.competitionId, _currentImage!['image_id'] as int);
+      await service.validateImage(widget.competitionId, _currentImage!['image_id'].toString());
       _next();
     } catch (e) {
       if (mounted) _showError(e.toString());
@@ -77,7 +77,7 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
     setState(() => _submitting = true);
     try {
       final service = ref.read(competitionServiceProvider);
-      await service.skipImage(widget.competitionId, _currentImage!['image_id'] as int);
+      await service.skipImage(widget.competitionId, _currentImage!['image_id'].toString());
       _next();
     } catch (e) {
       if (mounted) _showError(e.toString());
@@ -111,7 +111,7 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
         final service = ref.read(competitionServiceProvider);
         await service.correctLabel(
           widget.competitionId,
-          _currentImage!['image_id'] as int,
+          _currentImage!['image_id'].toString(),
           result,
         );
         _next();
