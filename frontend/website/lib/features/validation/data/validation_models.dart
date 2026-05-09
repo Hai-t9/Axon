@@ -2,11 +2,13 @@
 class ValidationImage {
   final int imageId;
   final String? filepath;
+  final String? imageUrl;
   final String? currentLabel;
 
   const ValidationImage({
     required this.imageId,
     this.filepath,
+    this.imageUrl,
     this.currentLabel,
   });
 
@@ -14,6 +16,7 @@ class ValidationImage {
     return ValidationImage(
       imageId: (json['id'] as num?)?.toInt() ?? 0,
       filepath: json['filepath'] as String?,
+      imageUrl: json['image_url'] as String?,
       currentLabel: json['label'] as String?,
     );
   }

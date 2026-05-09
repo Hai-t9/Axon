@@ -338,8 +338,8 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
                   height: 320,
                   color: AppColors.surfaceAlt,
                   child: image.filepath != null && image.filepath!.isNotEmpty
-                      ? Image.network(
-                          _buildImageUrl(image.filepath!),
+                        ? Image.network(
+                          image.imageUrl ?? _buildImageUrl(image.filepath!),
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) => const Center(
                             child: Column(
