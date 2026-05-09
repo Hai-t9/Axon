@@ -25,6 +25,7 @@ import '../data/dashboard_models.dart';
 import '../data/competition_models.dart';
 import '../../home/presentation/home_page.dart';
 import '../../gallery/presentation/gallery_page.dart';
+import '../../export/presentation/export_page.dart';
 import 'competition_settings_page.dart';
 import 'image_gallery_page.dart';
 import 'phase_control_page.dart';
@@ -702,6 +703,13 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
         subtitle: 'Team images & statistics',
         color: AppColors.accent,
         route: GalleryPage.routeForId(competitionId),
+      ),
+      _ModuleData(
+        icon: Icons.file_download_outlined,
+        title: 'Data Export',
+        subtitle: 'Export images & labels',
+        color: AppColors.success,
+        route: ExportPage.routeForId(competitionId),
       ),
     ];
 
