@@ -11,7 +11,7 @@ class ValidationPendingImage(ValidationImage):
 
 
 class ValidationListResponse(BaseModel):
-    image_ids: list[int]
+    image_ids: list[str]
 
 
 class ValidationVoteCreate(BaseModel):

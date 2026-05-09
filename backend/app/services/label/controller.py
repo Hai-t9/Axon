@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.auth import extract_bearer_token
 from app.core.database import SessionLocal
@@ -33,7 +34,7 @@ def get_label_service(db: Session = Depends(get_db)) -> LabelService:
 
 @router.post("", response_model=LabelResponse)
 async def create_label(
-    image_id: int,
+    image_id: UUID,
     payload: LabelCreate,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -53,7 +54,7 @@ async def create_label(
 
 @router.get("", response_model=LabelResponse)
 async def get_label(
-    image_id: int,
+    image_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     label_service: LabelService = Depends(get_label_service),
@@ -70,7 +71,7 @@ async def get_label(
 
 @router.put("", response_model=LabelResponse)
 async def update_label(
-    image_id: int,
+    image_id: UUID,
     payload: LabelUpdate,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -90,7 +91,7 @@ async def update_label(
 
 @router.post("/validate", response_model=LabelValidationResponse)
 async def validate_label(
-    image_id: int,
+    image_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     label_service: LabelService = Depends(get_label_service),

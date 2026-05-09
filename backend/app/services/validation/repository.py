@@ -34,7 +34,7 @@ class ValidationRepository:
             return self.cache.client
         return None
 
-    def _set_assignment_list(self, key: str, values: list[int], ttl_seconds: int) -> bool:
+    def _set_assignment_list(self, key: str, values: list[UUID], ttl_seconds: int) -> bool:
         client = self._redis_client()
         string_values = [str(value) for value in values]
 
@@ -53,11 +53,11 @@ class ValidationRepository:
             _memory_assignment_expiry.pop(key, None)
         return True
 
-    def _get_assignment_list(self, key: str) -> list[int]:
+    def _get_assignment_list(self, key: str) -> list[UUID]:
         client = self._redis_client()
         if client:
             values = client.lrange(key, 0, -1)
-            return [int(value) for value in values]
+            return [UUID(value) for value in values]
 
         expires_at = _memory_assignment_expiry.get(key)
         if expires_at is not None and _current_time() >= expires_at:
@@ -66,7 +66,7 @@ class ValidationRepository:
             return []
 
         values = _memory_assignment_store.get(key, [])
-        return [int(value) for value in values]
+        return [UUID(value) for value in values]
 
     def _assignment_key_for_team(self, team_id: UUID) -> str:
         return f"validation:team:{team_id}"
@@ -82,7 +82,7 @@ class ValidationRepository:
             .all()
         )
 
-    def fetch_all_competition_images(self, comp_id: UUID) -> list[int]:
+    def fetch_all_competition_images(self, comp_id: UUID) -> list[UUID]:
         """Fetch all image IDs in the competition, ordered by ID."""
         rows = (
             self.db.query(Image.id)
@@ -91,26 +91,26 @@ class ValidationRepository:
             .order_by(Image.id.asc())
             .all()
         )
-        return [int(row.id) for row in rows]
+        return [row.id for row in rows]
 
-    def store_team_assignments(self, team_id: UUID, image_ids: list[int]) -> bool:
+    def store_team_assignments(self, team_id: UUID, image_ids: list[UUID]) -> bool:
         return self._set_assignment_list(
             self._assignment_key_for_team(team_id),
             image_ids,
             VALIDATION_ASSIGNMENT_TTL_SECONDS,
         )
 
-    def store_participant_assignments(self, participant_id: UUID, image_ids: list[int]) -> bool:
+    def store_participant_assignments(self, participant_id: UUID, image_ids: list[UUID]) -> bool:
         return self._set_assignment_list(
             self._assignment_key_for_participant(participant_id),
             image_ids,
             VALIDATION_ASSIGNMENT_TTL_SECONDS,
         )
 
-    def get_participant_assignments(self, participant_id: UUID) -> list[int]:
+    def get_participant_assignments(self, participant_id: UUID) -> list[UUID]:
         return self._get_assignment_list(self._assignment_key_for_participant(participant_id))
 
-    def get_team_assignments(self, team_id: UUID) -> list[int]:
+    def get_team_assignments(self, team_id: UUID) -> list[UUID]:
         return self._get_assignment_list(self._assignment_key_for_team(team_id))
 
     def find_participant_team(self, comp_id: UUID, participant_id: UUID) -> UUID | None:
@@ -143,7 +143,7 @@ class ValidationRepository:
             return None
         return config.max_validations
 
-    def insert_vote(self, image_id: int, validator_id: UUID, label: str) -> LabelValidation | None:
+    def insert_vote(self, image_id: UUID, validator_id: UUID, label: str) -> LabelValidation | None:
         label_entry = self.db.query(Label).filter(Label.image_id == image_id).first()
         if not label_entry or label_entry.validated:
             return None
@@ -165,7 +165,7 @@ class ValidationRepository:
         self.db.refresh(vote)
         return vote
 
-    def count_votes_for_image(self, image_id: int) -> int:
+    def count_votes_for_image(self, image_id: UUID) -> int:
         return int(
             self.db.query(func.count(LabelValidation.id))
             .join(Label, Label.id == LabelValidation.label_id)
@@ -174,7 +174,7 @@ class ValidationRepository:
             or 0
         )
 
-    def find_label_by_image_id(self, image_id: int) -> Label | None:
+    def find_label_by_image_id(self, image_id: UUID) -> Label | None:
         return self.db.query(Label).filter(Label.image_id == image_id).first()
 
     def find_votes_by_label_id(self, label_id: int) -> list[LabelValidation]:
@@ -185,7 +185,7 @@ class ValidationRepository:
             .all()
         )
 
-    def remove_from_team_assignment(self, team_id: UUID, image_id: int) -> int:
+    def remove_from_team_assignment(self, team_id: UUID, image_id: UUID) -> int:
         """Remove an image_id from a team's validation queue using Redis LREM.
         Returns the number of elements removed."""
         client = self._redis_client()
@@ -201,7 +201,7 @@ class ValidationRepository:
         _memory_assignment_store[key] = [v for v in values if v != string_image_id]
         return removed
 
-    def increment_skip_count(self, image_id: int) -> int:
+    def increment_skip_count(self, image_id: UUID) -> int:
         """Increment skip count for an image in Redis. Returns the new count.
         Sets TTL to 24 hours if this is the first increment."""
         client = self._redis_client()
@@ -221,7 +221,7 @@ class ValidationRepository:
             _memory_assignment_expiry[f"count:{key}"] = _current_time() + VALIDATION_ASSIGNMENT_TTL_SECONDS
         return current
 
-    def get_skip_count(self, image_id: int) -> int:
+    def get_skip_count(self, image_id: UUID) -> int:
         """Get the current skip count for an image."""
         client = self._redis_client()
         key = f"validation:skip_count:{image_id}"
@@ -231,7 +231,7 @@ class ValidationRepository:
             
         return int(_memory_assignment_store.get(f"count:{key}", 0) or 0)
 
-    def filter_unvalidated_images(self, image_ids: list[int]) -> list[int]:
+    def filter_unvalidated_images(self, image_ids: list[UUID]) -> list[UUID]:
         """Filter a list of image IDs to only include those not yet validated.
         Returns image_ids where validated == False."""
         if not image_ids:
