@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/network/api_client.dart';
+import '../../../core/config/app_config.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../widgets/layout/axon_scaffold.dart';
 import '../../../widgets/layout/page_header.dart';
-import '../../auth/state/auth_session_provider.dart';
+import '../../gallery/data/gallery_models.dart';
+import '../../gallery/data/gallery_repository.dart';
 
 class ImageGalleryPage extends ConsumerStatefulWidget {
   final String teamId;
@@ -22,7 +23,7 @@ class ImageGalleryPage extends ConsumerStatefulWidget {
 }
 
 class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
-  List<Map<String, dynamic>> _images = [];
+  List<GalleryImage> _images = [];
   bool _loading = true;
 
   @override
@@ -31,21 +32,14 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
     _loadImages();
   }
 
-  String? get _token => ref.read(authSessionProvider)?.accessToken;
-  Map<String, String> get _authHeaders => {'Authorization': 'Bearer $_token'};
-
   Future<void> _loadImages() async {
     setState(() => _loading = true);
     try {
-      final api = ref.read(apiClientProvider);
-      final resp = await api.getJson(
-        '/teams/${widget.teamId}/images?page=1',
-        headers: _authHeaders,
-      );
-      final items = (resp['images'] as List<dynamic>?) ?? [];
+      final repo = ref.read(galleryRepositoryProvider);
+      final result = await repo.getTeamImages(teamId: widget.teamId, page: 1);
       if (mounted) {
         setState(() {
-          _images = items.cast<Map<String, dynamic>>();
+          _images = result.images;
           _loading = false;
         });
       }
@@ -67,14 +61,13 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
   }
 
   String _getImageUrl(String filepath) {
-    // Determine the base URL dynamically based on apiClientProvider
-    final base = 'http://192.168.167.205:8000'; // Or use api.baseUrl if exposed
+    final base = AppConfig.apiBaseUrl.replaceFirst('/api/v1', '');
     final normalizedPath = filepath.replaceAll('\\', '/');
 
     if (normalizedPath.startsWith('http')) {
       return normalizedPath;
     }
-    
+
     if (!normalizedPath.startsWith('uploads/')) {
        return '$base/uploads/$normalizedPath';
     }
@@ -82,95 +75,90 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
     return '$base/$normalizedPath';
   }
 
-  void _showImageDetails(BuildContext context, Map<String, dynamic> image) {
+  void _showImageDetails(BuildContext context, GalleryImage image) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 600,
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 0.9 * 600),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Image Details', style: Theme.of(context).textTheme.titleLarge),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Image Details', style: Theme.of(context).textTheme.titleLarge),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    _getImageUrl(image['filepath'] ?? ''),
-                    height: 300,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 300,
-                      width: 400,
-                      color: AppColors.background,
-                      child: const Center(child: Icon(Icons.broken_image, size: 64, color: AppColors.textSecondary)),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  const Text('Status: ', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: image['status'] == 'approved' ? AppColors.success.withOpacity(0.2) : AppColors.primary.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      (image['status'] ?? 'unknown').toUpperCase(),
-                      style: TextStyle(
-                        color: image['status'] == 'approved' ? AppColors.success : AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                  const SizedBox(height: AppSpacing.md),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      _getImageUrl(image.filepath),
+                      height: 250,
+                      width: double.infinity,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: AppColors.background,
+                        child: const Center(child: Icon(Icons.broken_image, size: 64, color: AppColors.textSecondary)),
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  const Text('Label: ', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  Text(
-                    image['label'] ?? 'Unlabeled',
-                    style: TextStyle(
-                      color: image['label'] != null ? Colors.amber : AppColors.textSecondary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  _detailRow('Status', image.status.toUpperCase(),
+                    valueColor: image.status == 'approved' ? AppColors.success : AppColors.primary,
+                    background: image.status == 'approved' ? AppColors.success.withOpacity(0.2) : AppColors.primary.withOpacity(0.2),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _detailRow('Label', image.label ?? 'Unlabeled',
+                    valueColor: image.label != null ? Colors.amber : null,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      const Text('Uploaded: ', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      Text(
+                        image.time.split('T').first,
+                        style: const TextStyle(color: AppColors.textPrimary),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  const Text('Uploaded: ', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  Text(
-                    (image['time'] ?? '').split('T').first,
-                    style: const TextStyle(color: AppColors.textPrimary),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _detailRow(String label, String value, {Color? valueColor, Color? background}) {
+    return Row(
+      children: [
+        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+        if (background != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(value, style: TextStyle(color: valueColor, fontWeight: FontWeight.bold, fontSize: 12)),
+          )
+        else
+          Text(value, style: TextStyle(color: valueColor ?? AppColors.textPrimary, fontWeight: valueColor != null ? FontWeight.bold : FontWeight.normal, fontSize: valueColor != null ? 18 : 14)),
+      ],
     );
   }
 
@@ -227,7 +215,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: AppColors.border),
                                 image: DecorationImage(
-                                  image: NetworkImage(_getImageUrl(image['filepath'] ?? '')),
+                                  image: NetworkImage(_getImageUrl(image.filepath)),
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -244,14 +232,14 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        image['label'] != null ? Icons.label : Icons.label_off,
+                                        image.label != null ? Icons.label : Icons.label_off,
                                         size: 14,
-                                        color: image['label'] != null ? Colors.amber : Colors.white54,
+                                        color: image.label != null ? Colors.amber : Colors.white54,
                                       ),
-                                      if (image['label'] != null) ...[
+                                      if (image.label != null) ...[
                                         const SizedBox(width: 4),
                                         Text(
-                                          image['label'],
+                                          image.label!,
                                           style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
                                         ),
                                       ],
