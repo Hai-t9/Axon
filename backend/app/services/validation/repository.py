@@ -114,21 +114,23 @@ class ValidationRepository:
         return self._get_assignment_list(self._assignment_key_for_team(team_id))
 
     def find_participant_team(self, comp_id: UUID, participant_id: UUID) -> UUID | None:
-        # Simple in-Python lookup: iterate teams in competition and match user_ids.
+        # Look up the user's email, then find the team containing that email
+        from app.models import User
+
+        user = self.db.query(User).filter(User.id == participant_id).first()
+        if not user:
+            return None
+        user_email = user.email.strip().lower()
+
         teams = (
             self.db.query(Team)
             .filter(Team.comp_id == comp_id)
             .all()
         )
         for team in teams:
-            if not team or not team.user_ids:
-                continue
-            for raw_user_id in team.user_ids:
-                try:
-                    if _normalize_uuid(raw_user_id) == _normalize_uuid(participant_id):
-                        return team.id
-                except (TypeError, ValueError):
-                    continue
+            emails_dict = team.user_emails or {}
+            if user_email in {k.lower() for k in emails_dict.keys()}:
+                return team.id
         return None
 
     def find_validation_threshold(self, comp_id: UUID) -> int | None:

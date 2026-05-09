@@ -40,7 +40,6 @@ from .phase import (
 from .team import (
     TeamCreate,
     TeamListResponse,
-    TeamMemberAddRequest,
     TeamMembersResponse,
     TeamResponse,
     TeamStatisticsResponse,
@@ -97,7 +96,6 @@ __all__ = [
     "PhaseValidationResponse",
     "TeamCreate",
     "TeamListResponse",
-    "TeamMemberAddRequest",
     "TeamMembersResponse",
     "TeamResponse",
     "TeamStatisticsResponse",

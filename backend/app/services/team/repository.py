@@ -56,29 +56,20 @@ class TeamRepository:
         self.db.delete(team)
         self.db.commit()
 
-    def get_user_by_id(self, user_id: UUID) -> User | None:
-        return self.db.query(User).filter(User.id == user_id).first()
-
     def get_user_by_email(self, email: str) -> User | None:
-        logger.info(f"Looking up user by email: '{email}'")
-        user = self.db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
-        if user:
-            logger.info(f"Found user: {user.id} ({user.email})")
-        else:
-            logger.warning(f"No user found for email: '{email}'")
-        return user
+        return self.db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
 
-    def set_team_members(self, team: Team, user_ids: list[str]) -> Team:
-        team.user_ids = user_ids
+    def set_user_emails(self, team: Team, user_emails: dict) -> Team:
+        team.user_emails = user_emails
         self.db.commit()
         self.db.refresh(team)
         return team
 
-    def get_team_members(self, team: Team) -> list[User]:
-        user_ids = team.user_ids or []
-        if not user_ids:
+    def get_members_by_emails(self, emails: list[str]) -> list[User]:
+        if not emails:
             return []
-        return self.db.query(User).filter(User.id.in_([UUID(uid) for uid in user_ids])).all()
+        lower_emails = [e.lower() for e in emails]
+        return self.db.query(User).filter(func.lower(User.email).in_(lower_emails)).all()
 
     def count_images_by_team(self, team_id: UUID) -> int:
         return int(
@@ -91,4 +82,3 @@ class TeamRepository:
             self.db.query(func.count(Model.id)).filter(Model.team_id == team_id).scalar()
             or 0
         )
-

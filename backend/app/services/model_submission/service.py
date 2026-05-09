@@ -173,8 +173,13 @@ class ModelSubmissionService:
                 f"Team {team_id} does not belong to competition {competition_id}."
             )
 
-        member_ids = team.user_ids or []
-        if str(user_id) not in [str(mid) for mid in member_ids]:
+        # Check user's email is in team's user_emails
+        user = self.repository.find_user_by_id(user_id)
+        if not user:
+            raise ValidationError("User not found.")
+        user_email = user.email.strip().lower()
+        emails_dict = team.user_emails or {}
+        if user_email not in {k.lower() for k in emails_dict.keys()}:
             raise ValidationError(
                 f"You are not a member of team {team_id}. "
                 "Only team members may submit models."

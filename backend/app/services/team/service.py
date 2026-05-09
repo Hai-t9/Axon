@@ -12,20 +12,21 @@ class TeamService:
     def __init__(self, repository: TeamRepository):
         self.repository = repository
 
-    def _normalize_user_ids(self, user_ids):
-        # Stored as JSON in the Team model, so normalize to a list of ints.
-        if not user_ids:
-            return []
-        normalized = [str(user_id) for user_id in user_ids]
-        return list(dict.fromkeys(normalized))
+    def _normalize_emails(self, user_emails) -> dict:
+        """Normalize user_emails to a dict of {email_lower: bool}."""
+        if not user_emails:
+            return {}
+        if isinstance(user_emails, dict):
+            return {k.strip().lower(): bool(v) for k, v in user_emails.items()}
+        return {}
 
     def create_team(self, comp_id: UUID, payload: TeamCreate):
         if self.repository.get_by_name(comp_id, payload.name):
             raise ValidationError("Team name already exists in competition")
 
-        user_ids = self._normalize_user_ids(payload.user_ids)
+        user_emails = self._normalize_emails(payload.user_emails)
         return self.repository.create(
-            {"comp_id": comp_id, "name": payload.name, "user_ids": user_ids}
+            {"comp_id": comp_id, "name": payload.name, "user_emails": user_emails or {}}
         )
 
     def get_team(self, team_id: UUID):
@@ -43,8 +44,8 @@ class TeamService:
     def update_team(self, team_id: UUID, payload: TeamUpdate):
         team = self.get_team(team_id)
         updates = payload.dict(exclude_unset=True)
-        if "user_ids" in updates:
-            updates["user_ids"] = self._normalize_user_ids(updates["user_ids"])
+        if "user_emails" in updates and updates["user_emails"] is not None:
+            updates["user_emails"] = self._normalize_emails(updates["user_emails"])
         return self.repository.update(team, updates)
 
     def delete_team(self, team_id: UUID) -> UUID:
@@ -52,33 +53,51 @@ class TeamService:
         self.repository.delete(team)
         return team_id
 
-    def add_member(self, team_id: UUID, user_id: UUID):
+    def add_member_by_email(self, team_id: UUID, email: str):
+        """Add a member email to the team (status=false by default)."""
         team = self.get_team(team_id)
-        if not self.repository.get_user_by_id(user_id):
-            raise ValidationError("User not found")
+        email_lower = email.strip().lower()
+        if not email_lower:
+            raise ValidationError("Email is required")
 
-        user_ids = self._normalize_user_ids(team.user_ids)
-        user_id_str = str(user_id)
-        if user_id_str in user_ids:
-            raise ValidationError("User already in team")
+        user_emails = self._normalize_emails(team.user_emails)
+        if email_lower in user_emails:
+            raise ValidationError("Email already in team")
 
-        user_ids.append(user_id_str)
-        return self.repository.set_team_members(team, user_ids)
+        user_emails[email_lower] = False
+        return self.repository.set_user_emails(team, user_emails)
 
-    def remove_member(self, team_id: UUID, user_id: UUID):
+    def remove_member_by_email(self, team_id: UUID, email: str):
+        """Remove a member email from the team."""
         team = self.get_team(team_id)
-        user_ids = self._normalize_user_ids(team.user_ids)
-        user_id_str = str(user_id)
-        if user_id_str not in user_ids:
-            raise ValidationError("User not in team")
+        email_lower = email.strip().lower()
 
-        user_ids.remove(user_id_str)
-        return self.repository.set_team_members(team, user_ids)
+        user_emails = self._normalize_emails(team.user_emails)
+        if email_lower not in user_emails:
+            raise ValidationError("Email not in team")
+
+        del user_emails[email_lower]
+        return self.repository.set_user_emails(team, user_emails)
+
+    def set_member_joined(self, team_id: UUID, email: str, joined: bool):
+        """Set the joined status for a member email."""
+        team = self.get_team(team_id)
+        email_lower = email.strip().lower()
+
+        user_emails = self._normalize_emails(team.user_emails)
+        if email_lower not in user_emails:
+            raise ValidationError("Email not in team")
+
+        user_emails[email_lower] = joined
+        return self.repository.set_user_emails(team, user_emails)
 
     def get_members(self, team_id: UUID):
+        """Get full user objects for team members that exist in the system."""
         team = self.get_team(team_id)
-        members = self.repository.get_team_members(team)
-        return members
+        user_emails = self._normalize_emails(team.user_emails)
+        if not user_emails:
+            return []
+        return self.repository.get_members_by_emails(list(user_emails.keys()))
 
     def add_member_by_email(self, team_id: UUID, email: str):
         user = self.repository.get_user_by_email(email)
@@ -87,8 +106,8 @@ class TeamService:
         return self.add_member(team_id, user.id)
 
     def get_statistics(self, team_id: UUID):
-        self.get_team(team_id)
-        total_members = len(self._normalize_user_ids(self.get_team(team_id).user_ids))
+        team = self.get_team(team_id)
+        total_members = len(self._normalize_emails(team.user_emails))
         images_uploaded = self.repository.count_images_by_team(team_id)
         models_submitted = self.repository.count_models_by_team(team_id)
         return {
@@ -100,36 +119,27 @@ class TeamService:
     def bulk_create_teams(self, comp_id: UUID, teams_data: dict) -> dict:
         """Create multiple teams from a dict of {team_name: [email1, email2, ...]}"""
         logger.info(f"bulk_create_teams called for comp {comp_id} with {len(teams_data)} teams")
-        logger.info(f"teams_data: {teams_data}")
         created = []
         errors = []
         for team_name, member_emails in teams_data.items():
-            logger.info(f"Processing team '{team_name}' with emails: {member_emails}")
             if self.repository.get_by_name(comp_id, team_name):
                 errors.append(f"Team '{team_name}' already exists")
                 continue
 
-            user_ids = []
+            user_emails = {}
             for email in member_emails:
-                clean = email.strip().lstrip("@")
-                logger.info(f"Resolving email '{email}' -> cleaned '{clean}'")
-                user = self.repository.get_user_by_email(clean)
-                if user:
-                    user_ids.append(str(user.id))
-                    logger.info(f"Resolved '{clean}' -> user {user.id}")
-                else:
-                    errors.append(f"User '{clean}' not found")
-                    logger.warning(f"User '{clean}' not found in database")
+                clean = email.strip().lower().lstrip("@")
+                if clean:
+                    user_emails[clean] = False
 
             team = self.repository.create(
-                {"comp_id": comp_id, "name": team_name, "user_ids": user_ids}
+                {"comp_id": comp_id, "name": team_name, "user_emails": user_emails}
             )
             created.append({
                 "id": str(team.id),
                 "name": team.name,
                 "comp_id": str(team.comp_id),
-                "user_ids": team.user_ids
+                "user_emails": team.user_emails,
             })
 
         return {"created": created, "errors": errors}
-

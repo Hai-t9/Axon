@@ -48,7 +48,7 @@ class DashboardService:
             "id": team.id,
             "name": team.name,
             "comp_id": team.comp_id,
-            "user_ids": team.user_ids,
+            "user_emails": team.user_emails,
         }
 
     def _build_dashboard_payload(self, comp_id: UUID) -> dict:
