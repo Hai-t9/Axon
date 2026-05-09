@@ -3,9 +3,14 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.core.auth import extract_bearer_token
+from app.core.cache import get_validation_cache
 from app.core.database import SessionLocal
-from app.core.exceptions import AuthenticationError, AuthorizationError, ValidationError
+from app.core.exceptions import AuthenticationError, AuthorizationError, NotFoundError, ValidationError
 from app.models import RoleType
+from app.services.label.repository import LabelRepository
+from app.services.label.service import LabelService
+from app.services.validation.repository import ValidationRepository
+from app.services.validation.service import ValidationService
 from app.schemas.phase import (
     PhaseAdvanceResponse,
     PhaseDeadlineRequest,
@@ -63,11 +68,25 @@ async def advance_phase(
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     phase_service: PhaseService = Depends(get_phase_service),
+    db: Session = Depends(get_db),
 ):
     try:
         token = extract_bearer_token(authorization)
         user = auth_service.require_roles(token, competition_id, {RoleType.host})
-        return phase_service.advance_phase(competition_id, user.id)
+        result = phase_service.advance_phase(competition_id, user.id)
+
+        # Auto-generate validation assignments when entering Data Validation phase
+        if result.get("current_phase") == "2":
+            try:
+                validation_service = ValidationService(
+                    ValidationRepository(db, get_validation_cache()),
+                    LabelService(LabelRepository(db)),
+                )
+                validation_service.generate_assignments(competition_id)
+            except Exception:
+                pass  # non-blocking — generation can be retried manually
+
+        return result
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except AuthorizationError as exc:

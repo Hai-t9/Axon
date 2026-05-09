@@ -13,7 +13,6 @@ import '../../../widgets/layout/axon_scaffold.dart';
 import '../../../widgets/layout/page_header.dart';
 import '../../../features/leaderboard/presentation/leaderboard_page.dart';
 import '../../../features/model_submission/presentation/model_submission_page.dart';
-import '../../../features/validation/data/validation_repository.dart';
 import '../../../features/validation/presentation/validation_page.dart';
 import '../../../features/evaluation/presentation/evaluation_page.dart';
 import '../../../features/data_validation/presentation/data_validation_page.dart';
@@ -710,8 +709,6 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
   }
 
   Widget _buildModuleGrid(BuildContext context, String competitionId) {
-    final roleAsync = ref.watch(competitionRoleProvider(competitionId));
-    final role = roleAsync.asData?.value;
     final modules = [
       _ModuleData(
         icon: Icons.emoji_events,
@@ -776,47 +773,14 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
       itemCount: modules.length,
       itemBuilder: (context, index) {
         final module = modules[index];
-        final isValidation = module.title == 'Validation';
         return _ModuleCard(
           data: module,
-          onTap: () {
-            if (isValidation && role != null && (role == 'host' || role == 'staff')) {
-              _callGenerateThenNavigate(competitionId, module.route);
-            } else {
-              context.go(module.route);
-            }
-          },
+          onTap: () => context.go(module.route),
         );
       },
     );
   }
 
-  Future<void> _callGenerateThenNavigate(
-      String competitionId, String route) async {
-    try {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(SnackBar(
-        content: const Text('Generating validation assignments...'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 10),
-      ));
-
-      final repo = ref.read(validationRepositoryProvider);
-      await repo.generateValidation(competitionId);
-
-      if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      context.go(route);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Failed to generate validation: $e'),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-      ));
-    }
-  }
 }
 
 class _ParticipantTeamView extends ConsumerStatefulWidget {

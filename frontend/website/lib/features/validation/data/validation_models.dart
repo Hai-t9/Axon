@@ -58,7 +58,7 @@ class ValidationVoteResponse {
 
 /// Pending validation image (from GET /competitions/:compId/validations/pending)
 class ValidationPendingImage {
-  final int id;
+  final String id;
   final String filepath;
   final String label;
 
@@ -70,7 +70,7 @@ class ValidationPendingImage {
 
   factory ValidationPendingImage.fromJson(Map<String, dynamic> json) {
     return ValidationPendingImage(
-      id: (json['id'] as num).toInt(),
+      id: json['id']?.toString() ?? '',
       filepath: json['filepath'] as String? ?? '',
       label: json['label'] as String? ?? '',
     );
