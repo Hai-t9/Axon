@@ -9,7 +9,7 @@ from app.core.database import Base
 class Label(Base):
     __tablename__ = "label"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     image_id = Column(PostgresUUID(as_uuid=True), ForeignKey("image.id"), nullable=False)
     label = Column(String, nullable=False)
     validated = Column(Boolean, nullable=False, server_default="false")
@@ -25,7 +25,7 @@ class Label(Base):
 class LabelValidation(Base):
     __tablename__ = "label_validations"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     label_id = Column(Integer, ForeignKey("label.id"), nullable=False)
     validator_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("user.id"), nullable=False

@@ -6,7 +6,7 @@ from app.core.database import Base
 class Image(Base):
     __tablename__ = "images"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     team_id = Column(Integer, index=True)
     author_id = Column(Integer, index=True)
     time = Column(DateTime, default=datetime.utcnow)
@@ -26,7 +26,7 @@ class Image(Base):
 class ImageMetadata(Base):
     __tablename__ = "image_metadata"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     image_id = Column(Integer, ForeignKey("images.id"), unique=True)
     GPSInfo = Column(String, nullable=True)
     ImageWidth = Column(Float, nullable=True)
