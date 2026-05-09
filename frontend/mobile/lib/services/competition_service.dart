@@ -103,6 +103,49 @@ class CompetitionService {
     return LeaderboardResponse.fromJson(
         response.data as Map<String, dynamic>);
   }
+
+  Future<Map<String, dynamic>> getDataValidationQueue(String competitionId) async {
+    final response = await _dio.get(
+      '/api/v1/competitions/$competitionId/data-validation/queue',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> validateImage(String competitionId, int imageId) async {
+    final response = await _dio.post(
+      '/api/v1/competitions/$competitionId/data-validation/images/$imageId/validate',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> skipImage(String competitionId, int imageId) async {
+    final response = await _dio.post(
+      '/api/v1/competitions/$competitionId/data-validation/images/$imageId/skip',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> correctLabel(String competitionId, int imageId, String label) async {
+    final response = await _dio.post(
+      '/api/v1/competitions/$competitionId/data-validation/images/$imageId/correct',
+      data: {'label': label},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getDataValidationProgress(String competitionId) async {
+    final response = await _dio.get(
+      '/api/v1/competitions/$competitionId/data-validation/progress',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getCurrentPhase(String competitionId) async {
+    final response = await _dio.get(
+      '/api/v1/competitions/$competitionId/phase',
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }
 final competitionServiceProvider = Provider<CompetitionService>((ref) {
   return CompetitionService(ref.read(dioProvider));

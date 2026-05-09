@@ -24,6 +24,7 @@ from app.services.cleaner.controller import router as cleaner_router
 from app.services.evaluation_orchestration.controller import router as evaluation_router
 from app.services.model_submission.controller import router as model_submission_router
 from app.services.export.controller import router as export_router
+from app.services.data_validation.controller import router as data_validation_router
 from app.core.database import engine, Base
 import app.models
 
@@ -92,6 +93,7 @@ app.include_router(cleaner_router, prefix=API_PREFIX)
 app.include_router(evaluation_router, prefix=API_PREFIX)
 app.include_router(model_submission_router, prefix=API_PREFIX)
 app.include_router(export_router, prefix=API_PREFIX)
+app.include_router(data_validation_router, prefix=API_PREFIX)
 
 from fastapi.responses import Response
 
