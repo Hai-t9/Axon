@@ -21,6 +21,16 @@ class ValidationRepository {
   final ApiClient _apiClient;
   final AuthSession? _session;
 
+  /// Triggers generation of validation assignments for all teams.
+  /// POST /competitions/:compId/validations/generate
+  Future<void> generateValidation(String competitionId) async {
+    await _apiClient.postJson(
+      '/competitions/$competitionId/validations/generate',
+      {},
+      headers: _authHeaders(),
+    );
+  }
+
   /// Fetches the full list of image IDs assigned for validation.
   /// GET /competitions/:compId/validations/list
   Future<ValidationListResponse> getValidationList(String competitionId) async {
