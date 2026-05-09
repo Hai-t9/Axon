@@ -58,25 +58,33 @@ class TeamService:
             raise ValidationError("User not found")
 
         user_ids = self._normalize_user_ids(team.user_ids)
-        if user_id in user_ids:
+        user_id_str = str(user_id)
+        if user_id_str in user_ids:
             raise ValidationError("User already in team")
 
-        user_ids.append(user_id)
+        user_ids.append(user_id_str)
         return self.repository.set_team_members(team, user_ids)
 
     def remove_member(self, team_id: UUID, user_id: UUID):
         team = self.get_team(team_id)
         user_ids = self._normalize_user_ids(team.user_ids)
-        if user_id not in user_ids:
+        user_id_str = str(user_id)
+        if user_id_str not in user_ids:
             raise ValidationError("User not in team")
 
-        user_ids.remove(user_id)
+        user_ids.remove(user_id_str)
         return self.repository.set_team_members(team, user_ids)
 
     def get_members(self, team_id: UUID):
         team = self.get_team(team_id)
         members = self.repository.get_team_members(team)
         return members
+
+    def add_member_by_email(self, team_id: UUID, email: str):
+        user = self.repository.get_user_by_email(email)
+        if not user:
+            raise NotFoundError(f"User with email '{email}' not found")
+        return self.add_member(team_id, user.id)
 
     def get_statistics(self, team_id: UUID):
         self.get_team(team_id)

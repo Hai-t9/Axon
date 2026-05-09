@@ -57,6 +57,26 @@ async def create_competition(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/join", response_model=CompetitionResponse)
+async def join_competition(
+    payload: dict,
+    authorization: str = Header(...),
+    auth_service: AuthService = Depends(get_auth_service),
+    competition_service: CompetitionService = Depends(get_competition_service),
+):
+    try:
+        token = extract_bearer_token(authorization)
+        user = auth_service.get_current_user(token)
+        invitation_link = payload.get("invitation_link", "")
+        return competition_service.join_competition(user.id, invitation_link)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("", response_model=CompetitionListResponse)
 async def list_competitions(
     authorization: str = Header(...),

@@ -65,11 +65,6 @@ class _CompetitionSettingsPageState
   final List<String> _labels = [];
   final _labelCtl = TextEditingController();
 
-  // Teams
-  final _teamNameCtl = TextEditingController();
-  final _teamEmailsCtl = TextEditingController();
-  final Map<String, List<String>> _teams = {};
-
   String? _loadedId;
   bool _isSaving = false;
   bool _isDeleting = false;
@@ -81,7 +76,7 @@ class _CompetitionSettingsPageState
       _nameCtl, _descCtl, _dateCtl, _inviteCtl, _overviewCtl, _termsCtl,
       _dataMdCtl, _dataFmtCtl, _dataExCtl, _evalCtl, _scoringExCtl,
       _maxValCtl, _dupThreshCtl, _modelDirCtl, _dataDirCtl, _infFuncCtl,
-      _maxSizeMbCtl, _pyMinCtl, _labelCtl, _teamNameCtl, _teamEmailsCtl,
+      _maxSizeMbCtl, _pyMinCtl, _labelCtl,
     ]) {
       c.dispose();
     }
@@ -212,12 +207,6 @@ class _CompetitionSettingsPageState
         configData: configData,
       );
 
-      if (_teams.isNotEmpty) {
-        await repo.bulkCreateTeams(
-          competitionId: widget.competitionId,
-          teamsData: _teams,
-        );
-      }
 
       if (!mounted) return;
       ref.invalidate(competitionDetailsProvider(widget.competitionId));
@@ -276,17 +265,6 @@ class _CompetitionSettingsPageState
     final t = v.trim();
     if (t.isNotEmpty && !_labels.contains(t)) {
       setState(() { _labels.add(t); _labelCtl.clear(); });
-    }
-  }
-
-  void _addTeam() {
-    final name = _teamNameCtl.text.trim();
-    final emails = _teamEmailsCtl.text.trim();
-    if (name.isNotEmpty && emails.isNotEmpty) {
-      final list = emails.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      if (list.isNotEmpty) {
-        setState(() { _teams[name] = list; _teamNameCtl.clear(); _teamEmailsCtl.clear(); });
-      }
     }
   }
 
@@ -388,30 +366,6 @@ class _CompetitionSettingsPageState
                   ]),
                   if (_labels.isNotEmpty) const SizedBox(height: AppSpacing.md),
                   Wrap(spacing: AppSpacing.xs, runSpacing: AppSpacing.xs, children: _labels.map((l) => Chip(label: Text(l), onDeleted: () => setState(() => _labels.remove(l)))).toList()),
-                ]),
-                const SizedBox(height: AppSpacing.sm),
-
-                _Sec(index: 6, icon: Icons.group_outlined, title: 'Add teams', expanded: _expanded, onToggle: () => _toggle(6), children: [
-                  Text('New teams added here will be created on save.', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(children: [
-                    Expanded(child: TextField(controller: _teamNameCtl, decoration: const InputDecoration(labelText: 'Team name'))),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(flex: 2, child: TextField(controller: _teamEmailsCtl, decoration: const InputDecoration(labelText: 'Emails (comma separated)'), onSubmitted: (_) => _addTeam())),
-                    const SizedBox(width: AppSpacing.sm),
-                    ElevatedButton(onPressed: _addTeam, child: const Text('Add')),
-                  ]),
-                  if (_teams.isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    ..._teams.entries.map((e) => Card(
-                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: ListTile(
-                        title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(e.value.join(', ')),
-                        trailing: IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.error), onPressed: () => setState(() => _teams.remove(e.key))),
-                      ),
-                    )),
-                  ],
                 ]),
                 const SizedBox(height: AppSpacing.lg),
 
