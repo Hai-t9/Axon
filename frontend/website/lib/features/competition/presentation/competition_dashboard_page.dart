@@ -38,6 +38,15 @@ const Map<String, String> _phaseLabels = {
   '5': 'Finale & Leaderboard',
 };
 
+const Map<String, IconData> _phaseIcons = {
+  '0': Icons.hourglass_empty,
+  '1': Icons.cloud_upload_outlined,
+  '2': Icons.rate_review_outlined,
+  '3': Icons.rocket_launch_outlined,
+  '4': Icons.science_outlined,
+  '5': Icons.emoji_events_outlined,
+};
+
 class CompetitionDashboardPage extends ConsumerStatefulWidget {
   const CompetitionDashboardPage({super.key, required this.competitionId});
 
@@ -327,6 +336,12 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                         width: double.infinity,
                         child: Column(
                           children: [
+                            Icon(
+                              _phaseIcons[dashboard.phaseInfo.currentPhase] ?? Icons.circle,
+                              size: 40,
+                              color: AppColors.primaryDark,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
                             Text(
                               _phaseLabels[dashboard.phaseInfo.currentPhase] ?? dashboard.phaseInfo.currentPhase,
                               textAlign: TextAlign.center,
