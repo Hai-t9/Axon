@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from uuid import UUID
 
 
 class LabelBase(BaseModel):
@@ -15,7 +16,7 @@ class LabelUpdate(LabelBase):
 
 class LabelResponse(BaseModel):
     id: int
-    image_id: int
+    image_id: UUID
     label: str
     validated: bool
 

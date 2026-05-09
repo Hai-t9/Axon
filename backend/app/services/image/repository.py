@@ -30,7 +30,7 @@ class ImageRepository:
         self.db.commit()
         return db_image
 
-    def create_label_record(self, image_id: int, label_text: str):
+    def create_label_record(self, image_id: UUID, label_text: str):
         """Create a Label row in the label table tied to the uploaded image.
 
         This bridges the Image module and Danil's Label/Validation modules so that

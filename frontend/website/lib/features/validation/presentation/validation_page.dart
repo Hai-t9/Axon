@@ -24,7 +24,7 @@ class ValidationPage extends ConsumerStatefulWidget {
 
 class _ValidationPageState extends ConsumerState<ValidationPage>
     with SingleTickerProviderStateMixin {
-  List<int> _imageIds = [];
+  List<String> _imageIds = [];
   int _currentIndex = 0;
   bool _isLoading = true;
   bool _isSubmitting = false;

@@ -43,7 +43,7 @@ class ValidationRepository {
 
   /// Fetches a single image's details (filepath, label, etc.)
   /// GET /images/:imageId
-  Future<ValidationImage> getImageDetails(int imageId) async {
+  Future<ValidationImage> getImageDetails(String imageId) async {
     final response = await _apiClient.getJson(
       '/images/$imageId',
       headers: _authHeaders(),
@@ -53,7 +53,7 @@ class ValidationRepository {
 
   /// Submits a validation vote for a specific image.
   /// POST /images/:imageId/validations
-  Future<ValidationVoteResponse> submitVote(int imageId, String label) async {
+  Future<ValidationVoteResponse> submitVote(String imageId, String label) async {
     final response = await _apiClient.postJson(
       '/images/$imageId/validations',
       {'label': label},
@@ -64,7 +64,7 @@ class ValidationRepository {
 
   /// Skips validation for a specific image.
   /// POST /images/:imageId/validations/skip
-  Future<void> skipImage(int imageId) async {
+  Future<void> skipImage(String imageId) async {
     await _apiClient.postJson(
       '/images/$imageId/validations/skip',
       {},

@@ -19,7 +19,7 @@ class ValidationService:
         counts = Counter(votes)
         return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
-    def _deterministic_shuffle(self, image_ids: list[int], participant_id: UUID) -> list[int]:
+    def _deterministic_shuffle(self, image_ids: list[UUID], participant_id: UUID) -> list[UUID]:
         shuffled = list(image_ids)
         random.Random(str(participant_id)).shuffle(shuffled)
         return shuffled
@@ -41,7 +41,7 @@ class ValidationService:
         threshold = self.repository.find_validation_threshold(comp_id) or 5
 
         # Initialize per-team buckets
-        team_assignments: dict[UUID, list[int]] = {team.id: [] for team in teams}
+        team_assignments: dict[UUID, list[UUID]] = {team.id: [] for team in teams}
 
         # Round-Robin: for each image, assign it threshold times across teams
         team_index = 0
@@ -70,9 +70,9 @@ class ValidationService:
         unvalidated_ids = self.repository.filter_unvalidated_images(image_ids)
         
         shuffled = self._deterministic_shuffle(unvalidated_ids, participant_id)
-        return {"image_ids": shuffled}
+        return {"image_ids": [str(img_id) for img_id in shuffled]}
 
-    def submit_vote(self, image_id: int, validator_id: UUID, label: str) -> dict:
+    def submit_vote(self, image_id: UUID, validator_id: UUID, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)
         if not vote:
             raise ValidationError("Vote could not be recorded")
@@ -96,7 +96,7 @@ class ValidationService:
 
         return {"validation_id": vote.id, "label": vote.label}
 
-    def skip_image(self, image_id: int, participant_id: UUID) -> dict:
+    def skip_image(self, image_id: UUID, participant_id: UUID) -> dict:
         """Handle image skip: remove from queue and increment skip count.
         If skip threshold is reached, auto-validate with original label."""
         comp_id = self.label_service.get_competition_id(image_id)
