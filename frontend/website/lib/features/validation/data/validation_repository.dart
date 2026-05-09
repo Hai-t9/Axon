@@ -52,6 +52,16 @@ class ValidationRepository {
     return ValidationVoteResponse.fromJson(response);
   }
 
+  /// Skips validation for a specific image.
+  /// POST /images/:imageId/validations/skip
+  Future<void> skipImage(int imageId) async {
+    await _apiClient.postJson(
+      '/images/$imageId/validations/skip',
+      {},
+      headers: _authHeaders(),
+    );
+  }
+
   /// Fetches images still pending validation.
   /// GET /competitions/:compId/validations/pending
   Future<List<ValidationPendingImage>> getPendingValidations(

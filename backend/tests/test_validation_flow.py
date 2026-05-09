@@ -42,6 +42,17 @@ def db_session():
         Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(autouse=True)
+def reset_validation_in_memory_store():
+    from app.services.validation import repository as validation_repo
+
+    validation_repo._memory_assignment_store.clear()
+    validation_repo._memory_assignment_expiry.clear()
+    yield
+    validation_repo._memory_assignment_store.clear()
+    validation_repo._memory_assignment_expiry.clear()
+
+
 @pytest.fixture()
 def client(db_session):
     def override_get_db():
@@ -440,6 +451,461 @@ def test_round_robin_assignment(db_session):
     # Check that all teams got the same images in the same order
     for team_id, expected in expected_assignments.items():
         assert team_assignments[team_id] == expected, f"Team {team_id} got {team_assignments[team_id]}, expected {expected}"
+
+
+def test_skip_image_removes_from_queue_and_increments_skip_count(client, db_session):
+    """Test that skipping an image removes it from the team's queue and increments skip count."""
+    # Setup: Create host, teams, images
+    host_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-host@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Host",
+        },
+    )
+    assert host_signup.status_code == 200
+    host_token = host_signup.json()["access_token"]
+    host_id = host_signup.json()["user"]["id"]
+
+    participant_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-participant@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Participant",
+        },
+    )
+    assert participant_signup.status_code == 200
+    participant_token = participant_signup.json()["access_token"]
+    participant_id = participant_signup.json()["user"]["id"]
+
+    competition_response = client.post(
+        "/api/v1/competitions",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={"name": "Skip Test Competition", "description": "Test skip logic"},
+    )
+    assert competition_response.status_code == 200
+    competition_id = UUID(competition_response.json()["id"])
+
+    # Set validation threshold to 2
+    config = db_session.query(Config).filter(Config.competition_id == competition_id).first()
+    if config is None:
+        config = Config(competition_id=competition_id, max_validations=2)
+        db_session.add(config)
+    else:
+        config.max_validations = 2
+    db_session.commit()
+
+    # Create team with host and participant
+    team_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={
+            "name": "Skip Test Team",
+            "user_emails": {
+                "skip-host@example.com": 0,
+                "skip-participant@example.com": 0,
+            },
+        },
+    )
+    assert team_response.status_code == 200
+    team_id = UUID(team_response.json()["id"])
+
+    # Create 3 images
+    images = []
+    for idx in range(3):
+        image = _create_image(db_session, str(team_id), host_id, f"skip-test-{idx}")
+        _create_label(db_session, image.id, "cat")
+        images.append(image)
+
+    # Generate assignments
+    gen_response = client.post(
+        f"/api/v1/competitions/{competition_id}/validations/generate",
+        headers={"Authorization": f"Bearer {host_token}"},
+    )
+    assert gen_response.status_code == 200
+
+    # Get validation list
+    list_response = client.get(
+        f"/api/v1/competitions/{competition_id}/validations/list",
+        headers={"Authorization": f"Bearer {participant_token}"},
+    )
+    assert list_response.status_code == 200
+    initial_list = list_response.json()["image_ids"]
+    # With round-robin: 3 images × 2 threshold = 6 assignments to the team
+    assert len(initial_list) == 6, f"Should have 6 images (3 images × threshold 2), got {initial_list}"
+
+    # Skip the first unique image in the list
+    skip_target = initial_list[0]
+    skip_response = client.post(
+        f"/api/v1/images/{skip_target}/validations/skip",
+        headers={"Authorization": f"Bearer {participant_token}"},
+    )
+    assert skip_response.status_code == 200
+    skip_data = skip_response.json()
+    assert skip_data["skip_count"] == 1
+    assert skip_data["auto_validated"] is False  # Threshold is 2, so not auto-validated yet
+
+    # Get validation list again - skipped image should be gone
+    list_response2 = client.get(
+        f"/api/v1/competitions/{competition_id}/validations/list",
+        headers={"Authorization": f"Bearer {participant_token}"},
+    )
+    assert list_response2.status_code == 200
+    updated_list = list_response2.json()["image_ids"]
+    # After skipping one instance of the image, it's removed from DB, so all instances disappear
+    assert skip_target not in updated_list, "Skipped image should be removed from queue"
+
+
+def test_skip_image_auto_validates_at_threshold(client, db_session):
+    """Test that after N skips, the image is auto-validated with original label."""
+    # Setup: Create host, competitor, images
+    host_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-auto-host@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Auto Host",
+        },
+    )
+    assert host_signup.status_code == 200
+    host_token = host_signup.json()["access_token"]
+    host_id = host_signup.json()["user"]["id"]
+
+    # Create 2 competitors to do skips
+    comp1_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-auto-comp1@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Auto Comp1",
+        },
+    )
+    assert comp1_signup.status_code == 200
+    comp1_token = comp1_signup.json()["access_token"]
+
+    comp2_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-auto-comp2@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Auto Comp2",
+        },
+    )
+    assert comp2_signup.status_code == 200
+    comp2_token = comp2_signup.json()["access_token"]
+    comp2_id = comp2_signup.json()["user"]["id"]
+
+    competition_response = client.post(
+        "/api/v1/competitions",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={"name": "Skip Auto Validation Competition", "description": "Test"},
+    )
+    assert competition_response.status_code == 200
+    competition_id = UUID(competition_response.json()["id"])
+
+    # Set validation threshold to 2
+    config = db_session.query(Config).filter(Config.competition_id == competition_id).first()
+    if config is None:
+        config = Config(competition_id=competition_id, max_validations=2)
+        db_session.add(config)
+    else:
+        config.max_validations = 2
+    db_session.commit()
+
+    # Create teams
+    team1_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={
+            "name": "Skip Auto Team 1",
+            "user_emails": {"skip-auto-comp1@example.com": 0},
+        },
+    )
+    assert team1_response.status_code == 200
+    team1_id = UUID(team1_response.json()["id"])
+
+    team2_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={
+            "name": "Skip Auto Team 2",
+            "user_emails": {"skip-auto-comp2@example.com": 0},
+        },
+    )
+    assert team2_response.status_code == 200
+    team2_id = UUID(team2_response.json()["id"])
+
+    # Create image
+    image = _create_image(db_session, str(team1_id), host_id, "skip-auto-test")
+    _create_label(db_session, image.id, "original_label")
+    target_image_id = image.id
+
+    # Generate assignments (both teams will get the image to validate)
+    gen_response = client.post(
+        f"/api/v1/competitions/{competition_id}/validations/generate",
+        headers={"Authorization": f"Bearer {host_token}"},
+    )
+    assert gen_response.status_code == 200
+
+    # First skip from comp1
+    skip1 = client.post(
+        f"/api/v1/images/{target_image_id}/validations/skip",
+        headers={"Authorization": f"Bearer {comp1_token}"},
+    )
+    assert skip1.status_code == 200
+    assert skip1.json()["skip_count"] == 1
+    assert skip1.json()["auto_validated"] is False
+
+    # Check image is not yet validated
+    label_entry = db_session.query(Label).filter(Label.image_id == target_image_id).first()
+    assert label_entry.validated is False
+
+    # Second skip from comp2 (reaches threshold)
+    skip2 = client.post(
+        f"/api/v1/images/{target_image_id}/validations/skip",
+        headers={"Authorization": f"Bearer {comp2_token}"},
+    )
+    assert skip2.status_code == 200
+    assert skip2.json()["skip_count"] == 2
+    assert skip2.json()["auto_validated"] is True
+
+    # Check image is now validated with original label
+    db_session.refresh(label_entry)
+    assert label_entry.validated is True
+    assert label_entry.label == "original_label"
+
+
+def test_skip_image_not_in_queue_returns_error(client, db_session):
+    """Test that skipping an image not in the participant's queue returns an error."""
+    host_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-error-host@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Error Host",
+        },
+    )
+    assert host_signup.status_code == 200
+    host_token = host_signup.json()["access_token"]
+    host_id = host_signup.json()["user"]["id"]
+
+    other_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-error-other@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Error Other",
+        },
+    )
+    assert other_signup.status_code == 200
+    other_token = other_signup.json()["access_token"]
+    other_id = other_signup.json()["user"]["id"]
+
+    participant_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "skip-error-participant@example.com",
+            "password": "Secure1234",
+            "full_name": "Skip Error Participant",
+        },
+    )
+    assert participant_signup.status_code == 200
+    participant_token = participant_signup.json()["access_token"]
+
+    competition_response = client.post(
+        "/api/v1/competitions",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={"name": "Skip Error Competition", "description": "Test"},
+    )
+    assert competition_response.status_code == 200
+    competition_id = UUID(competition_response.json()["id"])
+
+    # Create team with host and participant
+    team_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={
+            "name": "Skip Error Team",
+            "user_emails": {
+                "skip-error-host@example.com": 0,
+                "skip-error-participant@example.com": 0,
+            },
+        },
+    )
+    assert team_response.status_code == 200
+    team_id = UUID(team_response.json()["id"])
+
+    # Create image in other team
+    other_team_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={
+            "name": "Skip Error Other Team",
+            "user_emails": {"skip-error-other@example.com": 0},
+        },
+    )
+    assert other_team_response.status_code == 200
+    other_team_id = UUID(other_team_response.json()["id"])
+
+    other_image = _create_image(db_session, str(other_team_id), other_id, "skip-error-other")
+    _create_label(db_session, other_image.id, "dog")
+
+    # Try to skip image that's not in participant's queue
+    skip_response = client.post(
+        f"/api/v1/images/{other_image.id}/validations/skip",
+        headers={"Authorization": f"Bearer {participant_token}"},
+    )
+    assert skip_response.status_code == 400
+    assert "not in your validation queue" in skip_response.json()["detail"]
+
+
+def test_vote_plus_skip_reaches_threshold_and_finalizes(client, db_session):
+    """Test mixed interactions: one vote + one skip reaches threshold and finalizes."""
+    host_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "mix-host@example.com",
+            "password": "Secure1234",
+            "full_name": "Mix Host",
+        },
+    )
+    assert host_signup.status_code == 200
+    host_token = host_signup.json()["access_token"]
+    host_id = host_signup.json()["user"]["id"]
+
+    voter_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "mix-voter@example.com",
+            "password": "Secure1234",
+            "full_name": "Mix Voter",
+        },
+    )
+    assert voter_signup.status_code == 200
+    voter_token = voter_signup.json()["access_token"]
+
+    skipper_signup = client.post(
+        "/api/v1/register/signup",
+        json={
+            "email": "mix-skipper@example.com",
+            "password": "Secure1234",
+            "full_name": "Mix Skipper",
+        },
+    )
+    assert skipper_signup.status_code == 200
+    skipper_token = skipper_signup.json()["access_token"]
+
+    competition_response = client.post(
+        "/api/v1/competitions",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={"name": "Mixed Vote Skip Competition", "description": "Test"},
+    )
+    assert competition_response.status_code == 200
+    competition_id = UUID(competition_response.json()["id"])
+
+    config = db_session.query(Config).filter(Config.competition_id == competition_id).first()
+    if config is None:
+        config = Config(competition_id=competition_id, max_validations=2)
+        db_session.add(config)
+    else:
+        config.max_validations = 2
+    db_session.commit()
+
+    team1_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={
+            "name": "Mixed Team 1",
+            "user_emails": {"mix-voter@example.com": 0},
+        },
+    )
+    assert team1_response.status_code == 200
+    team1_id = UUID(team1_response.json()["id"])
+
+    team2_response = client.post(
+        f"/api/v1/competitions/{competition_id}/teams",
+        headers={"Authorization": f"Bearer {host_token}"},
+        json={
+            "name": "Mixed Team 2",
+            "user_emails": {"mix-skipper@example.com": 0},
+        },
+    )
+    assert team2_response.status_code == 200
+
+    image = _create_image(db_session, str(team1_id), host_id, "mixed-vote-skip")
+    _create_label(db_session, image.id, "original_label")
+    target_image_id = image.id
+
+    generate_response = client.post(
+        f"/api/v1/competitions/{competition_id}/validations/generate",
+        headers={"Authorization": f"Bearer {host_token}"},
+    )
+    assert generate_response.status_code == 200
+
+    vote_response = client.post(
+        f"/api/v1/images/{target_image_id}/validations",
+        headers={"Authorization": f"Bearer {voter_token}"},
+        json={"label": "cat"},
+    )
+    assert vote_response.status_code == 200
+    assert vote_response.json()["label"] == "cat"
+
+    interim_label = db_session.query(Label).filter(Label.image_id == target_image_id).first()
+    assert interim_label is not None
+    assert interim_label.validated is False
+
+    skip_response = client.post(
+        f"/api/v1/images/{target_image_id}/validations/skip",
+        headers={"Authorization": f"Bearer {skipper_token}"},
+    )
+    assert skip_response.status_code == 200
+    assert skip_response.json()["skip_count"] == 1
+    assert skip_response.json()["auto_validated"] is True
+
+    db_session.refresh(interim_label)
+    assert interim_label.validated is True
+    assert interim_label.label == "cat"
+
+
+def test_filter_unvalidated_images(db_session):
+    """Test that filter_unvalidated_images correctly filters out validated images."""
+    from app.services.validation.repository import ValidationRepository
+
+    competition = Competition(name="Filter Test", description="Test")
+    db_session.add(competition)
+    db_session.commit()
+    db_session.refresh(competition)
+
+    team = Team(name="Filter Team", comp_id=competition.id, user_emails={"filter@test.com": 0})
+    db_session.add(team)
+    db_session.commit()
+    db_session.refresh(team)
+
+    # Create 5 images, validate 2, keep 3 unvalidated
+    image_ids = []
+    for idx in range(5):
+        image = Image(
+            team_id=team.id,
+            author_id=uuid4(),
+            filepath=f"/tmp/filter-{idx}.jpg",
+            image_hash=f"filter-hash-{idx}",
+        )
+        db_session.add(image)
+        db_session.commit()
+        db_session.refresh(image)
+        image_ids.append(image.id)
+
+        label = Label(image_id=image.id, label="test", validated=(idx < 2))  # First 2 are validated
+        db_session.add(label)
+        db_session.commit()
+
+    repository = ValidationRepository(db_session)
+    filtered = repository.filter_unvalidated_images(image_ids)
+
+    assert len(filtered) == 3, "Should have 3 unvalidated images"
+    assert set(filtered) == set(image_ids[2:]), "Should only include unvalidated images"
 
 
 if __name__ == "__main__":
