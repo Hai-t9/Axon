@@ -20,10 +20,21 @@ class CompetitionRepository:
         return self.db.query(Competition).filter(Competition.name == name).first()
 
     def list_competitions_for_user(self, user_id: UUID, offset: int, limit: int) -> list[Competition]:
+        from sqlalchemy import cast, String, or_
+        from app.models.model_team import Team
+
+        user_id_str = str(user_id)
+        role_subq = self.db.query(Role.competition_id).filter(Role.user_id == user_id)
+        team_subq = self.db.query(Team.comp_id).filter(cast(Team.user_ids, String).like(f'%{user_id_str}%'))
+        
         return (
             self.db.query(Competition)
-            .join(Role, Role.competition_id == Competition.id)
-            .filter(Role.user_id == user_id)
+            .filter(
+                or_(
+                    Competition.id.in_(role_subq),
+                    Competition.id.in_(team_subq)
+                )
+            )
             .order_by(Competition.id.desc())
             .offset(offset)
             .limit(limit)
@@ -31,10 +42,21 @@ class CompetitionRepository:
         )
 
     def count_competitions_for_user(self, user_id: UUID) -> int:
+        from sqlalchemy import cast, String, or_
+        from app.models.model_team import Team
+
+        user_id_str = str(user_id)
+        role_subq = self.db.query(Role.competition_id).filter(Role.user_id == user_id)
+        team_subq = self.db.query(Team.comp_id).filter(cast(Team.user_ids, String).like(f'%{user_id_str}%'))
+        
         return int(
             self.db.query(func.count(Competition.id))
-            .join(Role, Role.competition_id == Competition.id)
-            .filter(Role.user_id == user_id)
+            .filter(
+                or_(
+                    Competition.id.in_(role_subq),
+                    Competition.id.in_(team_subq)
+                )
+            )
             .scalar() or 0
         )
 
