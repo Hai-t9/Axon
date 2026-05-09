@@ -111,21 +111,21 @@ class CompetitionService {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> validateImage(String competitionId, int imageId) async {
+  Future<Map<String, dynamic>> validateImage(String competitionId, String imageId) async {
     final response = await _dio.post(
       '/api/v1/competitions/$competitionId/data-validation/images/$imageId/validate',
     );
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> skipImage(String competitionId, int imageId) async {
+  Future<Map<String, dynamic>> skipImage(String competitionId, String imageId) async {
     final response = await _dio.post(
       '/api/v1/competitions/$competitionId/data-validation/images/$imageId/skip',
     );
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> correctLabel(String competitionId, int imageId, String label) async {
+  Future<Map<String, dynamic>> correctLabel(String competitionId, String imageId, String label) async {
     final response = await _dio.post(
       '/api/v1/competitions/$competitionId/data-validation/images/$imageId/correct',
       data: {'label': label},
