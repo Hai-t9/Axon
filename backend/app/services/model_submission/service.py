@@ -89,7 +89,7 @@ class ModelSubmissionService:
             raise ValidationError("Uploaded file is empty.")
 
         # 2. Validate team eligibility and competition phase
-        self._validate_team_eligibility(team_id, competition_id, user_id)
+        team = self._validate_team_eligibility(team_id, competition_id, user_id)
         self._validate_submission_phase(competition_id)
 
         # 3. Fetch organizer's spec (falls back to defaults if not set)
@@ -113,7 +113,9 @@ class ModelSubmissionService:
 
         # 7. Store zip
         size_mb = len(file_content) / (1024 * 1024)
-        storage_path = self._store_submission(competition_id, team_id, next_version, file.filename, file_content)
+        comp_name = team.competition.name
+        team_name = team.name
+        storage_path = self._store_submission(competition_id, team_id, comp_name, team_name, next_version, file.filename, file_content)
 
         model = self.repository.save_model_record(
             team_id=team_id,
@@ -158,12 +160,14 @@ class ModelSubmissionService:
 
     def _validate_team_eligibility(
         self, team_id: UUID, competition_id: UUID, user_id: UUID
-    ) -> None:
+    ):
         """
         Ensure:
           - The team exists
           - The team belongs to this competition
           - The submitting user is a member of that team
+
+        Returns the Team object for further use.
         """
         team = self.repository.find_team(team_id)
         if not team:
@@ -185,6 +189,8 @@ class ModelSubmissionService:
                 f"You are not a member of team {team_id}. "
                 "Only team members may submit models."
             )
+
+        return team
 
     def _validate_submission_phase(self, competition_id: UUID) -> None:
         """
@@ -470,8 +476,8 @@ class ModelSubmissionService:
     #  Storage & scheduling helpers                                        #
     # ------------------------------------------------------------------ #
 
-    def _store_submission(self, competition_id: UUID, team_id: UUID, version: int, original_filename: str, content: bytes) -> str:
-        object_name = submission_key(competition_id, team_id, version, original_filename)
+    def _store_submission(self, competition_id: UUID, team_id: UUID, comp_name: str, team_name: str, version: int, original_filename: str, content: bytes) -> str:
+        object_name = submission_key(competition_id, team_id, comp_name, team_name, version, original_filename)
         storage_service.upload_file(content, object_name)
         return object_name
 

@@ -9,6 +9,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.storage.paths import image_local_path
+
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -67,14 +69,14 @@ def _to_uuid(value) -> UUID:
     return UUID(str(value))
 
 
-def _create_image(db_session, team_id, author_id, comp_id=None, label=None) -> Image:
+def _create_image(db_session, team_id, author_id, comp_id=None, comp_name=None, team_name=None, label=None) -> Image:
     team_uuid = _to_uuid(team_id)
     author_uuid = _to_uuid(author_id)
     filename = f"img_{team_uuid}_{author_uuid}.jpg"
 
-    if comp_id is not None:
+    if comp_id is not None and comp_name and team_name:
         safe_label = label.replace(" ", "_").lower() if label else "unlabeled"
-        filepath = f"uploads/{comp_id}/images/{team_uuid}/{safe_label}/{filename}"
+        filepath = image_local_path(UUID(str(comp_id)), team_uuid, comp_name, team_name, safe_label, filename)
     else:
         filepath = f"uploads/images/{filename}"
 
@@ -126,7 +128,8 @@ def test_label_flow_create_get_update_validate(client, db_session):
     old_filepath, new_filepath = None, None
     try:
         image = _create_image(db_session, team_id=team_id, author_id=host_id,
-                               comp_id=competition_id, label="cat")
+                               comp_id=competition_id, comp_name="Label Test Competition",
+                               team_name="Label Test Team", label="cat")
         old_filepath = image.filepath
 
         create_response = client.post(

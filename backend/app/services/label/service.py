@@ -49,14 +49,16 @@ class LabelService:
 
         comp_id = image.team.comp_id
         team_id = image.team_id
+        comp_name = image.team.competition.name
+        team_name = image.team.name
         filename = os.path.basename(image.filepath)
 
-        old_local = image_local_path(comp_id, team_id, old_label, filename)
-        new_local = image_local_path(comp_id, team_id, new_label, filename)
+        old_local = image_local_path(comp_id, team_id, comp_name, team_name, old_label, filename)
+        new_local = image_local_path(comp_id, team_id, comp_name, team_name, new_label, filename)
 
         if os.path.exists(old_local):
-            old_s3 = image_key(comp_id, team_id, old_label, filename)
-            new_s3 = image_key(comp_id, team_id, new_label, filename)
+            old_s3 = image_key(comp_id, team_id, comp_name, team_name, old_label, filename)
+            new_s3 = image_key(comp_id, team_id, comp_name, team_name, new_label, filename)
 
             os.makedirs(os.path.dirname(new_local), exist_ok=True)
 
