@@ -60,11 +60,11 @@ class ModelSubmissionService:
 
     async def submit_model(
         self,
-        team_id: int,
-        competition_id: int,
+        team_id: UUID,
+        competition_id: UUID,
         file: UploadFile,
         metadata: dict,
-        user_id: int,
+        user_id: UUID,
     ) -> dict:
         """
         Full submission flow:
@@ -156,7 +156,7 @@ class ModelSubmissionService:
     # ------------------------------------------------------------------ #
 
     def _validate_team_eligibility(
-        self, team_id: int, competition_id: int, user_id: int
+        self, team_id: UUID, competition_id: UUID, user_id: UUID
     ) -> None:
         """
         Ensure:
@@ -180,7 +180,7 @@ class ModelSubmissionService:
                 "Only team members may submit models."
             )
 
-    def _validate_submission_phase(self, competition_id: int) -> None:
+    def _validate_submission_phase(self, competition_id: UUID) -> None:
         """
         Ensure the competition is in the 'evaluation' phase.
         Submissions are only accepted during that phase.
@@ -448,7 +448,7 @@ class ModelSubmissionService:
     #  Config spec helpers                                                 #
     # ------------------------------------------------------------------ #
 
-    def _get_model_spec(self, competition_id: int) -> dict:
+    def _get_model_spec(self, competition_id: UUID) -> dict:
         """
         Load the organizer's model_spec from config.
         Falls back to DEFAULT_MODEL_SPEC if not configured yet.
@@ -506,20 +506,20 @@ class ModelSubmissionService:
         return model
 
     def get_models_by_competition(
-        self, comp_id: int, page: int = 1, limit: int = 20
+        self, comp_id: UUID, page: int = 1, limit: int = 20
     ) -> dict:
         skip = (page - 1) * limit
         models, total = self.repository.find_by_competition(comp_id, skip, limit)
         return {"models": models, "total": total, "page": page, "limit": limit}
 
-    def get_team_models(self, team_id: int, page: int = 1, limit: int = 20) -> dict:
+    def get_team_models(self, team_id: UUID, page: int = 1, limit: int = 20) -> dict:
         """List all models submitted by a team across all competitions."""
         skip = (page - 1) * limit
         models, total = self.repository.find_all_by_team(team_id, skip, limit)
         return {"models": models, "total": total, "page": page, "limit": limit}
 
     def get_team_model_history(
-        self, team_id: int, comp_id: int, page: int = 1, limit: int = 20
+        self, team_id: UUID, comp_id: UUID, page: int = 1, limit: int = 20
     ) -> dict:
         skip = (page - 1) * limit
         models, total = self.repository.find_by_team(team_id, comp_id, skip, limit)
@@ -565,6 +565,6 @@ class ModelSubmissionService:
 
         return self.repository.delete_model(model_id)
 
-    def get_competition_model_spec(self, competition_id: int) -> dict:
+    def get_competition_model_spec(self, competition_id: UUID) -> dict:
         """Return the active model_spec for a competition (useful for participants to preview)."""
         return self._get_model_spec(competition_id)

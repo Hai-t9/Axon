@@ -19,15 +19,15 @@ class ModelSubmissionRepository:
 
     def save_model_record(
         self,
-        team_id: int,
-        competition_id: int,
+        team_id: UUID,
+        competition_id: UUID,
         filename: str,
         storage_path: str,
         model_hash: str,
         format: str,
         framework_version: str,
         size_mb: float,
-        submitted_by: int,
+        submitted_by: UUID,
         version: int,
     ) -> Model:
         """Save a new model submission record to the database"""
@@ -78,7 +78,7 @@ class ModelSubmissionRepository:
         return self.db.query(Model).filter(Model.model_hash == model_hash).first()
 
     def find_by_team(
-        self, team_id: int, comp_id: int, skip: int = 0, limit: int = 100
+        self, team_id: UUID, comp_id: UUID, skip: int = 0, limit: int = 100
     ) -> Tuple[List[Model], int]:
         """Find all models submitted by a team in a competition"""
         query = self.db.query(Model).filter(
@@ -89,7 +89,7 @@ class ModelSubmissionRepository:
         return models, total
 
     def find_by_competition(
-        self, comp_id: int, skip: int = 0, limit: int = 100
+        self, comp_id: UUID, skip: int = 0, limit: int = 100
     ) -> Tuple[List[Model], int]:
         """Find all models in a competition"""
         query = self.db.query(Model).filter(Model.competition_id == comp_id)
@@ -97,7 +97,7 @@ class ModelSubmissionRepository:
         models = query.offset(skip).limit(limit).all()
         return models, total
 
-    def find_latest_by_team(self, team_id: int, comp_id: int) -> Optional[Model]:
+    def find_latest_by_team(self, team_id: UUID, comp_id: UUID) -> Optional[Model]:
         """Find the latest model version submitted by a team"""
         return (
             self.db.query(Model)
@@ -106,7 +106,7 @@ class ModelSubmissionRepository:
             .first()
         )
 
-    def count_by_team(self, team_id: int, comp_id: int) -> int:
+    def count_by_team(self, team_id: UUID, comp_id: UUID) -> int:
         """Count models submitted by a team"""
         return (
             self.db.query(func.count(Model.id))
@@ -157,7 +157,7 @@ class ModelSubmissionRepository:
         )
 
     def get_team_submission_history(
-        self, team_id: int, comp_id: int
+        self, team_id: UUID, comp_id: UUID
     ) -> Tuple[List[Model], dict]:
         """Get all model submissions from a team with version stats"""
         models, total = self.find_by_team(team_id, comp_id, skip=0, limit=1000)
@@ -175,22 +175,22 @@ class ModelSubmissionRepository:
 
         return models, versions
 
-    def find_competition_config(self, comp_id: int) -> Optional[Config]:
+    def find_competition_config(self, comp_id: UUID) -> Optional[Config]:
         """Fetch the competition config (contains model_spec set by the organizer)"""
         return self.db.query(Config).filter(Config.competition_id == comp_id).first()
 
-    def find_team(self, team_id: int) -> Optional[Team]:
+    def find_team(self, team_id: UUID) -> Optional[Team]:
         """Fetch a team by ID (used for eligibility checks)"""
         return self.db.query(Team).filter(Team.id == team_id).first()
 
-    def find_phase(self, comp_id: int) -> Optional[PhaseLog]:
+    def find_phase(self, comp_id: UUID) -> Optional[PhaseLog]:
         """Fetch the current phase log for a competition"""
         return (
             self.db.query(PhaseLog).filter(PhaseLog.competition_id == comp_id).first()
         )
 
     def find_all_by_team(
-        self, team_id: int, skip: int = 0, limit: int = 100
+        self, team_id: UUID, skip: int = 0, limit: int = 100
     ) -> Tuple[List[Model], int]:
         """Find all models submitted by a team across all competitions"""
         query = self.db.query(Model).filter(Model.team_id == team_id)
