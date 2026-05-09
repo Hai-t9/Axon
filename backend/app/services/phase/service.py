@@ -1,11 +1,21 @@
 from datetime import datetime
 from typing import Any, Dict, List
+from uuid import UUID
 
 from app.core.exceptions import NotFoundError, ValidationError
 
 from .repository import PhaseRepository
 
-_PHASE_ORDER = ["creation", "active", "evaluation", "complete"]
+_PHASE_ORDER = ["0", "1", "2", "3", "4", "5"]
+
+PHASE_LABELS = {
+    "0": "Awaiting Initialisation",
+    "1": "Data Collection",
+    "2": "Data Validation",
+    "3": "Model Submission",
+    "4": "Model Evaluation",
+    "5": "Finale & Leaderboard",
+}
 
 
 class PhaseService:
@@ -20,7 +30,7 @@ class PhaseService:
             return phase_dates
         return {}
 
-    def _ensure_phase_log(self, competition_id: int):
+    def _ensure_phase_log(self, competition_id: UUID):
         entry = self.repository.get_by_competition_id(competition_id)
         if entry:
             return entry
@@ -30,7 +40,7 @@ class PhaseService:
             "deadlines": {},
             "timeline": [
                 {
-                    "phase": "creation",
+                    "phase": "0",
                     "start": self._now_iso(),
                     "deadline": None,
                     "status": "in_progress",
@@ -38,7 +48,7 @@ class PhaseService:
             ],
             "history": [],
         }
-        return self.repository.create(competition_id, "creation", phase_dates)
+        return self.repository.create(competition_id, "0", phase_dates)
 
     def _record_history(
         self,
@@ -46,7 +56,7 @@ class PhaseService:
         action: str,
         from_phase: str | None,
         to_phase: str | None,
-        performed_by: int,
+        performed_by: Any,
         details: Dict[str, Any] | None = None,
     ) -> None:
         history = phase_dates.setdefault("history", [])
@@ -55,7 +65,7 @@ class PhaseService:
                 "action": action,
                 "from_phase": from_phase,
                 "to_phase": to_phase,
-                "performed_by": performed_by,
+                "performed_by": str(performed_by),
                 "details": details or {},
                 "performed_at": self._now_iso(),
             }
@@ -79,7 +89,7 @@ class PhaseService:
             }
         )
 
-    def get_current_phase(self, competition_id: int):
+    def get_current_phase(self, competition_id: UUID):
         entry = self._ensure_phase_log(competition_id)
         return entry
 
@@ -95,7 +105,7 @@ class PhaseService:
             return {"valid": False, "message": "Invalid phase transition"}
         return {"valid": True, "message": "Transition allowed"}
 
-    def advance_phase(self, competition_id: int, user_id: int) -> dict:
+    def advance_phase(self, competition_id: UUID, user_id: int) -> dict:
         entry = self._ensure_phase_log(competition_id)
         current_phase = entry.current_phase
 
@@ -131,8 +141,49 @@ class PhaseService:
             "transitioned_at": datetime.utcnow(),
         }
 
+    def decrement_phase(self, competition_id: UUID, user_id: int) -> dict:
+        entry = self._ensure_phase_log(competition_id)
+        current_phase = entry.current_phase
+
+        if current_phase not in _PHASE_ORDER:
+            raise ValidationError("Unknown current phase")
+
+        current_index = _PHASE_ORDER.index(current_phase)
+        if current_index <= 0:
+            raise ValidationError("Competition already in initial phase")
+
+        prev_phase = _PHASE_ORDER[current_index - 1]
+        phase_dates = self._ensure_phase_dates(entry.phase_dates)
+
+        # Mark current phase timeline entry as rolled back
+        timeline = phase_dates.setdefault("timeline", [])
+        for entry_ in timeline:
+            if entry_.get("phase") == current_phase:
+                entry_["status"] = "rolled_back"
+            if entry_.get("phase") == prev_phase:
+                entry_["status"] = "in_progress"
+                entry_["deadline"] = phase_dates.get("deadlines", {}).get(prev_phase)
+
+        self._record_history(
+            phase_dates,
+            "decrement",
+            current_phase,
+            prev_phase,
+            user_id,
+        )
+
+        self.repository.update(
+            entry, {"current_phase": prev_phase, "phase_dates": phase_dates}
+        )
+
+        return {
+            "current_phase": prev_phase,
+            "previous_phase": current_phase,
+            "transitioned_at": datetime.utcnow(),
+        }
+
     def override_phase(
-        self, competition_id: int, target_phase: str, reason: str | None, user_id: int
+        self, competition_id: UUID, target_phase: str, reason: str | None, user_id: int
     ) -> dict:
         if target_phase not in _PHASE_ORDER:
             raise ValidationError("Unknown target phase")
@@ -161,7 +212,10 @@ class PhaseService:
             "transitioned_at": datetime.utcnow(),
         }
 
-    def adjust_phase_deadline(self, competition_id: int, new_deadline: datetime, user_id: int):
+    def adjust_phase_deadline(self, competition_id: UUID, new_deadline: datetime, user_id: int):
+        # Strip timezone info — the system uses naive UTC datetimes
+        if new_deadline.tzinfo is not None:
+            new_deadline = new_deadline.replace(tzinfo=None)
         if new_deadline <= datetime.utcnow():
             raise ValidationError("Deadline must be in the future")
 
@@ -190,7 +244,7 @@ class PhaseService:
             "adjusted_at": datetime.utcnow(),
         }
 
-    def set_transition_mode(self, competition_id: int, mode: str, user_id: int):
+    def set_transition_mode(self, competition_id: UUID, mode: str, user_id: int):
         if mode not in {"auto", "manual"}:
             raise ValidationError("Transition mode must be 'auto' or 'manual'")
 
@@ -209,12 +263,12 @@ class PhaseService:
         self.repository.update(entry, {"phase_dates": phase_dates})
         return {"competition_id": competition_id, "transition_mode": mode}
 
-    def get_timeline(self, competition_id: int) -> List[Dict[str, Any]]:
+    def get_timeline(self, competition_id: UUID) -> List[Dict[str, Any]]:
         entry = self._ensure_phase_log(competition_id)
         phase_dates = self._ensure_phase_dates(entry.phase_dates)
         return phase_dates.get("timeline", [])
 
-    def get_history(self, competition_id: int) -> List[Dict[str, Any]]:
+    def get_history(self, competition_id: UUID) -> List[Dict[str, Any]]:
         entry = self._ensure_phase_log(competition_id)
         phase_dates = self._ensure_phase_dates(entry.phase_dates)
         return phase_dates.get("history", [])

@@ -8,6 +8,13 @@ final dashboardProvider = AsyncNotifierProviderFamily<
   DashboardController.new,
 );
 
+final competitionRoleProvider =
+    FutureProvider.family<String?, String>((ref, competitionId) async {
+  return ref
+      .watch(competitionRepositoryProvider)
+      .getUserRole(competitionId);
+});
+
 class DashboardController extends FamilyAsyncNotifier<DashboardBase, String> {
   @override
   Future<DashboardBase> build(String competitionId) async {

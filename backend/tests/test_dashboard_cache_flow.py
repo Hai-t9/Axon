@@ -124,7 +124,7 @@ def test_dashboard_cache_endpoints_flow(client, db_session):
     team_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Cache Team", "user_emails": {"host@example.com": True}},
+        json={"name": "Cache Team", "user_emails": {"host@example.com": 0}},
     )
     assert team_response.status_code == 200
     team_id = team_response.json()["id"]
@@ -132,7 +132,7 @@ def test_dashboard_cache_endpoints_flow(client, db_session):
     db_session.add(
         PhaseLog(
             competition_id=UUID(competition_id),
-            current_phase="active",
+            current_phase="1",
             phase_dates={"timeline": [], "history": []},
         )
     )
@@ -151,7 +151,7 @@ def test_dashboard_cache_endpoints_flow(client, db_session):
         headers={"Authorization": f"Bearer {host_token}"},
     )
     assert cached_response.status_code == 200
-    assert cached_response.json()["data"]["phase_info"]["current_phase"] == "active"
+    assert cached_response.json()["data"]["phase_info"]["current_phase"] == "1"
 
     clear_response = client.delete(
         f"/api/v1/competitions/{competition_id}/dashboard/cache",

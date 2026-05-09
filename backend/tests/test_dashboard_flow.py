@@ -99,7 +99,7 @@ def test_dashboard_flow_returns_competition_summary(client, db_session):
     team_one_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Alpha Team", "user_emails": {"host@example.com": True}},
+        json={"name": "Alpha Team", "user_emails": {"host@example.com": 0}},
     )
     assert team_one_response.status_code == 200
     team_one_id = team_one_response.json()["id"]
@@ -107,7 +107,7 @@ def test_dashboard_flow_returns_competition_summary(client, db_session):
     team_two_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Beta Team", "user_emails": {"host@example.com": True}},
+        json={"name": "Beta Team", "user_emails": {"host@example.com": 0}},
     )
     assert team_two_response.status_code == 200
     team_two_id = team_two_response.json()["id"]
@@ -115,7 +115,7 @@ def test_dashboard_flow_returns_competition_summary(client, db_session):
     db_session.add(
         PhaseLog(
             competition_id=UUID(competition_id),
-            current_phase="active",
+            current_phase="1",
             phase_dates={"timeline": [], "history": []},
         )
     )
@@ -131,7 +131,7 @@ def test_dashboard_flow_returns_competition_summary(client, db_session):
     assert dashboard_response.status_code == 200
     payload = dashboard_response.json()
 
-    assert payload["phase_info"]["current_phase"] == "active"
+    assert payload["phase_info"]["current_phase"] == "1"
     assert payload["config"]["competition_id"] == competition_id
     assert payload["image_stats"] == {"total": 2, "verified": 1, "on_hold": 1}
     assert payload["team_info"]["total"] == 2

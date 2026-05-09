@@ -96,6 +96,8 @@ def _build_expected_validation_assignments(db_session, competition_id: UUID) -> 
     - For each image, assign it threshold times across teams in round-robin fashion
     - Return the per-team master lists and per-participant shuffled lists
     """
+    from sqlalchemy import func
+    from app.models import User
     from app.services.validation.repository import ValidationRepository
 
     repository = ValidationRepository(db_session)
@@ -120,20 +122,14 @@ def _build_expected_validation_assignments(db_session, competition_id: UUID) -> 
     # Per-participant assignments (shuffled)
     participant_assignments: dict[str, list[int]] = {}
     for team in teams:
-        from app.models import User
-
-        email_keys = list((team.user_emails or {}).keys())
-        members = (
-            db_session.query(User)
-            .filter(User.email.in_(email_keys))
-            .all()
-        )
-        for member in members:
-            participant_id = UUID(str(member.id))
-            participant_assignments[str(participant_id)] = _deterministic_shuffle(
-                team_assignments[str(team.id)],
-                participant_id,
-            )
+        for email in (team.user_emails or {}).keys():
+            user = db_session.query(User).filter(func.lower(User.email) == email.lower()).first()
+            if user:
+                participant_id = user.id
+                participant_assignments[str(participant_id)] = _deterministic_shuffle(
+                    team_assignments[str(team.id)],
+                    participant_id,
+                )
 
     return team_assignments, participant_assignments
 
@@ -184,13 +180,7 @@ def test_validation_batch_generation_list_and_finalize_flow(client, db_session):
     own_team_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={
-            "name": "Validation Own Team",
-            "user_emails": {
-                "validation-host@example.com": True,
-                "validation-teammate@example.com": True,
-            },
-        },
+        json={"name": "Validation Own Team", "user_emails": {"validation-host@example.com": 0, "validation-teammate@example.com": 0}},
     )
     assert own_team_response.status_code == 200
     own_team_id = UUID(own_team_response.json()["id"])
@@ -209,10 +199,7 @@ def test_validation_batch_generation_list_and_finalize_flow(client, db_session):
     other_team_response = client.post(
         f"/api/v1/competitions/{competition_id}/teams",
         headers={"Authorization": f"Bearer {host_token}"},
-        json={
-            "name": "Validation Other Team",
-            "user_emails": {"validation-other@example.com": True},
-        },
+        json={"name": "Validation Other Team", "user_emails": {"validation-other@example.com": 0}},
     )
     assert other_team_response.status_code == 200
     other_team_id = UUID(other_team_response.json()["id"])
@@ -342,10 +329,7 @@ def test_validation_assignment_redis_keys_and_ttl(db_session):
     team = Team(
         name="Redis Team",
         comp_id=competition.id,
-        user_emails={
-            f"{participant_a.hex}@example.com": True,
-            f"{participant_b.hex}@example.com": True,
-        },
+        user_emails={"redis-a@test.com": 0, "redis-b@test.com": 0},
     )
     db_session.add(team)
     db_session.commit()
@@ -389,7 +373,7 @@ def test_round_robin_assignment(db_session):
         team = Team(
             name=f"Team {i}",
             comp_id=competition.id,
-            user_emails={f"team-{i}@example.com": True},
+            user_emails={f"team{i}@test.com": 0},
         )
         db_session.add(team)
         db_session.commit()
