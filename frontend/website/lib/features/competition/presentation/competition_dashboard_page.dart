@@ -227,27 +227,6 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
   }
 
   Widget _buildErrorState(BuildContext context, Object error) {
-    final errorString = error.toString();
-    if (errorString.contains('Phase information not found') || errorString.contains('Competition config not found')) {
-      return Container(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        alignment: Alignment.center,
-        child: Column(
-          children: [
-            Icon(Icons.pending_actions, size: 48, color: AppColors.textSecondary.withValues(alpha: 0.5)),
-            const SizedBox(height: AppSpacing.md),
-            Text('Pending Initialization', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: AppSpacing.sm),
-            const Text(
-              'This competition is still being set up. Dashboard statistics and team info will appear once the host configures the active phase.',
-              style: TextStyle(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -256,8 +235,47 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
         color: AppColors.error.withValues(alpha: 0.1),
       ),
       child: Text(
-        'Failed to load dashboard stats: $error',
+        'Failed to load dashboard data: $error',
         style: const TextStyle(color: AppColors.error),
+      ),
+    );
+  }
+
+  /// Inline widget shown inside the Overview tab when the phase is still at "0".
+  Widget _buildPendingPhaseCard(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.25)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            children: [
+              Icon(Icons.pending_actions, size: 40, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Awaiting Initialisation',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'The host has not configured an active phase yet. '
+                'Phase-dependent features will become available once the competition is initialised.',
+                style: TextStyle(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -293,55 +311,61 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           ],
         ),
         dashboardState.when(
-          data: (dashboard) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: AppColors.border),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Column(
-                      children: [
-                        Text(
-                          _phaseLabels[dashboard.phaseInfo.currentPhase] ?? dashboard.phaseInfo.currentPhase,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primaryDark,
-                          ),
+          data: (dashboard) {
+            final isAwaitingInit = dashboard.phaseInfo.currentPhase == '0';
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isAwaitingInit)
+                  _buildPendingPhaseCard(context)
+                else
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: AppColors.border),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          children: [
+                            Text(
+                              _phaseLabels[dashboard.phaseInfo.currentPhase] ?? dashboard.phaseInfo.currentPhase,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Phase ${dashboard.phaseInfo.currentPhase}',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _PhaseCountdown(
+                              phaseDates: dashboard.phaseInfo.phaseDates,
+                              currentPhase: dashboard.phaseInfo.currentPhase,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Phase ${dashboard.phaseInfo.currentPhase}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        _PhaseCountdown(
-                          phaseDates: dashboard.phaseInfo.phaseDates,
-                          currentPhase: dashboard.phaseInfo.currentPhase,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-              if (dashboard.isHost && competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.xl),
-                _buildSectionHeader(context, 'Invitation Link'),
-                SelectableText(competition.invitationLink!, style: const TextStyle(color: AppColors.primaryDark)),
+                if (dashboard.isHost && competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildSectionHeader(context, 'Invitation Link'),
+                  SelectableText(competition.invitationLink!, style: const TextStyle(color: AppColors.primaryDark)),
+                ],
               ],
-            ],
-          ),
+            );
+          },
           loading: () => _buildLoadingState(),
           error: (e, _) => _buildErrorState(context, e),
         ),
@@ -437,22 +461,120 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
       data: (dashboard) {
         if (dashboard.isHost) {
           final hostDash = dashboard as DashboardHostResponse;
-          return _buildInfoCard(
-            title: 'Host Overview',
-            icon: Icons.admin_panel_settings,
-            iconColor: AppColors.primaryDark,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatRow('Total Enrolled Teams', hostDash.teamInfo.total.toString()),
+              _buildInfoCard(
+                title: 'Host Overview',
+                icon: Icons.admin_panel_settings,
+                iconColor: AppColors.primaryDark,
+                children: [
+                  _buildStatRow('Total Enrolled Teams', hostDash.teamInfo.total.toString()),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              _buildSectionHeader(context, 'Per-Team Breakdown'),
+              ...hostDash.teamInfo.items.map((team) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: _buildInfoCard(
+                  title: team.name,
+                  icon: Icons.groups,
+                  iconColor: AppColors.primary,
+                  children: [
+                    _buildStatRow('Images Uploaded', team.imagesUploaded.toString()),
+                    if (team.deviceStats.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('Devices', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        runSpacing: AppSpacing.xs,
+                        children: team.deviceStats.entries.map((e) => Chip(
+                          avatar: const Icon(Icons.smartphone, size: 14),
+                          label: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: AppColors.background,
+                          side: const BorderSide(color: AppColors.border),
+                        )).toList(),
+                      ),
+                    ],
+                    if (team.labelDistribution.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('Labels', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        runSpacing: AppSpacing.xs,
+                        children: team.labelDistribution.entries.map((e) => Chip(
+                          label: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: AppColors.surfaceAlt,
+                          side: BorderSide.none,
+                        )).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              )),
             ],
           );
         } else {
           final partDash = dashboard as DashboardParticipantResponse;
-          return _buildInfoCard(
-            title: 'Your Team: ${partDash.teamInfo.name}',
-            icon: Icons.groups,
-            iconColor: AppColors.success,
+          final team = partDash.teamInfo;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatRow('Current Score', partDash.teamInfo.score.toStringAsFixed(4)),
+              _buildInfoCard(
+                title: 'Your Team: ${team.name}',
+                icon: Icons.groups,
+                iconColor: AppColors.success,
+                children: [
+                  _buildStatRow('Images Uploaded', team.imagesUploaded.toString()),
+                  if (team.deviceStats.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Devices Used', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: team.deviceStats.entries.map((e) => Chip(
+                        avatar: const Icon(Icons.smartphone, size: 14),
+                        label: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppColors.background,
+                        side: const BorderSide(color: AppColors.border),
+                      )).toList(),
+                    ),
+                  ],
+                  if (team.labelDistribution.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Label Distribution', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textSecondary)),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: team.labelDistribution.entries.map((e) => Chip(
+                        label: Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppColors.surfaceAlt,
+                        side: BorderSide.none,
+                      )).toList(),
+                    ),
+                  ],
+                ],
+              ),
             ],
           );
         }

@@ -91,18 +91,54 @@ abstract class DashboardBase {
 
 class DashboardHostTeamInfo {
   final int total;
+  final List<DashboardHostTeamItem> items;
 
-  const DashboardHostTeamInfo({required this.total});
+  const DashboardHostTeamInfo({required this.total, required this.items});
 
   factory DashboardHostTeamInfo.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] as List<dynamic>? ?? [];
     return DashboardHostTeamInfo(
       total: (json['total'] as num?)?.toInt() ?? 0,
+      items: rawItems
+          .map((e) => DashboardHostTeamItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class DashboardHostTeamItem {
+  final String id;
+  final String name;
+  final String compId;
+  final Map<String, int> deviceStats;
+  final Map<String, int> labelDistribution;
+  final int imagesUploaded;
+
+  const DashboardHostTeamItem({
+    required this.id,
+    required this.name,
+    required this.compId,
+    required this.deviceStats,
+    required this.labelDistribution,
+    required this.imagesUploaded,
+  });
+
+  factory DashboardHostTeamItem.fromJson(Map<String, dynamic> json) {
+    final deviceRaw = json['device_stats'] as Map<String, dynamic>? ?? {};
+    final labelRaw = json['label_distribution'] as Map<String, dynamic>? ?? {};
+    return DashboardHostTeamItem(
+      id: json['id'].toString(),
+      name: json['name'] as String? ?? 'Unknown',
+      compId: json['comp_id'].toString(),
+      deviceStats: deviceRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
+      labelDistribution: labelRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
+      imagesUploaded: (json['images_uploaded'] as num?)?.toInt() ?? 0,
     );
   }
 }
 
 class DashboardHostResponse extends DashboardBase {
-  final CompetitionConfig config;
+  final CompetitionConfig? config;
   final DashboardHostTeamInfo teamInfo;
 
   const DashboardHostResponse({
@@ -111,7 +147,7 @@ class DashboardHostResponse extends DashboardBase {
     required super.deviceStats,
     required super.labelDistribution,
     required super.locations,
-    required this.config,
+    this.config,
     required this.teamInfo,
   }) : super(isHost: true);
 
@@ -119,6 +155,7 @@ class DashboardHostResponse extends DashboardBase {
     final deviceStatsRaw = json['device_stats'] as Map<String, dynamic>? ?? {};
     final labelDistRaw = json['label_distribution'] as Map<String, dynamic>? ?? {};
     final locationsRaw = json['locations'] as List<dynamic>? ?? [];
+    final configJson = json['config'] as Map<String, dynamic>?;
 
     return DashboardHostResponse(
       phaseInfo: DashboardPhaseInfo.fromJson(json['phase_info'] as Map<String, dynamic>),
@@ -126,7 +163,7 @@ class DashboardHostResponse extends DashboardBase {
       deviceStats: deviceStatsRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
       labelDistribution: labelDistRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
       locations: locationsRaw.map((e) => LocationMetadata.fromJson(e as Map<String, dynamic>)).toList(),
-      config: CompetitionConfig.fromJson(json['config'] as Map<String, dynamic>),
+      config: configJson != null ? CompetitionConfig.fromJson(configJson) : null,
       teamInfo: DashboardHostTeamInfo.fromJson(json['team_info'] as Map<String, dynamic>),
     );
   }
@@ -164,25 +201,33 @@ class DashboardParticipantConfig {
 class DashboardParticipantTeam {
   final String id;
   final String name;
-  final double score;
+  final int imagesUploaded;
+  final Map<String, int> deviceStats;
+  final Map<String, int> labelDistribution;
 
   const DashboardParticipantTeam({
     required this.id,
     required this.name,
-    required this.score,
+    required this.imagesUploaded,
+    required this.deviceStats,
+    required this.labelDistribution,
   });
 
   factory DashboardParticipantTeam.fromJson(Map<String, dynamic> json) {
+    final deviceRaw = json['device_stats'] as Map<String, dynamic>? ?? {};
+    final labelRaw = json['label_distribution'] as Map<String, dynamic>? ?? {};
     return DashboardParticipantTeam(
       id: json['id'].toString(),
       name: json['name'] as String? ?? 'Unknown Team',
-      score: (json['score'] as num?)?.toDouble() ?? 0.0,
+      imagesUploaded: (json['images_uploaded'] as num?)?.toInt() ?? 0,
+      deviceStats: deviceRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
+      labelDistribution: labelRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
     );
   }
 }
 
 class DashboardParticipantResponse extends DashboardBase {
-  final DashboardParticipantConfig config;
+  final DashboardParticipantConfig? config;
   final DashboardParticipantTeam teamInfo;
 
   const DashboardParticipantResponse({
@@ -191,7 +236,7 @@ class DashboardParticipantResponse extends DashboardBase {
     required super.deviceStats,
     required super.labelDistribution,
     required super.locations,
-    required this.config,
+    this.config,
     required this.teamInfo,
   }) : super(isHost: false);
 
@@ -199,6 +244,7 @@ class DashboardParticipantResponse extends DashboardBase {
     final deviceStatsRaw = json['device_stats'] as Map<String, dynamic>? ?? {};
     final labelDistRaw = json['label_distribution'] as Map<String, dynamic>? ?? {};
     final locationsRaw = json['locations'] as List<dynamic>? ?? [];
+    final configJson = json['config'] as Map<String, dynamic>?;
 
     return DashboardParticipantResponse(
       phaseInfo: DashboardPhaseInfo.fromJson(json['phase_info'] as Map<String, dynamic>),
@@ -206,7 +252,7 @@ class DashboardParticipantResponse extends DashboardBase {
       deviceStats: deviceStatsRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
       labelDistribution: labelDistRaw.map((k, v) => MapEntry(k, (v as num).toInt())),
       locations: locationsRaw.map((e) => LocationMetadata.fromJson(e as Map<String, dynamic>)).toList(),
-      config: DashboardParticipantConfig.fromJson(json['config'] as Map<String, dynamic>),
+      config: configJson != null ? DashboardParticipantConfig.fromJson(configJson) : null,
       teamInfo: DashboardParticipantTeam.fromJson(json['team_info'] as Map<String, dynamic>),
     );
   }
