@@ -66,7 +66,10 @@ class ValidationService:
         if not image_ids:
             return {"image_ids": []}
 
-        shuffled = self._deterministic_shuffle(image_ids, participant_id)
+        # Filter out already-validated images
+        unvalidated_ids = self.repository.filter_unvalidated_images(image_ids)
+        
+        shuffled = self._deterministic_shuffle(unvalidated_ids, participant_id)
         return {"image_ids": shuffled}
 
     def submit_vote(self, image_id: int, validator_id: UUID, label: str) -> dict:
@@ -79,7 +82,9 @@ class ValidationService:
         ) or 5
 
         vote_count = self.repository.count_votes_for_image(image_id)
-        if vote_count >= threshold:
+        skip_count = self.repository.get_skip_count(image_id)
+        
+        if vote_count + skip_count >= threshold:
             label_entry = self.repository.find_label_by_image_id(image_id)
             if not label_entry:
                 raise NotFoundError("Label not found")
@@ -90,6 +95,44 @@ class ValidationService:
             self.label_service.validate_label(image_id)
 
         return {"validation_id": vote.id, "label": vote.label}
+
+    def skip_image(self, image_id: int, participant_id: UUID) -> dict:
+        """Handle image skip: remove from queue and increment skip count.
+        If skip threshold is reached, auto-validate with original label."""
+        comp_id = self.label_service.get_competition_id(image_id)
+        
+        # Find participant's team
+        team_id = self.repository.find_participant_team(comp_id, participant_id)
+        if not team_id:
+            raise NotFoundError("Participant team not found")
+
+        # Remove image from team's validation queue
+        removed = self.repository.remove_from_team_assignment(team_id, image_id)
+        if removed == 0:
+            raise ValidationError("Image not in your validation queue")
+
+        # Increment skip count
+        skip_count = self.repository.increment_skip_count(image_id)
+        vote_count = self.repository.count_votes_for_image(image_id)
+
+        # Get validation threshold
+        threshold = self.repository.find_validation_threshold(comp_id) or 5
+
+        # If total combined interactions >= threshold, auto-validate with original label or majority votes
+        if vote_count + skip_count >= threshold:
+            label_entry = self.repository.find_label_by_image_id(image_id)
+            if label_entry and not label_entry.validated:
+                if vote_count > 0:
+                    votes = [entry.label for entry in self.repository.find_votes_by_label_id(label_entry.id)]
+                    final_label = self._compute_majority_vote(votes)
+                    self.label_service.update_label(image_id, final_label)
+                self.label_service.validate_label(image_id)
+
+        return {
+            "skip_count": skip_count,
+            "threshold": threshold,
+            "auto_validated": (vote_count + skip_count) >= threshold
+        }
 
     def get_pending_validations(self, comp_id: UUID) -> dict:
         images = self.repository.find_pending_by_comp(comp_id)

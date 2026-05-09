@@ -185,6 +185,66 @@ class ValidationRepository:
             .all()
         )
 
+    def remove_from_team_assignment(self, team_id: UUID, image_id: int) -> int:
+        """Remove an image_id from a team's validation queue using Redis LREM.
+        Returns the number of elements removed."""
+        client = self._redis_client()
+        key = self._assignment_key_for_team(team_id)
+        string_image_id = str(image_id)
+
+        if client:
+            return int(client.lrem(key, 0, string_image_id))
+
+        # Fallback to in-memory store
+        values = _memory_assignment_store.get(key, [])
+        removed = values.count(string_image_id)
+        _memory_assignment_store[key] = [v for v in values if v != string_image_id]
+        return removed
+
+    def increment_skip_count(self, image_id: int) -> int:
+        """Increment skip count for an image in Redis. Returns the new count.
+        Sets TTL to 24 hours if this is the first increment."""
+        client = self._redis_client()
+        key = f"validation:skip_count:{image_id}"
+
+        if client:
+            count = client.incr(key)
+            if count == 1:
+                client.expire(key, VALIDATION_ASSIGNMENT_TTL_SECONDS)
+            return count
+
+        # Fallback to in-memory store
+        current = int(_memory_assignment_store.get(f"count:{key}", 0) or 0)
+        current += 1
+        _memory_assignment_store[f"count:{key}"] = str(current)
+        if current == 1:
+            _memory_assignment_expiry[f"count:{key}"] = _current_time() + VALIDATION_ASSIGNMENT_TTL_SECONDS
+        return current
+
+    def get_skip_count(self, image_id: int) -> int:
+        """Get the current skip count for an image."""
+        client = self._redis_client()
+        key = f"validation:skip_count:{image_id}"
+        
+        if client:
+            return int(client.get(key) or 0)
+            
+        return int(_memory_assignment_store.get(f"count:{key}", 0) or 0)
+
+    def filter_unvalidated_images(self, image_ids: list[int]) -> list[int]:
+        """Filter a list of image IDs to only include those not yet validated.
+        Returns image_ids where validated == False."""
+        if not image_ids:
+            return []
+
+        validated_ids = set(
+            row[0]
+            for row in self.db.query(Label.image_id)
+            .filter(Label.image_id.in_(image_ids), Label.validated.is_(True))
+            .all()
+        )
+        return [img_id for img_id in image_ids if img_id not in validated_ids]
+
     def find_pending_by_comp(self, comp_id: UUID) -> list[dict]:
         rows = (
             self.db.query(Image.id, Image.filepath, Label.label)
