@@ -55,6 +55,15 @@ class CompetitionService {
       return null;
     }
   }
+  Future<void> joinWithInvitationLink(String link) async {
+    final response = await _dio.post('/api/v1/competitions/join', data: {
+      'invitation_link': link,
+    });
+    if (response.statusCode != 200) {
+      throw Exception(response.data['detail'] ?? 'Failed to join competition');
+    }
+  }
+
   Future<List<UploadedImageModel>> getTeamImages(String teamId, {int page = 1}) async {
     try {
       final response = await _dio.get(

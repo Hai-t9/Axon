@@ -84,3 +84,16 @@ class CompetitionListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class UserCompetitionInfo(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    role: str
+    team_id: Optional[UUID] = None
+    team_name: Optional[str] = None
+
+
+class UserCompetitionListResponse(BaseModel):
+    items: List[UserCompetitionInfo]

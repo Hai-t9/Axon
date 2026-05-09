@@ -111,3 +111,13 @@ class CompetitionRepository:
         self.db.refresh(entry)
         return entry
 
+    def get_team_for_user(self, competition_id: UUID, email: str) -> Team | None:
+        email_lower = email.strip().lower()
+        teams = self.db.query(Team).filter(Team.comp_id == competition_id).all()
+        for team in teams:
+            emails = team.user_emails or {}
+            for stored_email in emails:
+                if stored_email.strip().lower() == email_lower:
+                    return team
+        return None
+

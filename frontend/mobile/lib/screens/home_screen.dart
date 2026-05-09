@@ -12,6 +12,7 @@ import 'login_screen.dart';
 import 'upload_history_screen.dart';
 import 'profile_screen.dart';
 import 'team_stats_screen.dart';
+import 'join_competition_screen.dart';
 import '../main.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -456,6 +457,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     label: const Text('Start Capturing',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                     style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const JoinCompetitionScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.link, size: 20),
+                    label: const Text('Join Competition',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),

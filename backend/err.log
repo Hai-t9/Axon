@@ -1,0 +1,32 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\MICROSOFT\\PycharmProjects\\Axon\\backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [13316] using WatchFiles
+INFO:     Started server process [1228]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2026-05-09 15:15:09,555 [gateway] INFO POST /api/v1/register/login 200 1126ms req=6b8714d0f46a client=192.168.167.130
+2026-05-09 15:15:10,971 [gateway] INFO GET /api/v1/competitions 200 1076ms req=be6d4477d64f client=192.168.167.130
+2026-05-09 15:15:18,122 [gateway] INFO GET /api/v1/competitions/93ef8258-ffde-4879-88c8-ae177d6ebf29/teams 200 1412ms req=eb22ccc1ba6c client=192.168.167.130
+2026-05-09 15:15:18,273 [gateway] INFO GET /api/v1/competitions/93ef8258-ffde-4879-88c8-ae177d6ebf29/config 200 1523ms req=381fc3f7a5ae client=192.168.167.130
+2026-05-09 15:15:22,565 [gateway] INFO GET /api/v1/teams/48eafcc7-0c20-498c-b30d-7ccedd820134/statistics 200 787ms req=821beab2a318 client=192.168.167.130
+2026-05-09 15:15:26,748 [gateway] INFO GET /api/v1/competitions 200 883ms req=cb49acbb53ff client=192.168.167.130
+2026-05-09 15:15:27,313 [gateway] INFO GET /api/v1/competitions/93ef8258-ffde-4879-88c8-ae177d6ebf29/teams 200 508ms req=359d5172b13b client=192.168.167.130
+2026-05-09 15:15:28,221 [gateway] INFO GET /api/v1/teams/48eafcc7-0c20-498c-b30d-7ccedd820134/statistics 200 829ms req=ea2c401af470 client=192.168.167.130
+2026-05-09 15:15:30,381 [gateway] INFO GET /api/v1/teams/48eafcc7-0c20-498c-b30d-7ccedd820134/statistics 200 874ms req=cc05c27a0d21 client=192.168.167.130
+2026-05-09 15:15:33,766 [gateway] INFO GET /api/v1/teams/48eafcc7-0c20-498c-b30d-7ccedd820134/images 200 476ms req=099d4ebbed74 client=192.168.167.130
+2026-05-09 15:15:34,409 [gateway] INFO GET /uploads/dd5acb38-e372-4d65-8bc8-df34bdaf0f57.jpg 200 542ms req=286c7dc4444f client=192.168.167.130
+2026-05-09 15:15:34,561 [gateway] INFO GET /uploads/1fe976aa-787e-42cc-834f-699574e35421.jpg 200 702ms req=09543d5dea21 client=192.168.167.130
+2026-05-09 15:15:34,592 [gateway] INFO GET /uploads/4cbbc03a-17b0-425f-89bc-f3c55bd09997.jpg 200 727ms req=52c7ab3732a5 client=192.168.167.130
+2026-05-09 15:15:34,709 [gateway] INFO GET /uploads/4c2575eb-9d47-4b8d-82bb-9bdbbbd4dea2.jpg 200 846ms req=60fbdc6f64ed client=192.168.167.130
+2026-05-09 15:15:34,795 [gateway] INFO GET /uploads/93116bd6-04ce-4247-9cc6-7b70ecc5991b.jpg 200 934ms req=d71b328e8e55 client=192.168.167.130
+2026-05-09 15:15:35,712 [gateway] INFO GET /api/v1/teams/48eafcc7-0c20-498c-b30d-7ccedd820134/images 200 525ms req=7e354cf5ea8d client=192.168.167.130
+2026-05-09 15:15:41,441 [gateway] INFO GET /api/v1/competitions/5e495ddd-4cfd-4e39-aa2d-44d7e22c6c2c/teams 200 912ms req=5c41f675c563 client=192.168.167.130
+2026-05-09 15:15:41,520 [gateway] INFO GET /api/v1/competitions/5e495ddd-4cfd-4e39-aa2d-44d7e22c6c2c/config 200 990ms req=1ed3a396c576 client=192.168.167.130
+2026-05-09 15:15:45,002 [gateway] INFO GET /api/v1/teams/4687fafb-ac21-4901-af1a-83b1e2c588fa/statistics 200 1305ms req=aa2502db2e61 client=192.168.167.130
+2026-05-09 15:15:47,176 [gateway] INFO GET /api/v1/teams/4687fafb-ac21-4901-af1a-83b1e2c588fa/statistics 200 1019ms req=bbb325a995a8 client=192.168.167.130
+2026-05-09 15:15:52,538 [gateway] INFO GET /api/v1/teams/4687fafb-ac21-4901-af1a-83b1e2c588fa/images 200 461ms req=e8ad82e043cb client=192.168.167.130
+2026-05-09 15:15:52,769 [gateway] INFO GET /uploads/85ba6f31-d869-42b2-b893-86165d43ee06.jpg 200 147ms req=cf1193933d9b client=192.168.167.130
+2026-05-09 15:15:52,824 [gateway] INFO GET /uploads/9b2ee009-2b28-4608-abe7-42489f905641.jpg 200 202ms req=4f15c9248075 client=192.168.167.130
+2026-05-09 15:15:52,884 [gateway] INFO GET /uploads/14d62a3d-232a-4fed-bf0d-d189f5155007.jpg 200 262ms req=eaaad831bdc4 client=192.168.167.130
+2026-05-09 15:15:53,035 [gateway] INFO GET /uploads/8b9c86eb-d283-44c7-8ab9-e171d267cdaa.jpg 200 413ms req=e169a709160d client=192.168.167.130
+2026-05-09 15:15:53,035 [gateway] INFO GET /uploads/beead672-e43d-485d-a9bc-c90571af1a62.jpg 200 415ms req=142ee29f7e4a client=192.168.167.130
