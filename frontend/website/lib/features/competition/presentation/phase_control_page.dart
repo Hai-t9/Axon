@@ -240,7 +240,12 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
         children: [
           Row(children: [
             Expanded(child: PageHeader(title: 'Phase Control', subtitle: 'Manage competition phases.')),
-            const SizedBox(width: AppSpacing.md),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh phase data',
+              onPressed: _loading ? null : _loadPhase,
+            ),
+            const SizedBox(width: AppSpacing.sm),
             TextButton.icon(
               onPressed: () => context.go(CompetitionDashboardPage.routeForId(widget.competitionId)),
               icon: const Icon(Icons.arrow_back, size: 16),
@@ -302,24 +307,26 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
                           style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white),
                         )
                       else ...[
+                        OutlinedButton.icon(
+                          onPressed: _decrementPhase,
+                          icon: const Icon(Icons.skip_previous_outlined, size: 18),
+                          label: Text('Back to Phase $prevPhase'),
+                        ),
                         if (!isLast)
                           ElevatedButton.icon(
                             onPressed: _advancePhase,
                             icon: const Icon(Icons.skip_next_outlined, size: 18),
                             label: Text('Advance to Phase $nextPhase'),
                           ),
-                        OutlinedButton.icon(
-                          onPressed: _decrementPhase,
-                          icon: const Icon(Icons.skip_previous_outlined, size: 18),
-                          label: Text('Back to Phase $prevPhase'),
-                        ),
                       ],
-                      if (!isPhaseFive)
+                      if (!isPhaseFive) ...[
+                        const SizedBox(width: AppSpacing.md),
                         OutlinedButton.icon(
                           onPressed: _extendDeadline,
                           icon: const Icon(Icons.edit_calendar_outlined, size: 18),
                           label: const Text('Extend Deadline'),
                         ),
+                      ],
                     ]),
                   ],
                 ),

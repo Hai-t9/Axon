@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -36,6 +38,15 @@ const Map<String, String> _phaseLabels = {
   '5': 'Finale & Leaderboard',
 };
 
+const Map<String, IconData> _phaseIcons = {
+  '0': Icons.hourglass_empty,
+  '1': Icons.cloud_upload_outlined,
+  '2': Icons.rate_review_outlined,
+  '3': Icons.rocket_launch_outlined,
+  '4': Icons.science_outlined,
+  '5': Icons.emoji_events_outlined,
+};
+
 class CompetitionDashboardPage extends ConsumerStatefulWidget {
   const CompetitionDashboardPage({super.key, required this.competitionId});
 
@@ -52,6 +63,7 @@ class CompetitionDashboardPage extends ConsumerStatefulWidget {
 
 class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _phaseTimer;
 
   @override
   void initState() {
@@ -60,10 +72,14 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
     _tabController.addListener(() {
       setState(() {});
     });
+    _phaseTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) ref.invalidate(dashboardProvider(widget.competitionId));
+    });
   }
 
   @override
   void dispose() {
+    _phaseTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -303,7 +319,16 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           Text(competition.description!, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: AppSpacing.xl),
         ],
-        _buildSectionHeader(context, 'Phase Information'),
+        Row(
+          children: [
+            Expanded(child: _buildSectionHeader(context, 'Phase Information')),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh phase data',
+              onPressed: () => ref.invalidate(dashboardProvider(widget.competitionId)),
+            ),
+          ],
+        ),
         dashboardState.when(
           data: (dashboard) {
             final isAwaitingInit = dashboard.phaseInfo.currentPhase == '0';
@@ -325,6 +350,12 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                         width: double.infinity,
                         child: Column(
                           children: [
+                            Icon(
+                              _phaseIcons[dashboard.phaseInfo.currentPhase] ?? Icons.circle,
+                              size: 40,
+                              color: AppColors.primaryDark,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
                             Text(
                               _phaseLabels[dashboard.phaseInfo.currentPhase] ?? dashboard.phaseInfo.currentPhase,
                               textAlign: TextAlign.center,
@@ -358,7 +389,23 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                 if (dashboard.isHost && competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xl),
                   _buildSectionHeader(context, 'Invitation Link'),
-                  SelectableText(competition.invitationLink!, style: const TextStyle(color: AppColors.primaryDark)),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SelectableText(competition.invitationLink!, style: const TextStyle(color: AppColors.primaryDark)),
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 18),
+                        tooltip: 'Copy invitation link',
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: competition.invitationLink!));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Invitation link copied'),
+                            duration: Duration(seconds: 2),
+                          ));
+                        },
+                      ),
+                    ],
+                  ),
                 ],
               ],
             );
@@ -693,6 +740,29 @@ class _ParticipantTeamViewState extends ConsumerState<_ParticipantTeamView> {
   List<Map<String, dynamic>>? _members;
   Map<String, dynamic>? _results;
   bool _loading = true;
+  bool _uploading = false;
+
+  List<String> get _allowedExtensions {
+    final formats = widget.partDash.config?.dataFormat ?? [];
+    final exts = <String>[];
+    for (final f in formats) {
+      switch (f.toUpperCase()) {
+        case 'PNG':
+          exts.add('png');
+        case 'JPEG':
+          exts.addAll(['jpg', 'jpeg']);
+        case 'SVG':
+          exts.add('svg');
+      }
+    }
+    return exts;
+  }
+
+  List<String> get _availableLabels {
+    final labels = widget.partDash.config?.labels;
+    if (labels == null) return [];
+    return labels.keys.toList()..sort();
+  }
 
   @override
   void initState() {
@@ -739,6 +809,111 @@ class _ParticipantTeamViewState extends ConsumerState<_ParticipantTeamView> {
     }
   }
 
+  Future<void> _pickAndUpload() async {
+    final exts = _allowedExtensions;
+    final result = await FilePicker.platform.pickFiles(
+      type: exts.isNotEmpty ? FileType.custom : FileType.image,
+      allowedExtensions: exts.isNotEmpty ? exts : null,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    if (file.bytes == null) return;
+
+    // Validate extension against config
+    final ext = file.name.split('.').last.toLowerCase();
+    if (exts.isNotEmpty && !exts.contains(ext)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('File extension "$ext" not allowed. Allowed: ${exts.join(", ")}'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+      return;
+    }
+
+    // Show label picker dialog
+    final labels = _availableLabels;
+    final selectedLabel = await _showLabelPicker(context, labels);
+    if (selectedLabel == null || !mounted) return;
+
+    setState(() => _uploading = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final token = ref.read(authSessionProvider)?.accessToken;
+      await api.postMultipart(
+        '/teams/${widget.partDash.teamInfo.id}/images',
+        fileField: 'file',
+        fileBytes: file.bytes!,
+        fileName: file.name,
+        fields: {'label': selectedLabel},
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Image uploaded successfully'),
+          backgroundColor: AppColors.success,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Upload failed: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<String?> _showLabelPicker(BuildContext context, List<String> labels) {
+    final controller = TextEditingController();
+    String? selected;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Assign Label'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: labels.isNotEmpty
+                ? Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: labels.map((label) => ChoiceChip(
+                      label: Text(label),
+                      selected: selected == label,
+                      onSelected: (_) {
+                        setDialogState(() => selected = label);
+                      },
+                    )).toList(),
+                  )
+                : TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      labelText: 'Label name',
+                      hintText: 'e.g. cat',
+                    ),
+                  ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                final result = selected ?? controller.text.trim();
+                if (result.isEmpty) return;
+                Navigator.pop(ctx, result);
+              },
+              child: const Text('Upload'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final team = widget.partDash.teamInfo;
@@ -764,6 +939,17 @@ class _ParticipantTeamViewState extends ConsumerState<_ParticipantTeamView> {
           child: Column(
             children: [
               _buildTeamCard(context, team),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _uploading ? null : _pickAndUpload,
+                  icon: _uploading
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.cloud_upload_outlined),
+                  label: Text(_uploading ? 'Uploading...' : 'Upload Image'),
+                ),
+              ),
               const SizedBox(height: AppSpacing.md),
               SizedBox(
                 width: double.infinity,
