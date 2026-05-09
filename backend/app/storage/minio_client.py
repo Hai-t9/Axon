@@ -43,15 +43,21 @@ class MinioStorageService:
 
     def _ensure_bucket(self):
         from botocore.exceptions import ClientError
+        import logging
+        logger = logging.getLogger("storage")
 
         try:
             self.s3_client.head_bucket(Bucket=self.bucket_name)
-        except ClientError:
+            logger.info("S3 bucket '%s' found", self.bucket_name)
+        except ClientError as exc:
+            logger.warning("S3 bucket '%s' not found (will try create): %s", self.bucket_name, exc)
             try:
                 self.s3_client.create_bucket(Bucket=self.bucket_name)
-            except Exception:
-                pass
-        except Exception:
+                logger.info("S3 bucket '%s' created", self.bucket_name)
+            except Exception as create_err:
+                logger.error("Failed to create S3 bucket '%s': %s", self.bucket_name, create_err)
+        except Exception as exc:
+            logger.error("Failed to access S3: %s", exc)
             self.minio_available = False
 
     def _local_path(self, object_name: str) -> str:
@@ -64,7 +70,11 @@ class MinioStorageService:
                     BytesIO(file_content), self.bucket_name, object_name
                 )
                 return object_name
-            except Exception:
+            except Exception as exc:
+                import logging
+                logging.getLogger("storage").error(
+                    "S3 upload failed, falling back to local: %s", exc
+                )
                 self.minio_available = False
 
         local_path = self._local_path(object_name)
