@@ -34,11 +34,11 @@ Axon serves three primary user groups:
 
 ## Key Features
 
-*   **Unified Mobile Data Capture:** Direct upload from the field to the backend, pre-filling device and environmental metadata to eliminate data loss.
-*   **Cross-Team Validation (CTV):** Built-in support for advanced evaluation protocols:
+*   **Mobile Data Capture:** Direct upload from the field to the backend, extracting device metadata via EXIF to eliminate data loss.
+*   **Cross-Team Validation Protocols:** Built-in support for advanced evaluation protocols:
     *   **LOTO (Leave-One-Team-Out):** Testing model robustness against completely unseen team domains.
     *   **TOTO (Train-On-One-Team-Only):** Assessing the generalization capability of a single team's data collection strategy.
-*   **Asynchronous Task Queue:** A robust broker-worker system that handles computationally expensive model evaluations without blocking the UI.
+*   **Asynchronous Task Queue:** Celery + Redis worker system that handles computationally expensive model evaluations without blocking the UI.
 *   **Live Leaderboards:** Real-time ranking of teams based on validated model accuracy across multiple evaluation folds.
 
 ---

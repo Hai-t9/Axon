@@ -24,16 +24,17 @@ No writes to the DB. Joins evaluation scores to teams, picks the best score per 
 ### APIs
 
 **Endpoints**
-- `GET    /competitions/:compId/leaderboard` — Returns ranked list of teams with score, submission time, and rank — supports optional limit
+- `GET    /competitions/:compId/leaderboard?type=public&limit=N` — Returns ranked list of teams with score, submission time, and rank — supports optional `type` (default: "public") and `limit` (1-100) query params
 
 **Controller**
 - `handleGetLeaderboard(compId)`
 
 **Service**
-- `getLeaderboard(compId, limit)` → `findBestScorePerTeam(compId, limit)`
+- `getLeaderboard(compId, type, limit)` → `findBestScorePerTeam(compId, limit)`
 
 **Repository**
 - `findBestScorePerTeam(compId, limit)` — joins `evaluation → model → team`, picks best score per team, sorted by score descending, assigns ranks
+- The `type` param is reserved for future filter variants (public/internal)
 
 ### Dependencies
 - `evaluation`, `model`, `team` tables

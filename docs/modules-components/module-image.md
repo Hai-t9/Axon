@@ -87,7 +87,7 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 
 | Field | Type | Required | Description |
 |---|---|----------|---|
-| `:id` | integer path | yes      | Image ID |
+| `:id` | integer path | yes      | Image ID (Integer PK) |
 
 **Output:** `id`, `team_id`, `author_id`, `filepath`, `label`, `status` (onhold\|verified), `metadata` (ImageMetadata)
 
@@ -127,7 +127,7 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 
 | Field | Type | Required | Description |
 |---|---|----------|---|
-| `:id` | integer path | yes      | Image ID |
+| `:id` | integer path | yes      | Image ID (Integer PK) |
 | `status` | enum | yes      | onhold\|verified |
 
 **Output:** `id`, `status`
@@ -141,7 +141,7 @@ Manages image upload and storage, enforces validation rules (format, size, dupli
 
 | Field | Type | Required | Description |
 |---|---|----------|---|
-| `:id` | integer path | yes      | Image ID |
+| `:id` | integer path | yes      | Image ID (Integer PK) |
 
 **Output:** `message`
 

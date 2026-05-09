@@ -127,9 +127,10 @@ graph TB
   - Collect environmental metadata (GPS, timestamp, weather conditions)
   - Automatic metadata pre-filling to ensure data quality
   - Direct upload to backend with offline queueing support
-- **Technology:** Flutter/Dart (iOS/Android cross-platform)
-- **Features:** Native performance, Hive local storage for offline queue, image picker integration
+- **Technology:** Flutter/Dart (separate mobile and web projects)
+- **Features:** Native performance, Hive local storage for offline queue, image picker integration (mobile), GoRouter navigation (web)
 - **API Interactions:** Image upload endpoint, metadata validation, progress tracking
+- **Note:** Mobile and web are separate Flutter projects (`frontend/mobile/` and `frontend/website/`), not a unified codebase
 
 #### Web Portal
 - **Purpose:** Model submission and competition management interface
@@ -162,7 +163,7 @@ graph TB
   - Role-based access control (RBAC): Hosts, Staff, Participants
   - Token management and refresh
   - Audit logging for security events
-- **Technology:** FastAPI + Python-Jose JWT (custom implementation)
+- **Technology:** FastAPI + custom JWT implementation (HMAC-SHA256 in `core/auth.py`, no python-jose dependency)
 - **Password Hashing:** PBKDF2-SHA256 (see `core/security.py`)
 - **Roles:**
   - **Hosts (Organizers):** Full platform configuration and competition management
@@ -373,7 +374,7 @@ graph TB
   - Access pattern: Write-once, read-many
   - Organize by team_id and timestamp for retrieval optimization
   - Support versioning and archival
-- **Technology:** Object storage (AWS S3, Azure Blob, Google Cloud Storage)
+- **Technology:** MinIO (S3-compatible) via boto3 SDK, with local filesystem fallback when MinIO is unavailable
 
 #### Model Storage
 - **Purpose:** Store submitted model files
@@ -571,41 +572,56 @@ Participants View Live Rankings
 
 | Component | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Frontend (Web + Mobile)** | Flutter/Dart | Single codebase for web, iOS, Android |
+| **Frontend (Mobile)** | Flutter/Dart (separate project) | Mobile field data collection |
+| **Frontend (Web)** | Flutter/Dart (separate project) | Web portal for model submission, dashboard |
 | **Backend API** | FastAPI (Python 3.10+) | REST API, all services in monolithic structure |
 | **API Gateway** | FastAPI middleware | Built-in routing, rate limiting, CORS |
-| **Authentication** | Custom JWT + FastAPI | Role-based access control (RBAC) |
+| **Authentication** | Custom JWT (HMAC-SHA256) + FastAPI | Role-based access control (RBAC) |
 | **Password Hashing** | PBKDF2-SHA256 | Secure password storage (see `core/security.py`) |
 | **Database** | PostgreSQL + SQLAlchemy ORM | Structured data, ACID transactions |
-| **Image Storage** | MinIO (S3-compatible) | Distributed object storage on school server |
-| **Model Storage** | MinIO (S3-compatible) | Versioned model files for evaluations |
+| **Image Storage** | MinIO (S3 via boto3) + local filesystem fallback | Object storage for images |
+| **Model Storage** | MinIO (S3 via boto3) + local filesystem fallback | Versioned model files for evaluations |
 | **Task Queue** | Redis + Celery | Background job processing for evaluations |
-| **Caching** | Redis | Session & leaderboard caching, Celery broker |
+| **Caching** | Redis | Dashboard caching, Celery broker |
 | **Evaluation Workers** | Python/Celery | Model evaluation execution, parallel processing |
-| **Deployment** | Docker Compose | Container orchestration for development/production |
+| **Deployment** | Manual (no Docker/CI/CD currently) | Backend runs via uvicorn directly |
 
 ## Development Environment Setup
 
 **What you need to install:**
 
-1. **Docker + Docker Compose** - Runs all services (FastAPI, PostgreSQL, Redis, MinIO)
-2. **Python 3.10+** - For local FastAPI development and worker testing
-3. **Flutter SDK** - For frontend development
-4. **Git** - Version control
-5. **PostgreSQL client** (psql) - Optional, for direct database access
+1. **Python 3.10+** - For local FastAPI development and worker testing
+2. **Flutter SDK** - For frontend development (mobile and web are separate projects)
+3. **Git** - Version control
+4. **PostgreSQL client** (psql) - Optional, for direct database access
 
-**That's it!** No Kubernetes, no RabbitMQ, no complex DevOps. Everything runs with:
-
+**Run the backend:**
 ```bash
-docker-compose up
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 ```
+
+**Run the frontend (mobile):**
+```bash
+cd frontend/mobile
+flutter run
+```
+
+**Run the frontend (website):**
+```bash
+cd frontend/website
+flutter run -d chrome
+```
+
+Note: Docker Compose setup is planned but not yet implemented. All services currently run natively.
 
 ## Key Architectural Decisions
 
 ### Why This Stack?
 
 1. **Single Language (Python)** - Backend, workers, and scripts all in Python for consistency
-2. **Single Frontend (Flutter)** - Web + mobile from same codebase, 70% code reuse
+2. **Frontend (Flutter)** - Mobile and web are separate Flutter projects sharing some patterns
 3. **No Microservices** - Monolithic FastAPI for simplicity and fast development
 4. **Self-Hosted Storage** - MinIO gives unlimited storage on school server (no cloud costs)
 5. **Built-in Solutions** - FastAPI handles API gateway, JWT, routing (no separate tools)

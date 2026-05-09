@@ -6,114 +6,108 @@ sidebar_position: 4
 
 ## Overview
 
-Manages field image data collection and initial ingestion into the system. Handles image uploads from mobile applications, validates metadata completeness and format, stores images in distributed file storage, tracks image versioning, and ensures standardized formats and resolution. Queues validated images for team validation workflows.
+Data ingestion is handled through the **Image Module** (see [Image Module Documentation](./module-image.md)). There is no separate Data Ingestion service — image upload, format validation, metadata extraction, and storage are all managed by the Image module's single upload endpoint.
 
 ---
 
 ### Responsibility
 
-Receives image uploads from mobile apps, performs format and metadata validation, stores images in object storage, maintains image records with metadata, and routes images to the validation workflow. Enforces data quality rules at ingestion time.
+Image upload and validation are performed by the Image Service. The Image module handles receiving files, validating format/size, deduplication via hashing, metadata extraction (EXIF), and storing to either MinIO/S3 or local fallback storage.
+
+### How Ingestion Works
+
+```
+Mobile App / Web Portal
+    ↓
+POST /api/v1/teams/{team_id}/images  (multipart: file + optional label)
+    ↓
+Image Service
+    ├→ validateImageFormat(file) — JPEG/PNG only
+    ├→ validateImageSize(file) — max 50MB
+    ├→ generateImageHash(file) — SHA-256 for dedup
+    ├→ checkDuplicateImage(hash)
+    ├→ storeImageFile(file) → MinIO / local fallback
+    ├→ saveImageRecord(userId, teamId, filepath, hash)
+    ├→ extractMetadata(file) — EXIF data
+    └→ storeImageMetadata(imageId, metadata)
+```
 
 ### Inputs / Outputs
 
 | Function | Input | Output |
 |---|---|---|
-| `ingestImage` | `teamId`, `file`, `metadata` | `{ id, team_id, filepath, storage_path, status, created_at }` |
-| `validateImageMetadata` | `metadata` | `{ valid: boolean, errors[ ] }` |
-| `validateImageFormat` | `file` | `{ valid: boolean, format, size_mb }` |
-| `getImageIngestionStats` | `compId` | `{ total_images, accepted, rejected, pending_validation }` |
-| `retryFailedIngestion` | `imageId` | `{ id, status, retry_count }` |
+| `uploadImage` | `userId`, `teamId`, `file`, `label?` | `{ id, team_id, filepath, image_hash, status, metadata }` |
 
 ### APIs
 
-**Endpoints**
+**Endpoint**
 
-- `POST   /teams/:teamId/images/ingest` — Upload and ingest image — authenticated team members only
-- `POST   /teams/:teamId/images/batch-ingest` — Batch upload multiple images — authenticated team members only
-- `GET    /teams/:teamId/ingestion/stats` — Get ingestion statistics for team
-- `GET    /competitions/:compId/ingestion/stats` — Get ingestion statistics for competition — host/staff only
-- `POST   /images/:imageId/retry-ingestion` — Retry failed ingestion — host/staff only
+- `POST   /api/v1/teams/{team_id}/images` — Upload and ingest image — authenticated team members only
 
-**Controller**
+**Controller** (image/controller.py)
 
-- `handleIngestImage(teamId, file, metadata)`
-- `handleBatchIngestImages(teamId, files, metadata[])`
-- `handleGetTeamIngestionStats(teamId)`
-- `handleGetCompetitionIngestionStats(compId)`
-- `handleRetryFailedIngestion(imageId)`
+- `handleUploadImage(teamId, file, label)`
 
-**Service**
+**Service** (image/service.py)
 
-- `ingestImage(teamId, file, metadata, userId)`
+- `uploadImage(userId, teamId, file, label)`
   - → `validateImageFormat(file)` — JPEG/PNG, size limits
-  - → `validateImageMetadata(metadata)` — device info, GPS, timestamp
+  - → `validateImageSize(file)` — max 50MB
   - → `generateImageHash(file)` — for deduplication
-  - → `storeImageFile(file)` → S3/Blob storage
-  - → `saveImageRecord(teamId, filepath, hash, metadata)`
-  - → `queueForValidation(imageId)`
+  - → `checkDuplicateImage(hash)` — app-level check
+  - → `storeImageFile(file)` → MinIO/local storage
+  - → `saveImageRecord(userId, teamId, filepath, hash, label)`
+  - → `extractMetadata(file)` → EXIF parsing
+  - → `storeImageMetadata(imageId, metadata)`
   - → return ingestion result
-- `validateImageMetadata(metadata)` — pure validation logic
-- `validateImageFormat(file)` — pure validation logic
-- `getImageIngestionStats(compId)` → aggregated stats
-- `retryFailedIngestion(imageId)` → re-run ingestion pipeline
 
 **Repository**
 
-- `saveImageRecord(teamId, filepath, hash, metadata)`
-- `findImagesByTeam(teamId)`
-- `findImagesByCompetition(compId)`
-- `updateImageStatus(imageId, status)`
-- `countImagesByStatus(compId)`
-- `findFailedImages(compId)`
+- `create(data)`
+- `findById(imageId)`
+- `findByHash(hash)`
+- `findByTeam(teamId)`
+- `findByCompetition(compId)`
+- `findByStatus(status)`
+- `updateStatus(imageId, status)`
+- `delete(imageId)`
+- `countByTeam(teamId)`
+- `countByStatus(status)`
 
 ### Dependencies
 
 - `image`, `image_metadata` tables
-- **Image Storage** (S3/Blob) — stores actual image files
-- **Data Validation Service** — receives validated images for team review
+- **Image Storage** (MinIO S3 or local filesystem fallback) — stores actual image files
 - **Teams Service** — validates team ownership
 
 ### Data Model
 
-**Image Ingestion Record**
+**Image Record**
 ```
 {
-  id: UUID,
+  id: integer (PK),
   team_id: UUID,
-  competition_id: UUID,
-  filepath: string (relative to storage),
-  storage_path: string (S3/Blob URI),
+  author_id: UUID,
+  filepath: string (relative unique path),
   image_hash: string (SHA-256 for dedup),
-  size_mb: float,
-  format: enum('JPEG' | 'PNG'),
-  status: enum('pending' | 'validated' | 'failed'),
-  upload_timestamp: timestamp,
-  uploaded_by: UUID
+  status: enum('onhold' | 'verified'),
+  original_filename: string,
+  old_extension: string,
+  old_size_mb: float,
+  old_width: float,
+  old_height: float,
+  device: string,
+  time: timestamp
 }
 ```
 
 **Image Metadata**
-```
-{
-  image_id: UUID,
-  device_name: string,
-  device_model: string,
-  camera_info: string,
-  gps_latitude: float (nullable),
-  gps_longitude: float (nullable),
-  gps_altitude: float (nullable),
-  timestamp: timestamp,
-  timezone: string,
-  weather_conditions: string (nullable),
-  extracted_at: timestamp
-}
-```
+Stored in `image_metadata` table 1:1 with image.
+Contains EXIF fields: GPSInfo, Make, Model, Software, Orientation, DateTime, resolutions, processing info, scientific/english names, etc.
 
-**Validation Rules**
+### Validation Rules (enforced at upload)
 
-- Device information completeness (no metadata loss)
-- Image format standardization (JPEG/PNG only)
-- Resolution requirements (TBD)
-- Timestamp consistency (not future-dated)
-- File size limits (TBD by competition)
-- Metadata must include: device name, device model, timestamp, location (if applicable)
+- Image format: JPEG/PNG only
+- File size: max 50MB
+- Duplicate detection via SHA-256 hash (app-level)
+- Metadata extracted automatically from EXIF

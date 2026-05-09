@@ -13,6 +13,7 @@ sidebar_position: 1
 // Docs: https://dbml.dbdiagram.io/docs
 //
 // PostgreSQL with UUID primary keys for core entities.
+// Config uses UUID PK (not auto-increment integer).
 // Integer PKs are used for legacy/detail tables (image, label, etc.).
 
 Table user {
@@ -43,7 +44,7 @@ Table competition {
 }
 
 Table config {
-  id integer [primary key, not null, increment]
+  id uuid [primary key, not null]
   competition_id uuid [unique, not null]
   labels json [null]
   data_ex varchar [null]
@@ -51,7 +52,7 @@ Table config {
   overview varchar [null]
   terms_conditions varchar [null]
   data_md varchar [null]
-  data_format varchar [null]
+  data_format json [null]
   evaluation varchar [null, note: 'protocol: standard | loto | toto']
   duplicate_threshhold float [null]
   maxValidations integer [null]
@@ -62,7 +63,7 @@ Table team {
   id uuid [primary key, not null]
   name varchar [not null]
   comp_id uuid [not null]
-  user_ids json [null, note: 'array of user.id as strings']
+  user_emails json [null, note: '{"email": 0|1} — 0=invited/left, 1=joined']
 
   indexes {
     (name, comp_id) [unique]
@@ -72,7 +73,7 @@ Table team {
 Table phase_log {
   id integer [primary key, not null, increment]
   competition_id uuid [not null]
-  phase_dates json [null, note: 'map of phase_name to date']
+  phase_dates json [null, note: 'phase timeline, deadlines, transition_mode, and audit history']
   current_phase varchar [not null]
 }
 
@@ -150,7 +151,7 @@ Table model {
   submitted_by uuid [not null]
   filename varchar [not null]
   storage_path varchar [not null, note: 'MinIO key e.g. models/uuid.zip']
-  model_hash varchar [not null]
+  model_hash varchar [not null, note: 'unique enforced at app level, not DB constraint']
   format model_format [not null]  // enum: tensorflow, pytorch, sklearn, keras, onnx
   framework_version varchar [not null]
   size_mb float [not null]
@@ -287,7 +288,7 @@ Ref: evaluation_result.task_id - evaluation_task.id
 - **user**: Platform users with authentication credentials (UUID PK)
 - **role**: Role-based access control (host, staff, participant) per competition (composite UUID FK PK)
 - **competition**: Competition metadata (UUID PK)
-- **config**: Detailed competition settings (labels, scoring, evaluation rules, model_spec) — Integer PK, UUID FK to competition
+- **config**: Detailed competition settings (labels, scoring, evaluation rules, model_spec) — UUID PK, UUID FK to competition
 - **team**: Team/participant groups with member list stored as JSON array — UUID PK
 - **phase_log**: Phase tracking and transitions for competition lifecycle — Integer PK, UUID FK
 - **image**: Agricultural field images with processing metadata — Integer PK, UUID FK to team/user
@@ -391,7 +392,7 @@ erDiagram
     }
     
     CONFIG {
-        int id PK
+        uuid id PK
         uuid competition_id UK,FK
         json labels
         string data_ex
@@ -399,7 +400,7 @@ erDiagram
         string overview
         string terms_conditions
         string data_md
-        string data_format
+        json data_format
         string evaluation
         float duplicate_threshold
         int maxValidations
@@ -410,7 +411,7 @@ erDiagram
         uuid id PK
         string name
         uuid comp_id FK
-        json user_ids
+        json user_emails
     }
     
     PHASE_LOG {

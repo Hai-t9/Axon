@@ -6,44 +6,58 @@ sidebar_position: 2
 
 ## Overview
 
-Manages competition phase lifecycle, state transitions, deadlines, and phase history. Provides granular control over phase progression including automatic transitions, manual overrides, deadline adjustments, and phase rollbacks. Maintains immutable phase audit logs for tracking all phase changes throughout the competition lifecycle.
+Manages competition phase lifecycle, state transitions, deadlines, and phase history. Phases are stored as a single `PhaseLog` row per competition with a JSON `phase_dates` column that tracks the timeline, deadlines, transition mode, and audit history.
+
+Phase values are string digits `"0"` through `"5"`:
+
+| Phase | Label |
+|---|---|
+| `"0"` | Awaiting Initialisation |
+| `"1"` | Data Collection |
+| `"2"` | Data Validation |
+| `"3"` | Model Submission |
+| `"4"` | Model Evaluation |
+| `"5"` | Finale & Leaderboard |
 
 ---
 
 ### Responsibility
 
-Handles all phase-related operations: current phase retrieval, phase transitions (automatic and manual), deadline management, transition mode configuration, and complete phase history tracking. Enforces valid phase transitions and prevents invalid state changes.
+Handles all phase-related operations: current phase retrieval, phase transitions (automatic and manual), deadline management, transition mode configuration, phase decrement (rollback), and complete phase history tracking.
 
 ### Inputs / Outputs
 
 | Function | Input | Output |
 |---|---|---|
-| `getCurrentPhase` | `compId` | `{ phase, started_at, deadline, status }` |
+| `getCurrentPhase` | `compId` | `{ competition_id, current_phase, phase_dates }` |
 | `advancePhase` | `compId` | `{ current_phase, previous_phase, transitioned_at }` |
-| `overridePhase` | `compId`, `targetPhase` | `{ current_phase, override_reason, transitioned_at }` |
+| `decrementPhase` | `compId` | `{ current_phase, previous_phase, transitioned_at }` |
+| `overridePhase` | `compId`, `targetPhase`, `reason` | `{ current_phase, override_reason, transitioned_at }` |
 | `adjustPhaseDeadline` | `compId`, `newDeadline` | `{ phase, old_deadline, new_deadline, adjusted_at }` |
 | `setPhaseTransitionMode` | `compId`, `mode` | `{ competition_id, transition_mode }` |
 | `getPhaseTimeline` | `compId` | `{ phases[ { phase, start, deadline, status } ], total }` |
-| `getPhaseHistory` | `compId` | `{ audit_logs[ { phase, action, performed_by, timestamp } ], total }` |
+| `getPhaseHistory` | `compId` | `{ audit_logs[ { action, from_phase, to_phase, performed_by, timestamp } ], total }` |
 | `validatePhaseTransition` | `currentPhase`, `targetPhase` | `{ valid: boolean, message: string }` |
 
 ### APIs
 
 **Endpoints**
 
-- `GET    /competitions/:compId/phase` — Get current phase information
-- `POST   /competitions/:compId/phase/advance` — Advance to next phase — host only
-- `PUT    /competitions/:compId/phase/override` — Manually override to specific phase — host only
-- `PUT    /competitions/:compId/phase/deadline` — Adjust phase deadline — host only
-- `PUT    /competitions/:compId/phase/transition-mode` — Set automatic or manual transition — host only
-- `GET    /competitions/:compId/phase/timeline` — Get all phases with deadlines and status
-- `GET    /competitions/:compId/phase/history` — Get complete phase transition audit log
-- `POST   /competitions/:compId/phase/validate` — Validate if phase transition is allowed
+- `GET    /api/v1/competitions/{competition_id}/phase` — Get current phase information
+- `POST   /api/v1/competitions/{competition_id}/phase/advance` — Advance to next phase — host only
+- `POST   /api/v1/competitions/{competition_id}/phase/decrement` — Go back one phase — host only
+- `PUT    /api/v1/competitions/{competition_id}/phase/override` — Manually jump to any phase — host only
+- `PUT    /api/v1/competitions/{competition_id}/phase/deadline` — Adjust phase deadline — host only
+- `PUT    /api/v1/competitions/{competition_id}/phase/transition-mode` — Set auto or manual transition — host only
+- `GET    /api/v1/competitions/{competition_id}/phase/timeline` — Get all phases with deadlines and status
+- `GET    /api/v1/competitions/{competition_id}/phase/history` — Get complete phase transition audit log
+- `POST   /api/v1/competitions/{competition_id}/phase/validate` — Validate if phase transition is allowed
 
 **Controller**
 
 - `handleGetCurrentPhase(compId)`
 - `handleAdvancePhase(compId)`
+- `handleDecrementPhase(compId)`
 - `handleOverridePhase(compId, targetPhase, reason)`
 - `handleAdjustPhaseDeadline(compId, newDeadline)`
 - `handleSetPhaseTransitionMode(compId, mode)`
@@ -54,95 +68,64 @@ Handles all phase-related operations: current phase retrieval, phase transitions
 **Service**
 
 - `getCurrentPhase(compId)`
-  - → `findPhaseByCompetitionId(compId)`
-  - → return current phase with metadata
+  - → `_ensurePhaseLog(compId)` — creates default if missing
+  - → `_autoAdvanceIfDeadlinePassed(entry)` — checks and auto-advances
+  - → return phase entry
 - `advancePhase(compId, userId)`
   - → `getCurrentPhase(compId)`
-  - → `getNextPhase(currentPhase)`
+  - → `getNextPhase(currentPhase)` — next in `["0","1","2","3","4","5"]`
   - → `validatePhaseTransition(currentPhase, nextPhase)`
-  - → `updatePhase(compId, nextPhase)`
-  - → `logPhaseChange(compId, currentPhase, nextPhase, userId, 'advance')`
+  - → update timeline + log history → save
   - → return transition result
+- `decrementPhase(compId, userId)`
+  - → go back one phase in the order
+  - → mark current phase timeline entry as "rolled_back"
+  - → restore previous phase to "in_progress"
+  - → log in history → save
 - `overridePhase(compId, targetPhase, reason, userId)`
-  - → `validatePhaseTransition(currentPhase, targetPhase)` — enforce override rules
-  - → `updatePhase(compId, targetPhase)`
-  - → `logPhaseChange(compId, currentPhase, targetPhase, userId, 'override', reason)`
-  - → return override confirmation
+  - → directly set phase, log with reason
 - `adjustPhaseDeadline(compId, newDeadline, userId)`
-  - → `validateDeadline(newDeadline)` — ensure deadline is in future
-  - → `updatePhaseDeadline(compId, newDeadline)`
-  - → `logPhaseChange(compId, currentPhase, null, userId, 'deadline_adjustment', newDeadline)`
-  - → return deadline update confirmation
+  - → validate deadline is in future, after launch date
+  - → store in `phase_dates.deadlines[current_phase]`
+  - → log in history
 - `setPhaseTransitionMode(compId, mode, userId)`
-  - → `validateMode(mode)` — 'auto' or 'manual'
-  - → `updateTransitionMode(compId, mode)`
-  - → `logPhaseChange(compId, currentPhase, null, userId, 'transition_mode_changed', mode)`
-  - → return mode update confirmation
-- `getPhaseTimeline(compId)`
-  - → `findAllPhasesByCompetition(compId)`
-  - → return array of all phases with dates and status
-- `getPhaseHistory(compId)`
-  - → `findPhaseAuditLog(compId)`
-  - → return complete audit trail with actor information
-- `validatePhaseTransition(currentPhase, targetPhase)`
-  - → pure logic function checking valid state transitions
-  - → return validation result with message
+  - → store `phase_dates.transition_mode = 'auto' | 'manual'`
+- `getTimeline(compId)` → `phase_dates.timeline[]`
+- `getHistory(compId)` → `phase_dates.history[]`
+- `validatePhaseTransition(currentPhase, targetPhase)` → pure logic
 
 **Repository**
 
-- `findPhaseByCompetitionId(compId)`
-- `findAllPhasesByCompetition(compId)`
-- `updatePhase(compId, phase)`
-- `updatePhaseDeadline(compId, newDeadline)`
-- `updateTransitionMode(compId, mode)`
-- `logPhaseChange(compId, fromPhase, toPhase, userId, action, details)`
-- `findPhaseAuditLog(compId)`
+- `getByCompetitionId(compId)` — single PhaseLog row
+- `create(competitionId, currentPhase, phaseDates)`
+- `update(entry, updates)` — uses `flag_modified` for JSON column
 
 ### Dependencies
 
-- `phase`, `phase_log`, `phase_transition_config` tables
+- `phase_log` table only (single table with JSON column — no separate `phase`, `phase_transition_config`, or `phase_audit_log` tables)
 - **Competition module** — phase operations belong to a competition
 - **Authentication module** — tracks who performed phase transitions for audit
 
 ### Data Model
 
-**Phase Entity**
+**PhaseLog Entity**
 ```
 {
-  id: UUID,
-  competition_id: UUID,
-  phase: enum('creation' | 'active' | 'evaluation' | 'complete'),
-  started_at: timestamp,
-  deadline: timestamp (nullable for final phase),
-  status: enum('pending' | 'in_progress' | 'completed'),
-  created_at: timestamp,
-  updated_at: timestamp
-}
-```
-
-**Phase Transition Config**
-```
-{
-  id: UUID,
-  competition_id: UUID,
-  transition_mode: enum('auto' | 'manual'),
-  auto_advance_on_deadline: boolean (if mode = 'auto'),
-  created_at: timestamp,
-  updated_at: timestamp
-}
-```
-
-**Phase Audit Log**
-```
-{
-  id: UUID,
-  competition_id: UUID,
-  from_phase: enum (nullable if deadline adjustment),
-  to_phase: enum (nullable if deadline adjustment),
-  action: enum('advance' | 'override' | 'deadline_adjustment' | 'transition_mode_changed' | 'rollback'),
-  action_details: JSON (reason for override, new deadline value, etc.),
-  performed_by: UUID (userId of host who triggered change),
-  performed_at: timestamp
+  id: integer (PK),
+  competition_id: UUID (FK → competition.id),
+  current_phase: string ("0" | "1" | "2" | "3" | "4" | "5"),
+  phase_dates: JSON {
+    transition_mode: "auto" | "manual",
+    deadlines: { "0": "2026-...", "1": "2026-...", ... },
+    timeline: [
+      { phase: "0", start: "2026-...", deadline: null, status: "completed" },
+      { phase: "1", start: "2026-...", deadline: "2026-...", status: "in_progress" }
+    ],
+    history: [
+      { action: "advance", from_phase: "0", to_phase: "1",
+        performed_by: "user-uuid", details: {}, performed_at: "..." }
+    ]
+  }
 }
 ```
 
@@ -151,9 +134,11 @@ Handles all phase-related operations: current phase retrieval, phase transitions
 **Valid Transitions**
 
 ```
-creation → active (automatic on start date OR manual advance)
-active → evaluation (automatic on deadline OR manual advance)
-evaluation → complete (automatic on all evaluations done OR manual advance)
+0 → 1 (Awaiting Initialisation → Data Collection)
+1 → 2 (Data Collection → Data Validation)
+2 → 3 (Data Validation → Model Submission)
+3 → 4 (Model Submission → Model Evaluation)
+4 → 5 (Model Evaluation → Finale & Leaderboard)
 ```
 
 **Manual Override Rules**
@@ -162,22 +147,36 @@ evaluation → complete (automatic on all evaluations done OR manual advance)
 - Backward transitions trigger cascade operations (e.g., reopening validation)
 - Override action logged with reason and user ID for audit trail
 
+**Auto-Advance**
+
+- If `transition_mode == "auto"` and the current phase's deadline has passed, the system auto-advances to the next phase on `getCurrentPhase()` calls.
+
+**Decrement**
+
+- Host can go back exactly one phase (no skip-back). Timeline entries are marked as "rolled_back".
+- Cannot decrement below phase `"0"`.
+
 **Deadline Rules**
 
-- All phases except final have adjustable deadlines
-- New deadline must be in future
+- All phases except final (`"5"`) have adjustable deadlines
+- New deadline must be in the future and on or after competition launch date
 - Adjusting deadline does not trigger state change
 - Adjustment logged in audit trail
 
 ### Phase Workflow Example
 
 ```
-1. Competition created → phase = 'creation', no deadline
-2. Host configures competition → transition_mode = 'manual'
-3. Host advances phase → phase = 'active', deadline = set_by_host
-4. Data collection happens during 'active' phase
-5. Host manually overrides (OR auto-advance if deadline passed) → phase = 'evaluation'
-6. Models evaluated during 'evaluation' phase
-7. Host or system advances → phase = 'complete'
-8. Results published, no further transitions allowed
+1. Competition created → phase_log created with current_phase = "0"
+2. Host configures competition → transition_mode = "manual"
+3. Host advances phase → phase = "1" (Data Collection)
+4. Data collection happens during phase "1"
+5. Host sets deadline for phase "2" → auto-advance possible
+6. Host advances → phase = "2" (Data Validation)
+7. Models validated during phase "2"
+8. Host advances → phase = "3" (Model Submission)
+9. Teams submit models
+10. Host advances → phase = "4" (Model Evaluation)
+11. Models evaluated
+12. Host advances → phase = "5" (Finale & Leaderboard)
+13. Results published, no further transitions (unless overridden)
 ```

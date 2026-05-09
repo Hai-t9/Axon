@@ -6,7 +6,7 @@ sidebar_position: 14
 
 ## Overview
 
-The Authentication service handles user login and signup, issues JWTs for protected routes, and provides middleware that enforces identity and roles across modules. Registration endpoints are public and bypass auth/role middleware.
+The Authentication service handles user login and signup, issues JWTs for protected routes, and provides helpers that enforce identity and roles across modules. Registration endpoints are public and bypass auth/role checks.
 
 ---
 
@@ -14,29 +14,28 @@ The Authentication service handles user login and signup, issues JWTs for protec
 
 Provides a consistent authentication layer for all protected requests, issues JWTs on successful login and signup, and enforces role-based access (host, staff, participant).
 
-### Middleware Pipeline
+### Auth Enforcement
+
+Auth is enforced **per-route** via `AuthService` calls (not middleware):
 
 ```
-Request -> AuthMiddleware -> RoleMiddleware -> Module
+Request → Route Handler → AuthService.require_roles() → Module
 ```
 
-**AuthMiddleware**
-- `verifyJWT()`
-- `extractUser()`
-- `attachUserToRequest()`
-
-**RoleMiddleware**
-- `checkUserRole()` // host / staff / participant
-- `blockIfUnauthorized()`
+**AuthService methods:**
+- `get_current_user(token)` — verifies JWT, returns User
+- `require_roles(token, competition_id, {RoleType})` — verifies JWT + role
+- `get_user_role(competition_id, user_id)` — returns role for a user
 
 ### Registration Module
 
 ```
-Controller
-  |-- handleLogin()
-  |-- handleSignup()
+Controller (register/controller.py)
+  |-- handleLogin()     → POST /api/v1/register/login
+  |-- handleSignup()    → POST /api/v1/register/signup
+  |-- handleGetMe()     → GET /api/v1/register/me
 
-Service
+Service (register/service.py)
   |-- login()
   |     |-- findByEmail()
   |     |-- verifyPassword()   // PBKDF2-SHA256
@@ -52,19 +51,17 @@ Repository
   |-- create()
 ```
 
-Middleware applied: none (registration is public).
-
 ### Inputs / Outputs
 
 | Function | Input | Output |
 |---|---|---|
-| `login` | `email`, `password` | `{ token, user }` |
-| `signup` | `email`, `password`, `name?` | `{ token, user }` |
+| `login` | `email`, `password` | `{ access_token, token_type, user }` |
+| `signup` | `email`, `password`, `full_name?`, `phone?` | `{ access_token, token_type, user }` |
 
 ### APIs
 
-#### `POST /auth/login`
-**Description:** Login with credentials and return a JWT
+#### `POST /api/v1/register/login`
+**Description:** Login with credentials and return a JWT  
 **Auth:** false
 
 | Field | Type | Required | Description |
@@ -72,44 +69,57 @@ Middleware applied: none (registration is public).
 | `email` | string | yes | User email address |
 | `password` | string | yes | Plaintext password |
 
-**Output:** `token` (string JWT), `user` (object: `id`, `email`, `role`, `created_at`)
+**Output:** `access_token` (string JWT), `token_type` ("bearer"), `user` (object: `id`, `fullname`, `email`, `phone`, `created_at`)
 
 ---
 
-#### `POST /auth/signup`
-**Description:** Register a new user and return a JWT
+#### `POST /api/v1/register/signup`
+**Description:** Register a new user and return a JWT  
 **Auth:** false
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `email` | string | yes | User email address |
-| `password` | string | yes | Plaintext password |
-| `name` | string | no | Display name (if provided by client) |
+| `password` | string | yes | Plaintext password (min 8 chars) |
+| `full_name` | string | no | Display name (defaults to email local-part) |
+| `phone` | string | no | Phone number |
 
-**Output:** `token` (string JWT), `user` (object: `id`, `email`, `role`, `created_at`)
+**Output:** `access_token` (string JWT), `token_type` ("bearer"), `user` (object: `id`, `fullname`, `email`, `phone`, `created_at`)
 
-**Controller**
+---
+
+#### `GET /api/v1/register/me`
+**Description:** Get current authenticated user's profile  
+**Auth:** true
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Output:** `id`, `fullname`, `email`, `phone`, `created_at`
+
+**Controller** (`register/controller.py`)
 - `handleLogin()`
 - `handleSignup()`
+- `handleGetMe()`
 
-**Service**
+**Service** (`register/service.py`)
 - `login()`
-  - -> `findByEmail()`
-  - -> `verifyPassword()`
-  - -> `generateJWT()`
+  - → `findByEmail()`
+  - → `verifyPassword()`
+  - → `generateJWT()`
 - `signup()`
-  - -> `checkEmailExists()`
-  - -> `hashPassword()`
-  - -> `createUser()`
-  - -> `generateJWT()`
+  - → `checkEmailExists()`
+  - → `hashPassword()`
+  - → `createUser()`
+  - → `generateJWT()`
 
-**Repository**
-- `findByEmail()`
+**Repository** (`register/repository.py`)
+- `getByEmail()`
 - `create()`
 
 ### Dependencies
 
 - `user` table
 - PBKDF2-SHA256 (password hashing, see `core/security.py`)
+- Custom JWT signing (see `core/auth.py` — HMAC-SHA256, no python-jose dependency)
 - JWT signing secret and token config
 - Role definitions: host, staff, participant

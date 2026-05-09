@@ -10,6 +10,8 @@ Coordinates model evaluation across multiple protocols (Standard K-Fold, LOTO, T
 
 **Auto-triggered on submission**: The moment a participant submits a model, the evaluation pipeline fires automatically — no organizer intervention needed. The competition's `Config.evaluation` field determines the protocol (standard/loto/toto).
 
+**Note on IDs**: All foreign key columns in evaluation tables use UUID types (not integers).
+
 ---
 
 ### Responsibility

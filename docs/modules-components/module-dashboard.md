@@ -26,8 +26,9 @@ No writes to the DB. Every time the dashboard is requested fresh, it pulls from 
 ### APIs
 
 **Endpoints**
-- `GET    /competitions/:compId/dashboard` — Returns full dashboard: phase info, config, image stats (total/verified/on-hold), team info
-- `GET    /competitions/:compId/dashboard/cache` — Returns a previously cached version of the dashboard with its timestamp
+- `GET    /competitions/:compId/dashboard` — Returns full dashboard: phase info, config, image stats (total/verified/on-hold), team info. Returns different format for host/staff vs participants.
+- `GET    /competitions/:compId/dashboard/role` — Returns the current user's role in the competition
+- `GET    /competitions/:compId/dashboard/cache` — Returns a previously cached version of the dashboard with its timestamp — host/staff only
 - `DELETE /competitions/:compId/dashboard/cache` — Clears the cached dashboard, forcing a fresh computation on next load — host only
 
 **Controller**

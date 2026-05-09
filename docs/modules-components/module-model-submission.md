@@ -52,7 +52,7 @@ Organizers define submission requirements via the `config.model_spec` JSON field
 1. **Validate** Docker submissions against organizer's `model_spec`
 2. **Check eligibility**: Team exists, belongs to competition, user is a member
 3. **Check phase**: Only accept submissions during `evaluation` phase
-4. **Deduplicate**: Reject models with identical SHA-256 hashes
+4. **Deduplicate**: Reject models with identical SHA-256 hashes (app-level)
 5. **Version**: Auto-increment version per team per competition
 6. **Store**: Upload zip to MinIO (or local fallback)
 7. **Schedule**: Auto-schedule validated models for evaluation
@@ -82,7 +82,7 @@ POST /api/v1/competitions/{comp_id}/models/submit
 **Headers**: `Authorization: Bearer <token>`
 
 **Query Parameters**:
-- `team_id` (int) — Team submitting
+- `team_id` (UUID) — Team submitting
 - `model_name` (str) — Human-readable name
 - `framework` (str) — pytorch | tensorflow | sklearn | keras | onnx
 - `python_version` (str) — e.g., 3.9
@@ -97,14 +97,14 @@ POST /api/v1/competitions/{comp_id}/models/submit
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "team_id": 5,
-  "competition_id": 1,
+  "team_id": "uuid",
+  "competition_id": "uuid",
   "filename": "submission.zip",
   "format": "pytorch",
   "version": 1,
   "status": "scheduled",
   "submitted_at": "2026-05-07T18:00:00Z",
-  "submitted_by": 123,
+  "submitted_by": "uuid",
   "message": "Submission accepted. Version 1. Detected model format: pytorch."
 }
 ```
@@ -132,7 +132,7 @@ GET /api/v1/models/{model_id}
 
 #### Get Team Submission History
 ```
-GET /api/v1/teams/{team_id}/models/history?competition_id={comp_id}
+GET /api/v1/teams/{team_id}/models/history?competition_id={comp_id}&page=1&limit=20
 ```
 **Returns**: All versions with status breakdown.
 
@@ -140,13 +140,13 @@ GET /api/v1/teams/{team_id}/models/history?competition_id={comp_id}
 ```
 PUT /api/v1/models/{model_id}/schedule
 ```
-**Auth**: Host or Staff role
+**Auth**: Authenticated user (role enforcement pending)
 
 #### Delete Model
 ```
 DELETE /api/v1/models/{model_id}
 ```
-**Auth**: Host or Staff role
+**Auth**: Authenticated user (role enforcement pending)
 
 ---
 
@@ -163,60 +163,14 @@ Executes the full submission pipeline:
 3. **Validate phase** → Competition must be in `evaluation` phase
 4. **Fetch organizer spec** → Load from `config.model_spec`
 5. **Validate Docker submission** → Check all files, structure, requirements
-6. **Generate hash** → SHA-256 for deduplication
-7. **Check duplicates** → Reject if hash already exists
+6. **Generate hash** → SHA-256 for deduplication (app-level, no DB unique constraint)
+7. **Check duplicates** → Reject if hash already exists (app-level check)
 8. **Store zip** → Upload to MinIO / local fallback
 9. **Persist** → Save Model and ModelMetadata records
 10. **Auto-evaluate** → Read `Config.evaluation` for protocol, call `EvaluationOrchestrationService.scheduleEvaluation()`
-    - Creates EvaluationJob + Tasks + queues to Celery
-    - Model status: RECEIVED → SCHEDULED → QUEUED
-    - Evaluation starts immediately via available workers
-
-#### `validate_docker_submission(zip_bytes, spec)`
-
-Validates the zip against organizer's requirements:
-
-- **File checks**: `Dockerfile`, `inference.py`, `requirements.txt` exist
-- **Directory checks**: `model/` contains a supported format, `data/` exists
-- **AST parsing**: Confirms `inference_function` is defined in `inference.py`
-- **Requirements parsing**: Verifies all `required_packages` are listed
-- **Dockerfile parsing**: Confirms `FROM` and `CMD`/`ENTRYPOINT` instructions
-- **Size validation**: Zip must be ≤ `max_size_mb`
-
-Returns detected model format: `pytorch`, `tensorflow`, `sklearn`, `keras`, or `onnx`.
-
-#### `_validate_team_eligibility(team_id, competition_id, user_id)`
-
-Ensures:
-- Team with `team_id` exists
-- Team belongs to `competition_id`
-- User is a member of the team
-
-#### `_validate_submission_phase(competition_id)`
-
-Ensures competition is in `evaluation` phase. Rejects submissions during other phases.
-
----
-
-## Repository Layer
-
-### Methods
-
-| Method | Purpose |
-|---|---|
-| `save_model_record(...)` | Persist Model to DB |
-| `save_model_metadata(...)` | Persist ModelMetadata to DB |
-| `find_by_id(model_id)` | Fetch single model |
-| `find_by_hash(hash)` | Check for duplicates |
-| `find_by_team(team_id, comp_id)` | Get team's models in comp |
-| `find_by_competition(comp_id)` | Get all models in comp |
-| `find_latest_by_team(team_id, comp_id)` | Get latest version |
-| `find_all_by_team(team_id)` | Get all models across comps |
-| `update_status(model_id, status)` | Change model state |
-| `delete_model(model_id)` | Remove model and metadata |
-| `find_competition_config(comp_id)` | Fetch organizer spec |
-| `find_team(team_id)` | Verify team exists |
-| `find_phase(comp_id)` | Check current phase |
+     - Creates EvaluationJob + Tasks + queues to Celery
+     - Model status: RECEIVED → SCHEDULED → QUEUED
+     - Evaluation starts immediately via available workers
 
 ---
 
@@ -224,15 +178,17 @@ Ensures competition is in `evaluation` phase. Rejects submissions during other p
 
 ### Model Table
 
+All ID columns are UUID (not integer), except `version`.
+
 ```sql
 CREATE TABLE model (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  team_id integer NOT NULL REFERENCES team(id),
-  competition_id integer NOT NULL REFERENCES competition(id),
-  submitted_by integer NOT NULL REFERENCES "user"(id),
+  team_id uuid NOT NULL REFERENCES team(id),
+  competition_id uuid NOT NULL REFERENCES competition(id),
+  submitted_by uuid NOT NULL REFERENCES "user"(id),
   filename varchar NOT NULL,
   storage_path varchar NOT NULL,
-  model_hash varchar NOT NULL UNIQUE,
+  model_hash varchar NOT NULL,
   format varchar(20) NOT NULL,  -- enum: tensorflow, pytorch, sklearn, keras, onnx
   framework_version varchar,
   size_mb float NOT NULL,
@@ -241,12 +197,9 @@ CREATE TABLE model (
   submitted_at timestamp DEFAULT NOW(),
   scheduled_at timestamp,
   
-  CONSTRAINT uq_model_team_version UNIQUE (team_id, competition_id, version),
-  INDEX idx_model_team_id (team_id),
-  INDEX idx_model_competition_id (competition_id),
+  INDEX idx_model_submitted_by (submitted_by),
   INDEX idx_model_status (status),
-  INDEX idx_model_hash (model_hash),
-  INDEX idx_model_team_competition_version (team_id, competition_id, version DESC)
+  INDEX idx_model_hash (model_hash)
 );
 ```
 
@@ -261,7 +214,7 @@ CREATE TABLE model_metadata (
   framework varchar NOT NULL,
   framework_version varchar,
   python_version varchar NOT NULL,
-  dependencies jsonb,  -- ["numpy>=1.20", "torch>=1.9"]
+  dependencies jsonb,
   input_shape varchar,
   output_shape varchar,
   training_dataset varchar,
@@ -269,14 +222,6 @@ CREATE TABLE model_metadata (
   created_at timestamp DEFAULT NOW()
 );
 ```
-
-### Config Table (Updated)
-
-```sql
-ALTER TABLE config ADD COLUMN model_spec jsonb DEFAULT NULL;
-```
-
-Organizers set `model_spec` to define submission requirements.
 
 ---
 
@@ -317,7 +262,7 @@ Format is **auto-detected** based on file extension in `model/` directory.
 - Competition must be in `evaluation` phase
 
 ### Deduplication ✅
-- Model's SHA-256 hash must not already exist
+- Model's SHA-256 hash must not already exist (app-level check)
 - Prevents re-submission of unchanged models
 
 ### Size Validation ✅
@@ -345,7 +290,6 @@ Format is **auto-detected** based on file extension in `model/` directory.
 
 ### HTTP 403 Forbidden
 - User lacks participant role in competition
-- Host/Staff-only operation (schedule, delete) attempted by non-staff
 
 ### HTTP 404 Not Found
 - Model not found
@@ -368,13 +312,11 @@ pytest tests/test_model_submission_flow.py -v
 - `TestDeduplication` — Hash-based duplicate detection
 - `TestVersioning` — Auto-incrementing version per team
 
-**Test Coverage**: 25+ test cases covering happy path, edge cases, and error conditions.
-
 ---
 
 ## Dependencies
 
-- `model` table — Stores submission records
+- `model` table — Stores submission records (all FK columns are UUID)
 - `model_metadata` table — Stores rich metadata
 - `config.model_spec` — Organizer-defined requirements
 - **Teams Service** — Validates team membership
@@ -407,7 +349,7 @@ All features implemented and tested:
 - Comprehensive validation pipeline
 - Team eligibility checks
 - Phase gating
-- Model deduplication
+- Model deduplication (app-level)
 - Version tracking
 - Full CRUD API
 - Error handling
