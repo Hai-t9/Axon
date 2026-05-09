@@ -131,21 +131,13 @@ class CompetitionRepository {
     );
   }
 
-  Future<Competition?> findByInvitationLink(String link) async {
-    final normalized = _normalizeLink(link);
-    if (normalized.isEmpty) {
-      return null;
-    }
-
-    final list = await listCompetitions(page: 1, limit: 100);
-    for (final competition in list.items) {
-      final invite = competition.invitationLink;
-      if (invite == null) continue;
-      if (_normalizeLink(invite) == normalized) {
-        return competition;
-      }
-    }
-    return null;
+  Future<Competition> joinCompetition(String invitationLink) async {
+    final response = await _apiClient.postJson(
+      '/competitions/join',
+      {'invitation_link': invitationLink.trim()},
+      headers: _authHeaders(),
+    );
+    return Competition.fromJson(response);
   }
 
   Map<String, String> _authHeaders() {

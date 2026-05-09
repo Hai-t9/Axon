@@ -2,7 +2,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from app.models import Competition, Config, Role, User
+from app.models import Competition, Config, Role, Team, User
 
 
 class CompetitionRepository:
@@ -18,6 +18,15 @@ class CompetitionRepository:
 
     def get_by_name(self, name: str) -> Competition | None:
         return self.db.query(Competition).filter(Competition.name == name).first()
+
+    def get_by_invitation_link(self, link: str) -> Competition | None:
+        return self.db.query(Competition).filter(Competition.invitation_link == link).first()
+
+    def get_user_by_email(self, email: str) -> User | None:
+        return self.db.query(User).filter(func.lower(User.email) == email.lower()).first()
+
+    def get_teams_for_competition(self, competition_id: UUID) -> list[Team]:
+        return self.db.query(Team).filter(Team.comp_id == competition_id).all()
 
     def list_competitions_for_user(self, user_id: UUID, offset: int, limit: int) -> list[Competition]:
         return (

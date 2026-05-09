@@ -17,12 +17,7 @@ class CompetitionJoinController extends AsyncNotifier<Competition?> {
   Future<void> joinWithInvitationLink(String link) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard<Competition?>(() async {
-      final competition =
-          await ref.read(competitionRepositoryProvider).findByInvitationLink(link);
-      if (competition == null) {
-        throw const InvitationLinkNotFound();
-      }
-      return competition;
+      return await ref.read(competitionRepositoryProvider).joinCompetition(link);
     });
   }
 }

@@ -14,6 +14,7 @@ import '../../../features/data_validation/presentation/data_validation_page.dart
 import '../state/competition_details_controller.dart';
 import '../../home/presentation/home_page.dart';
 import 'competition_settings_page.dart';
+import 'teams_control_page.dart';
 
 class CompetitionDashboardPage extends ConsumerWidget {
   const CompetitionDashboardPage({super.key, required this.competitionId});
@@ -45,6 +46,14 @@ class CompetitionDashboardPage extends ConsumerWidget {
                       subtitle: 'Competition dashboard',
                     ),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go(
+                      TeamsControlPage.routeForId(competition.id),
+                    ),
+                    icon: const Icon(Icons.group_outlined),
+                    label: const Text('Teams'),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: () => context.go(
                       CompetitionSettingsPage.routeForId(competition.id),

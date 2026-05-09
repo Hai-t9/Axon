@@ -1,8 +1,9 @@
 from app.core.exceptions import NotFoundError, ValidationError
-from uuid import UUID
+from uuid import UUID, uuid4
 from app.models import RoleType
 from app.schemas.competition import CompetitionCreate, CompetitionUpdate
-from uuid import UUID
+
+from .repository import CompetitionRepository
 
 from .repository import CompetitionRepository
 
@@ -20,6 +21,7 @@ class CompetitionService:
                 "name": payload.name,
                 "description": payload.description,
                 "launch_date": payload.launch_date,
+                "invitation_link": str(uuid4()),
             }
         )
 
@@ -69,3 +71,31 @@ class CompetitionService:
 
         return self.repository.update_config(config, updates)
 
+    def join_competition(self, user_id: UUID, invitation_link: str):
+        """Join a competition via invitation link. User must be in a team."""
+        competition = self.repository.get_by_invitation_link(invitation_link.strip())
+        if not competition:
+            raise NotFoundError("Invalid invitation link")
+
+        existing_role = self.repository.get_role(user_id, competition.id)
+        if existing_role:
+            return competition  # already joined
+
+        # Check if user is in any team for this competition
+        teams = self.repository.get_teams_for_competition(competition.id)
+        user_id_str = str(user_id)
+        in_team = False
+        for team in teams:
+            member_ids = team.user_ids or []
+            if user_id_str in member_ids:
+                in_team = True
+                break
+
+        if not in_team:
+            raise ValidationError(
+                "You are not a member of any team in this competition. "
+                "Ask the host to add your email to a team first."
+            )
+
+        self.repository.create_role(user_id, competition.id, RoleType.participant)
+        return competition
