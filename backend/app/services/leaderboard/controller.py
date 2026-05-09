@@ -28,13 +28,14 @@ def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
 
 
 def get_leaderboard_service(db: Session = Depends(get_db)) -> LeaderboardService:
-    return LeaderboardService(LeaderboardRepository(db))
+    return LeaderboardService(LeaderboardRepository(db), db=db)
 
 
 @router.get("", response_model=LeaderboardResponse)
 async def get_leaderboard(
     comp_id: UUID,
     authorization: str = Header(...),
+    type: str = Query("public"),
     limit: int | None = Query(None, ge=1, le=100),
     auth_service: AuthService = Depends(get_auth_service),
     leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
@@ -42,7 +43,7 @@ async def get_leaderboard(
     try:
         token = extract_bearer_token(authorization)
         auth_service.get_current_user(token)
-        return leaderboard_service.get_leaderboard(comp_id, limit)
+        return leaderboard_service.get_leaderboard(comp_id, type, limit)
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except NotFoundError as exc:

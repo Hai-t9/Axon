@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/team_stats_model.dart';
 import '../services/competition_service.dart';
+import 'leaderboard_screen.dart';
 import 'member_profile_screen.dart';
 import 'image_gallery_screen.dart';
 
@@ -9,12 +10,14 @@ class TeamStatsScreen extends ConsumerStatefulWidget {
   final String teamId;
   final String teamName;
   final String competitionName;
+  final String competitionId;
 
   const TeamStatsScreen({
     super.key,
     required this.teamId,
     required this.teamName,
     required this.competitionName,
+    required this.competitionId,
   });
 
   @override
@@ -91,6 +94,7 @@ class _TeamStatsScreenState extends ConsumerState<TeamStatsScreen>
             else ...[
               SliverToBoxAdapter(child: _buildOverviewCards()),
               SliverToBoxAdapter(child: _buildGalleryButton()),
+              SliverToBoxAdapter(child: _buildLeaderboardButton()),
               SliverToBoxAdapter(child: _buildMemberLeaderboard()),
               SliverToBoxAdapter(child: _buildContributionBreakdown()),
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
@@ -144,6 +148,65 @@ class _TeamStatsScreenState extends ConsumerState<TeamStatsScreen>
                   const SizedBox(width: 16),
                   const Text(
                     'View Image Gallery',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeaderboardButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => LeaderboardScreen(
+                competitionId: widget.competitionId,
+                competitionName: widget.competitionName,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF5F75EE).withOpacity(0.8),
+                const Color(0xFF5F75EE).withOpacity(0.4),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF5F75EE).withOpacity(0.5)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.leaderboard_rounded, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'View Leaderboard',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
