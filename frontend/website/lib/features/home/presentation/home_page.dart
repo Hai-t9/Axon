@@ -126,8 +126,8 @@ class _HeroCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: AppColors.border),
-        gradient: const LinearGradient(
-          colors: [AppColors.surface, AppColors.surfaceAlt],
+        gradient: LinearGradient(
+          colors: [AppColors.surfaceFor(context), AppColors.surfaceAltFor(context)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -147,7 +147,7 @@ class _HeroCard extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.87)),
+                ?.copyWith(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
