@@ -19,6 +19,7 @@ import '../state/dashboard_controller.dart';
 import '../data/dashboard_models.dart';
 import '../data/competition_models.dart';
 import '../../home/presentation/home_page.dart';
+import '../../gallery/presentation/gallery_page.dart';
 import 'competition_settings_page.dart';
 import 'phase_control_page.dart';
 import 'teams_control_page.dart';
@@ -695,6 +696,13 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
         subtitle: 'Review image labels',
         color: AppColors.primaryDark,
         route: DataValidationPage.routeForId(competitionId),
+      ),
+      _ModuleData(
+        icon: Icons.photo_library_outlined,
+        title: 'Gallery & Stats',
+        subtitle: 'Team images & statistics',
+        color: AppColors.accent,
+        route: GalleryPage.routeForId(competitionId),
       ),
     ];
 

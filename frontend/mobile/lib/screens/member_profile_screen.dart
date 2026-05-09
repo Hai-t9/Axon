@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import '../models/team_stats_model.dart';
-import '../models/competition_model.dart';
 
 class MemberProfileScreen extends StatelessWidget {
   final MemberStatsModel member;
-  final CompetitionModel? selectedCompetition;
+  final String competitionName;
   final int rank;
 
   const MemberProfileScreen({
     super.key,
     required this.member,
-    this.selectedCompetition,
+    required this.competitionName,
     required this.rank,
   });
 
   @override
   Widget build(BuildContext context) {
-    final String compName = selectedCompetition?.name ?? 'Unknown Competition';
+    final String compName = competitionName;
 
     Color rankColor;
     IconData? rankIcon;

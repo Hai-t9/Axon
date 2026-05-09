@@ -52,12 +52,16 @@ class ImageRepository:
             self.db.refresh(db_image)
         return db_image
 
-    def find_by_team(self, team_id: UUID, status: str = None, skip: int = 0, limit: int = 100):
+    def find_by_team(self, team_id: UUID, status: str = None, author_id: UUID = None, label: str = None, skip: int = 0, limit: int = 100):
         query = self.db.query(Image).filter(Image.team_id == team_id)
         if status:
             query = query.filter(Image.status == status)
+        if author_id:
+            query = query.filter(Image.author_id == author_id)
+        if label:
+            query = query.filter(Image.label == label)
         total = query.count()
-        images = query.offset(skip).limit(limit).all()
+        images = query.order_by(Image.time.desc()).offset(skip).limit(limit).all()
         return images, total
 
     def find_by_competition(self, comp_id: UUID, status: str = None):
