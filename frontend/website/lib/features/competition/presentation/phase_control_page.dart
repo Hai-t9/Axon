@@ -89,21 +89,28 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
       return;
     }
 
-    final deadline = DateTime.tryParse(deadlineStr);
+    final deadline = _parseUtc(deadlineStr);
     if (deadline == null) {
       setState(() => _remaining = Duration.zero);
       return;
     }
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final remaining = deadline.difference(DateTime.now());
+      final remaining = deadline.difference(DateTime.now().toUtc());
       if (remaining.isNegative) {
-        setState(() => _remaining = Duration.zero);
         _countdownTimer?.cancel();
+        setState(() => _remaining = Duration.zero);
+        _loadPhase();
       } else {
         setState(() => _remaining = remaining);
       }
     });
+  }
+
+  DateTime? _parseUtc(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return null;
+    return DateTime.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.millisecond, dt.microsecond);
   }
 
   void _showMsg(String msg, {bool isError = false}) {
@@ -186,10 +193,23 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
         return 'In Progress';
       case 'completed':
         return 'Completed';
+      case 'rolled_back':
+        return 'Rolled Back';
       default:
         return status;
     }
   }
+
+  String _formatDeadline(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    final local = dt.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    return '${local.year}-${_two(local.month)}-${_two(local.day)}  $h:$m';
+  }
+
+  String _two(int v) => v.toString().padLeft(2, '0');
 
   Color _statusColor(String status) {
     switch (status) {
@@ -260,17 +280,19 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
                         ],
                       )),
                     ]),
-                    const SizedBox(height: AppSpacing.lg),
-                    Row(children: [
-                      const Icon(Icons.timer_outlined, size: 16, color: AppColors.textSecondary),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text('Deadline: ${_formatDuration(_remaining)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: _remaining != Duration.zero ? AppColors.primaryDark : AppColors.textSecondary,
-                            fontWeight: _remaining != Duration.zero ? FontWeight.w600 : FontWeight.normal,
-                          )),
-                    ]),
-                    const SizedBox(height: AppSpacing.lg),
+                    if (!isPhaseFive) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      Row(children: [
+                        const Icon(Icons.timer_outlined, size: 16, color: AppColors.textSecondary),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text('Deadline: ${_formatDuration(_remaining)}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: _remaining != Duration.zero ? AppColors.primaryDark : AppColors.textSecondary,
+                              fontWeight: _remaining != Duration.zero ? FontWeight.w600 : FontWeight.normal,
+                            )),
+                      ]),
+                      const SizedBox(height: AppSpacing.lg),
+                    ],
                     Wrap(spacing: AppSpacing.sm, runSpacing: AppSpacing.sm, children: [
                       if (isFirst)
                         ElevatedButton.icon(
@@ -292,11 +314,12 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
                           label: Text('Back to Phase $prevPhase'),
                         ),
                       ],
-                      OutlinedButton.icon(
-                        onPressed: isPhaseFive ? null : _extendDeadline,
-                        icon: const Icon(Icons.edit_calendar_outlined, size: 18),
-                        label: const Text('Extend Deadline'),
-                      ),
+                      if (!isPhaseFive)
+                        OutlinedButton.icon(
+                          onPressed: _extendDeadline,
+                          icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+                          label: const Text('Extend Deadline'),
+                        ),
                     ]),
                   ],
                 ),
@@ -341,7 +364,7 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
                       children: [
                         if (start != null) Text('Started: ${start.split('T').first}',
                             style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
-                        if (deadline != null) Text('Deadline: ${deadline.replaceFirst('T', ' ').substring(0, 16)}',
+                        if (deadline != null) Text('Deadline: ${_formatDeadline(deadline)}',
                             style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
                         const SizedBox(height: 2),
                         Chip(

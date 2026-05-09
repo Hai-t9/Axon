@@ -299,17 +299,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           Text(competition.description!, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: AppSpacing.xl),
         ],
-        Row(
-          children: [
-            Expanded(child: _buildSectionHeader(context, 'Phase Information')),
-            IconButton(
-              onPressed: () => ref.invalidate(dashboardProvider(widget.competitionId)),
-              icon: const Icon(Icons.refresh, size: 18),
-              tooltip: 'Refresh phase info',
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
+        _buildSectionHeader(context, 'Phase Information'),
         dashboardState.when(
           data: (dashboard) {
             final isAwaitingInit = dashboard.phaseInfo.currentPhase == '0';
@@ -348,11 +338,14 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                                 color: AppColors.textSecondary,
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.md),
-                            _PhaseCountdown(
-                              phaseDates: dashboard.phaseInfo.phaseDates,
-                              currentPhase: dashboard.phaseInfo.currentPhase,
-                            ),
+                            if (dashboard.phaseInfo.currentPhase != '5') ...[
+                              const SizedBox(height: AppSpacing.md),
+                              _PhaseCountdown(
+                                phaseDates: dashboard.phaseInfo.phaseDates,
+                                currentPhase: dashboard.phaseInfo.currentPhase,
+                                onExpired: () => ref.invalidate(dashboardProvider(widget.competitionId)),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -793,10 +786,12 @@ class _ModuleCard extends StatelessWidget {
 class _PhaseCountdown extends StatefulWidget {
   final Map<String, dynamic> phaseDates;
   final String currentPhase;
+  final VoidCallback? onExpired;
 
   const _PhaseCountdown({
     required this.phaseDates,
     required this.currentPhase,
+    this.onExpired,
   });
 
   @override
@@ -835,14 +830,18 @@ class _PhaseCountdownState extends State<_PhaseCountdown> {
       if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
       return;
     }
-    final deadline = DateTime.tryParse(deadlineStr);
-    if (deadline == null) {
+    final dt = DateTime.tryParse(deadlineStr);
+    if (dt == null) {
       if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
       return;
     }
-    final remaining = deadline.difference(DateTime.now());
+    final deadline = DateTime.utc(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.millisecond, dt.microsecond);
+    final remaining = deadline.difference(DateTime.now().toUtc());
     if (remaining.isNegative) {
-      if (_remaining != Duration.zero) setState(() => _remaining = Duration.zero);
+      if (_remaining != Duration.zero) {
+        setState(() => _remaining = Duration.zero);
+        widget.onExpired?.call();
+      }
     } else {
       setState(() => _remaining = remaining);
     }

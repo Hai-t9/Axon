@@ -2,6 +2,8 @@ from app.core.exceptions import NotFoundError
 from uuid import UUID
 
 from app.core.cache import DashboardCache
+from app.services.phase.repository import PhaseRepository
+from app.services.phase.service import PhaseService
 from .repository import DashboardRepository
 
 
@@ -9,6 +11,7 @@ class DashboardService:
     def __init__(self, repository: DashboardRepository, cache: DashboardCache):
         self.repository = repository
         self.cache = cache
+        self._phase_service = PhaseService(PhaseRepository(repository.db))
 
     def _serialize_phase_info(self, phase_info) -> dict:
         return {
@@ -69,7 +72,7 @@ class DashboardService:
 
 
     def _build_dashboard_payload(self, comp_id: UUID) -> dict:
-        phase_info = self.repository.ensure_phase_info(comp_id)
+        phase_info = self._phase_service.get_current_phase(comp_id)
 
         config = self.repository.find_config(comp_id)
 
@@ -93,7 +96,7 @@ class DashboardService:
         }
 
     def _build_participant_payload(self, comp_id: UUID, participant_id: UUID) -> dict:
-        phase_info = self.repository.ensure_phase_info(comp_id)
+        phase_info = self._phase_service.get_current_phase(comp_id)
 
         config = self.repository.find_config(comp_id)
 

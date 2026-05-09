@@ -91,7 +91,44 @@ class PhaseService:
 
     def get_current_phase(self, competition_id: UUID):
         entry = self._ensure_phase_log(competition_id)
+        self._auto_advance_if_deadline_passed(entry)
         return entry
+
+    def _auto_advance_if_deadline_passed(self, entry) -> None:
+        """Advance to the next phase if the current phase's deadline has passed."""
+        now = datetime.utcnow()
+        for _ in range(len(_PHASE_ORDER)):
+            current_phase = entry.current_phase
+            phase_dates = self._ensure_phase_dates(entry.phase_dates)
+            deadlines = phase_dates.get("deadlines", {}) or {}
+            deadline_str = deadlines.get(current_phase)
+
+            if not deadline_str:
+                return
+
+            deadline = datetime.fromisoformat(deadline_str)
+            if deadline.tzinfo is not None:
+                deadline = deadline.replace(tzinfo=None)
+            if deadline > now:
+                return
+
+            current_index = _PHASE_ORDER.index(current_phase)
+            if current_index >= len(_PHASE_ORDER) - 1:
+                return
+
+            next_phase = _PHASE_ORDER[current_index + 1]
+            self._update_timeline(phase_dates, next_phase, current_phase)
+            self._record_history(
+                phase_dates,
+                "auto_advance",
+                current_phase,
+                next_phase,
+                "system",
+                {"reason": "deadline_passed"},
+            )
+            self.repository.update(
+                entry, {"current_phase": next_phase, "phase_dates": phase_dates}
+            )
 
     def validate_phase_transition(self, current_phase: str, target_phase: str) -> dict:
         if target_phase not in _PHASE_ORDER:
@@ -220,9 +257,12 @@ class PhaseService:
             raise ValidationError("Deadline must be in the future")
 
         entry = self._ensure_phase_log(competition_id)
+        current_phase = entry.current_phase
+        if current_phase == "5":
+            raise ValidationError("Cannot set deadline for the final phase")
+
         phase_dates = self._ensure_phase_dates(entry.phase_dates)
         deadlines = phase_dates.setdefault("deadlines", {})
-        current_phase = entry.current_phase
 
         # Deadlines are stored inside phase_dates JSON for auditability.
         deadlines[current_phase] = new_deadline.isoformat()

@@ -60,6 +60,7 @@ class CompetitionRepository {
     double? duplicateThreshold,
     Map<String, dynamic>? labels,
     Map<String, dynamic>? modelSpec,
+    Map<String, String>? phaseDeadlines,
   }) async {
     final config = <String, dynamic>{};
     if (overview != null && overview.trim().isNotEmpty) config['overview'] = overview.trim();
@@ -80,6 +81,8 @@ class CompetitionRepository {
         'description': description.trim(),
       if (launchDate != null) 'launch_date': _formatDate(launchDate),
       if (config.isNotEmpty) 'config': config,
+      if (phaseDeadlines != null && phaseDeadlines.isNotEmpty)
+        'phase_deadlines': phaseDeadlines,
     };
     final response = await _apiClient.postJson(
       '/competitions',
