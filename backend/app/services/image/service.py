@@ -176,10 +176,9 @@ class ImageService:
     def get_image_by_id(self, image_id: int):
         return self.repository.find_by_id(image_id)
 
-    def get_images_by_team(self, team_id: UUID, status: str = None, page: int = 1):
-        limit = 10
+    def get_images_by_team(self, team_id: UUID, status: str = None, author_id: UUID = None, label: str = None, page: int = 1, limit: int = 50):
         skip = (page - 1) * limit
-        return self.repository.find_by_team(team_id, status, skip, limit)
+        return self.repository.find_by_team(team_id, status, author_id, label, skip, limit)
 
     def get_images_by_competition(self, comp_id: UUID, status: str = None):
         return self.repository.find_by_competition(comp_id, status)

@@ -34,6 +34,7 @@ class ImageResponse(ImageBase):
     author_id: UUID
     time: datetime
     label: Optional[str] = None
+    author_name: Optional[str] = None
     metadata_rel: Optional[ImageMetadataBase] = None
 
     class Config:

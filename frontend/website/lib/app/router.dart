@@ -16,6 +16,7 @@ import '../features/model_submission/presentation/model_submission_page.dart';
 import '../features/validation/presentation/validation_page.dart';
 import '../features/evaluation/presentation/evaluation_page.dart';
 import '../features/data_validation/presentation/data_validation_page.dart';
+import '../features/gallery/presentation/gallery_page.dart';
 import '../features/profile/presentation/profile_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -146,6 +147,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id'];
           if (id == null || id.isEmpty) return const HomePage();
           return DataValidationPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: GalleryPage.routePath,
+        name: GalleryPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return GalleryPage(competitionId: id);
         },
       ),
     ],

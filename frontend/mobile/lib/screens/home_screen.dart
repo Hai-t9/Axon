@@ -57,6 +57,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             }
           }
         });
+        // Auto-select first competition if none selected
+        if (_selectedCompetition == null && comps.isNotEmpty) {
+          final first = comps.first;
+          setState(() => _selectedCompetition = first);
+          _loadMyTeam(first.id);
+          _loadLabels(first.id);
+        }
       }
     } catch (e) {
       if (mounted) {
