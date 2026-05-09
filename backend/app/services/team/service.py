@@ -107,13 +107,29 @@ class TeamService:
 
     def get_statistics(self, team_id: UUID):
         team = self.get_team(team_id)
-        total_members = len(self._normalize_emails(team.user_emails))
+        user_emails = self._normalize_emails(team.user_emails)
+        total_members = len(user_emails)
         images_uploaded = self.repository.count_images_by_team(team_id)
         models_submitted = self.repository.count_models_by_team(team_id)
+        
+        member_stats = []
+        members = self.repository.get_members_by_emails(list(user_emails.keys()))
+        for member in members:
+            uploads = self.repository.count_images_by_user_in_team(team_id, member.id)
+            validations = self.repository.count_validations_by_user_in_team(team_id, member.id)
+            member_stats.append({
+                "user_id": str(member.id),
+                "name": member.fullname or "Unknown",
+                "email": member.email,
+                "images_uploaded": uploads,
+                "images_validated": validations,
+            })
+            
         return {
             "total_members": total_members,
             "images_uploaded": images_uploaded,
             "models_submitted": models_submitted,
+            "members": member_stats,
         }
 
     def bulk_create_teams(self, comp_id: UUID, teams_data: dict) -> dict:

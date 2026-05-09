@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/team_stats_model.dart';
 import '../services/competition_service.dart';
+import 'member_profile_screen.dart';
 
 class TeamStatsScreen extends ConsumerStatefulWidget {
   final String teamId;
@@ -360,7 +361,18 @@ class _TeamStatsScreenState extends ConsumerState<TeamStatsScreen>
         rankIcon = null;
     }
 
-    return Container(
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MemberProfileScreen(
+              member: member,
+              rank: rank,
+            ),
+          ),
+        );
+      },
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: isFirst
@@ -491,8 +503,9 @@ class _TeamStatsScreenState extends ConsumerState<TeamStatsScreen>
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildContributionBreakdown() {
     if (_stats!.members.isEmpty) return const SizedBox.shrink();

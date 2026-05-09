@@ -13,7 +13,7 @@ class TokenNotifier extends Notifier<String?> {
 final authTokenProvider = NotifierProvider<TokenNotifier, String?>(TokenNotifier.new);
 
 class ApiConfig {
-  static String baseUrl = 'http://192.168.135.205:8000';
+  static String baseUrl = 'http://192.168.167.205:8000';
 }
 
 class AuthInterceptor extends Interceptor {
