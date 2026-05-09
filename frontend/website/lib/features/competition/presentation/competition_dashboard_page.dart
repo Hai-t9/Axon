@@ -63,6 +63,7 @@ class CompetitionDashboardPage extends ConsumerStatefulWidget {
 
 class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _phaseTimer;
 
   @override
   void initState() {
@@ -71,10 +72,14 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
     _tabController.addListener(() {
       setState(() {});
     });
+    _phaseTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) ref.invalidate(dashboardProvider(widget.competitionId));
+    });
   }
 
   @override
   void dispose() {
+    _phaseTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -314,7 +319,16 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           Text(competition.description!, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: AppSpacing.xl),
         ],
-        _buildSectionHeader(context, 'Phase Information'),
+        Row(
+          children: [
+            Expanded(child: _buildSectionHeader(context, 'Phase Information')),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh phase data',
+              onPressed: () => ref.invalidate(dashboardProvider(widget.competitionId)),
+            ),
+          ],
+        ),
         dashboardState.when(
           data: (dashboard) {
             final isAwaitingInit = dashboard.phaseInfo.currentPhase == '0';

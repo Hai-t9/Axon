@@ -240,7 +240,12 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
         children: [
           Row(children: [
             Expanded(child: PageHeader(title: 'Phase Control', subtitle: 'Manage competition phases.')),
-            const SizedBox(width: AppSpacing.md),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh phase data',
+              onPressed: _loading ? null : _loadPhase,
+            ),
+            const SizedBox(width: AppSpacing.sm),
             TextButton.icon(
               onPressed: () => context.go(CompetitionDashboardPage.routeForId(widget.competitionId)),
               icon: const Icon(Icons.arrow_back, size: 16),
