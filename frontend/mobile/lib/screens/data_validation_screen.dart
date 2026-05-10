@@ -18,13 +18,15 @@ class DataValidationScreen extends ConsumerStatefulWidget {
 }
 
 class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
-  List<Map<String, dynamic>> _queue = [];
+  List<Map<String, dynamic>> _images = [];
   int _currentIndex = 0;
-  bool _loading = true;
-  bool _submitting = false;
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  bool _isSkipping = false;
+  bool _isComplete = false;
   String? _error;
   List<String> _labels = [];
-  Map<String, dynamic>? _progress;
+  String? _selectedLabel;
 
   @override
   void initState() {
@@ -33,94 +35,89 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _isLoading = true; _error = null; });
     try {
       final service = ref.read(competitionServiceProvider);
       final labelResult = await service.getCompetitionLabels(widget.competitionId);
-      final queueResult = await service.getDataValidationQueue(widget.competitionId);
-      final progressResult = await service.getDataValidationProgress(widget.competitionId);
-      if (mounted) {
-        setState(() {
-          _labels = labelResult ?? [];
-          _queue = List<Map<String, dynamic>>.from(queueResult['images'] as List? ?? []);
-          _currentIndex = 0;
-          _progress = progressResult;
-          _loading = false;
-        });
-      }
+      final listResult = await service.getValidationList(widget.competitionId);
+      if (!mounted) return;
+      setState(() {
+        _labels = labelResult ?? [];
+        _images = List<Map<String, dynamic>>.from(listResult['images'] as List? ?? []);
+        _currentIndex = 0;
+        _isLoading = false;
+        if (_images.isEmpty) {
+          _isComplete = true;
+        } else {
+          _selectedLabel = _images[0]['current_label'] as String?;
+        }
+      });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
 
   Map<String, dynamic>? get _currentImage =>
-      _queue.isNotEmpty && _currentIndex < _queue.length
-          ? _queue[_currentIndex]
+      _images.isNotEmpty && _currentIndex < _images.length
+          ? _images[_currentIndex]
           : null;
 
-  Future<void> _validate() async {
-    if (_currentImage == null || _submitting) return;
-    setState(() => _submitting = true);
+  Future<void> _submitVote() async {
+    if (_currentImage == null || _isSubmitting) return;
+    if (_selectedLabel == null || _selectedLabel!.isEmpty) {
+      _showError('Please select a label before confirming.');
+      return;
+    }
+    setState(() => _isSubmitting = true);
     try {
       final service = ref.read(competitionServiceProvider);
-      await service.validateImage(widget.competitionId, _currentImage!['image_id'].toString());
+      await service.submitVote(_currentImage!['image_id'].toString(), _selectedLabel!);
+      if (!mounted) return;
+      _showSuccess('Label confirmed!');
       _next();
     } catch (e) {
       if (mounted) _showError(e.toString());
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  Future<void> _skip() async {
-    if (_currentImage == null || _submitting) return;
-    setState(() => _submitting = true);
+  Future<void> _skipImage() async {
+    if (_currentImage == null || _isSkipping) return;
+    setState(() => _isSkipping = true);
     try {
       final service = ref.read(competitionServiceProvider);
-      await service.skipImage(widget.competitionId, _currentImage!['image_id'].toString());
+      await service.skipImage(_currentImage!['image_id'].toString());
+      if (!mounted) return;
+      _showSuccess('Image skipped.');
       _next();
     } catch (e) {
       if (mounted) _showError(e.toString());
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) setState(() => _isSkipping = false);
     }
   }
 
   void _next() {
-    if (_currentIndex + 1 < _queue.length) {
-      setState(() => _currentIndex++);
+    if (_currentIndex + 1 < _images.length) {
+      setState(() {
+        _currentIndex++;
+        _selectedLabel = _images[_currentIndex]['current_label'] as String?;
+      });
     } else {
-      setState(() { _queue = []; _currentIndex = 0; });
-      _load();
+      setState(() => _isComplete = true);
     }
   }
 
-  void _showCorrectionDialog() async {
-    if (_currentImage == null || _labels.isEmpty) return;
-    final currentLabel = _currentImage!['current_label'] as String? ?? '';
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => _CorrectLabelDialog(
-        labels: _labels,
-        currentLabel: currentLabel,
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF33E1A6),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-    if (result != null && result != currentLabel) {
-      setState(() => _submitting = true);
-      try {
-        final service = ref.read(competitionServiceProvider);
-        await service.correctLabel(
-          widget.competitionId,
-          _currentImage!['image_id'].toString(),
-          result,
-        );
-        _next();
-      } catch (e) {
-        if (mounted) _showError(e.toString());
-      } finally {
-        if (mounted) setState(() => _submitting = false);
-      }
-    }
   }
 
   void _showError(String message) {
@@ -128,8 +125,17 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+  }
+
+  String _buildImageUrl(String filepath) {
+    final base = ApiConfig.baseUrl.replaceAll('/api/v1', '');
+    final normalized = filepath.replaceAll('\\', '/');
+    if (normalized.startsWith('http')) return normalized;
+    return '$base/$normalized';
   }
 
   @override
@@ -138,7 +144,7 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
       backgroundColor: const Color(0xFF1C1C28),
       appBar: AppBar(
         backgroundColor: const Color(0xFF252536),
-        title: const Text('Data Validation'),
+        title: const Text('Validation'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.of(context).pop(),
@@ -149,7 +155,7 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) {
+    if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF5F75EE)),
       );
@@ -172,16 +178,46 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
         ),
       );
     }
-    if (_currentImage == null) {
-      return const Center(
+    if (_isComplete) {
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_outline, color: Color(0xFF33E1A6), size: 64),
-            SizedBox(height: 16),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF33E1A6), Color(0xFF2BC48E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(Icons.celebration_rounded, size: 40, color: Color(0xFF1C1C28)),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Validation Complete!',
+              style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
             Text(
-              'All images validated!',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+              _images.isEmpty
+                  ? 'No images were assigned for validation.'
+                  : 'You have validated all ${_images.length} images.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white60, fontSize: 15),
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Back to Dashboard'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white70,
+                side: const BorderSide(color: Color(0xFF3A3A50)),
+              ),
             ),
           ],
         ),
@@ -189,16 +225,25 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
     }
 
     final image = _currentImage!;
-    final progress = _queue.isEmpty ? 1.0 : (_currentIndex / _queue.length);
+    final total = _images.length;
+    final current = _currentIndex + 1;
+    final progress = total > 0 ? current / total : 0.0;
     final filepath = image['filepath'] as String? ?? '';
     final currentLabel = image['current_label'] as String? ?? '';
-    final imageUrl = '${ApiConfig.baseUrl}/$filepath';
+    final imageId = image['image_id'].toString();
 
     return Column(
       children: [
-        if (_progress != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        // Progress bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF252536),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF3A3A50)),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -206,12 +251,23 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Progress',
-                      style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                      'Image $current of $total',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
                     ),
-                    Text(
-                      '${_progress?['validated_images'] ?? 0}/${_progress?['total_images'] ?? 0}',
-                      style: const TextStyle(color: Color(0xFF5F75EE), fontWeight: FontWeight.w700),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF5F75EE).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${(progress * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: Color(0xFF5F75EE),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -219,7 +275,7 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
-                    value: ((_progress?['progress_percentage'] as num?)?.toDouble() ?? 0.0) / 100.0,
+                    value: progress,
                     backgroundColor: Colors.white.withOpacity(0.08),
                     valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF5F75EE)),
                     minHeight: 6,
@@ -228,15 +284,18 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
               ],
             ),
           ),
+        ),
+        // Image and validation content
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
+                // Image
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Image.network(
-                    imageUrl,
+                    _buildImageUrl(filepath),
                     height: 280,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -264,45 +323,81 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF252536),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF3A3A50)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Current Label',
-                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                const SizedBox(height: 16),
+                // Image info
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1C1C28),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(height: 8),
+                      child: Text(
+                        'ID: $imageId',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Colors.white60,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (currentLabel.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF5F75EE).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          color: const Color(0xFFE5A53C).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text(
-                          currentLabel,
-                          style: const TextStyle(
-                            color: Color(0xFF5F75EE),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.label_outline, size: 14, color: Colors.white),
+                            const SizedBox(width: 4),
+                            Text(
+                              currentLabel,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // Label selection
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select Label',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Choose the correct label for this image',
+                        style: TextStyle(fontSize: 13, color: Colors.white60),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                _buildLabelGrid(),
               ],
             ),
           ),
         ),
+        // Bottom actions
         Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           decoration: const BoxDecoration(
@@ -313,9 +408,18 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _submitting ? null : _skip,
-                  icon: const Icon(Icons.skip_next_rounded),
-                  label: const Text('Skip'),
+                  onPressed: (_isSubmitting || _isSkipping) ? null : _skipImage,
+                  icon: _isSkipping
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
+                        )
+                      : const Icon(Icons.skip_next_rounded),
+                  label: Text(_isSkipping ? 'Skipping...' : 'Skip'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white70,
                     side: const BorderSide(color: Color(0xFF3A3A50)),
@@ -326,27 +430,27 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
+                flex: 2,
                 child: ElevatedButton.icon(
-                  onPressed: _submitting ? null : _validate,
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Validate'),
+                  onPressed: (_isSubmitting || _isSkipping) ? null : _submitVote,
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF1C1C28),
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                  label: Text(_isSubmitting ? 'Submitting...' : 'Confirm Vote'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF33E1A6),
+                    backgroundColor: _selectedLabel != null
+                        ? const Color(0xFF5F75EE)
+                        : Colors.white24,
                     foregroundColor: const Color(0xFF1C1C28),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _submitting ? null : _showCorrectionDialog,
-                  icon: const Icon(Icons.edit_rounded),
-                  label: const Text('Correct'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE5A53C),
-                    foregroundColor: const Color(0xFF1C1C28),
+                    disabledBackgroundColor: Colors.white24,
+                    disabledForegroundColor: const Color(0xFF1C1C28).withOpacity(0.4),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -358,115 +462,70 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
       ],
     );
   }
-}
 
-class _CorrectLabelDialog extends StatefulWidget {
-  final List<String> labels;
-  final String currentLabel;
+  Widget _buildLabelGrid() {
+    final labels = _labels.isNotEmpty
+        ? _labels
+        : (currentLabel != null && currentLabel!.isNotEmpty ? [currentLabel!] : <String>[]);
 
-  const _CorrectLabelDialog({required this.labels, required this.currentLabel});
+    if (labels.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF252536),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF3A3A50)),
+        ),
+        child: const Text(
+          'No labels configured for this competition.',
+          style: TextStyle(color: Colors.white60, fontSize: 13),
+        ),
+      );
+    }
 
-  @override
-  State<_CorrectLabelDialog> createState() => _CorrectLabelDialogState();
-}
-
-class _CorrectLabelDialogState extends State<_CorrectLabelDialog> {
-  late String _selected;
-  final _searchController = TextEditingController();
-  List<String> _filtered = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = widget.currentLabel;
-    _filtered = widget.labels;
-    _searchController.addListener(_filter);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _filter() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filtered = widget.labels
-          .where((l) => l.toLowerCase().contains(query))
-          .toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: const Color(0xFF252536),
-      title: const Text('Correct Label', style: TextStyle(color: Colors.white)),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _searchController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search labels...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.4)),
-                filled: true,
-                fillColor: const Color(0xFF1C1C28),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: labels.map((label) {
+        final isSelected = _selectedLabel == label;
+        return GestureDetector(
+          onTap: () => setState(() => _selectedLabel = label),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF5F75EE).withOpacity(0.12)
+                  : const Color(0xFF252536),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? const Color(0xFF5F75EE) : const Color(0xFF3A3A50),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected) ...[
+                  const Icon(Icons.check_circle, size: 16, color: Color(0xFF5F75EE)),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 13,
+                    color: isSelected ? const Color(0xFF5F75EE) : Colors.white,
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: _filtered.map((label) {
-                  final isCurrent = label == widget.currentLabel;
-                  final isSelected = label == _selected;
-                  return ListTile(
-                    title: Text(
-                      label,
-                      style: TextStyle(
-                        color: isSelected ? const Color(0xFF5F75EE) : Colors.white,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
-                      ),
-                    ),
-                    leading: isCurrent
-                        ? const Icon(Icons.lock, color: Colors.white38, size: 18)
-                        : isSelected
-                            ? const Icon(Icons.radio_button_checked, color: Color(0xFF5F75EE), size: 20)
-                            : const Icon(Icons.radio_button_unchecked, color: Colors.white38, size: 20),
-                    onTap: isCurrent ? null : () => setState(() => _selected = label),
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
-        ),
-        ElevatedButton(
-          onPressed: _selected == widget.currentLabel
-              ? null
-              : () => Navigator.of(context).pop(_selected),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFE5A53C),
-            foregroundColor: const Color(0xFF1C1C28),
           ),
-          child: const Text('Confirm'),
-        ),
-      ],
+        );
+      }).toList(),
     );
   }
+
+  String? get currentLabel => _currentImage?['current_label'] as String?;
 }
