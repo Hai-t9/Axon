@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -28,6 +28,16 @@ class Image(Base):
     old_height = Column(Float, nullable=True)
     device = Column(String, nullable=True)
 
+    # Cleaner module columns — soft-delete for duplicates
+    is_duplicate = Column(Boolean, nullable=False, server_default="false")
+    duplicate_of_id = Column(Integer, ForeignKey("image.id"), nullable=True)
+    duplicate_reason = Column(String, nullable=True)
+    corrupted = Column(Boolean, nullable=False, server_default="false")
+    corrupted_error = Column(Text, nullable=True)
+
+    duplicate_of = relationship("Image", remote_side=[id], back_populates="duplicates")
+    duplicates = relationship("Image", back_populates="duplicate_of")
+
     team = relationship("Team", back_populates="images")
     author = relationship("User", back_populates="images_authored")
     metadata_entry = relationship(
@@ -41,6 +51,8 @@ class Image(Base):
     __table_args__ = (
         Index("idx_image_team_id", "team_id"),
         Index("idx_image_author_id", "author_id"),
+        Index("idx_image_is_duplicate", "is_duplicate"),
+        Index("idx_image_corrupted", "corrupted"),
     )
 
 

@@ -13,7 +13,9 @@ class TokenNotifier extends Notifier<String?> {
 final authTokenProvider = NotifierProvider<TokenNotifier, String?>(TokenNotifier.new);
 
 class ApiConfig {
-  static String baseUrl = 'https://finicky-untenderly-beryl.ngrok-free.dev';
+
+  static String baseUrl = 'https://stood-triangle-mangy.ngrok-free.dev/';
+
 }
 
 class AuthInterceptor extends Interceptor {
