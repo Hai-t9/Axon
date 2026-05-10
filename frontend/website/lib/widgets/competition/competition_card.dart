@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../features/competition/data/competition_models.dart';
 import '../../theme/app_colors.dart';
@@ -61,38 +60,6 @@ class CompetitionCard extends StatelessWidget {
               Text(
                 competition.description!,
                 style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-            if (competition.invitationLink != null &&
-                competition.invitationLink!.trim().isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Invitation link',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
-                    ?.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SelectableText(
-                    competition.invitationLink!,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.copy, size: 18),
-                    tooltip: 'Copy invitation link',
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: competition.invitationLink!));
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Invitation link copied'),
-                        duration: Duration(seconds: 2),
-                      ));
-                    },
-                  ),
-                ],
               ),
             ],
             const SizedBox(height: AppSpacing.md),

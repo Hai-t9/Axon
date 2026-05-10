@@ -382,7 +382,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                       ),
                     ),
                   ),
-                if (dashboard.isHost && competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
+                if (competition.invitationLink != null && competition.invitationLink!.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xl),
                   _buildSectionHeader(context, 'Invitation Link'),
                   Wrap(
