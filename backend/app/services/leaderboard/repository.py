@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -27,6 +28,8 @@ class LeaderboardRepository:
             .all()
         )
 
+        model_count_per_team = Counter(row.team_id for row in rows)
+
         best_by_team: dict[int, dict] = {}
         for row in rows:
             if row.team_id not in best_by_team:
@@ -38,6 +41,7 @@ class LeaderboardRepository:
                     "score": row.score,
                     "submitted_at": row.submitted_at,
                     "evaluated_at": row.evaluated_at,
+                    "models_submitted": model_count_per_team[row.team_id],
                 }
 
         ranked_entries = list(best_by_team.values())
