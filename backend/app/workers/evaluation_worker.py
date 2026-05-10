@@ -149,7 +149,7 @@ def _check_job_completion(
         model = db.query(Model).filter(Model.id == UUID(str(job.model_id))).first()
         if model:
             from app.models.model_model import ModelStatus
-            model.status = ModelStatus.COMPLETED  # type: ignore[assignment]
+            model.status = ModelStatus.COMPLETED.value  # type: ignore[assignment]
 
     elif _any_task_failed(evaluation_id, repo):
         repo.update_evaluation_status(evaluation_id, EvaluationStatus.failed)

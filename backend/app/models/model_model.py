@@ -56,10 +56,17 @@ class Model(Base):
     storage_path = Column(String, nullable=False)
     model_hash = Column(String, nullable=False)
 
-    format = Column(Enum(ModelFormat), nullable=False)
+    format = Column(
+        Enum("pytorch", "tensorflow", "sklearn", "keras", "onnx", name="model_format"),
+        nullable=False,
+    )
     framework_version = Column(String, nullable=False)
     size_mb = Column(Float, nullable=False)
-    status = Column(Enum(ModelStatus), nullable=False, default=ModelStatus.RECEIVED)
+    status = Column(
+        Enum("received", "validated", "scheduled", "queued", "evaluating", "completed", name="model_status"),
+        nullable=False,
+        default="received",
+    )
     version = Column(Integer, nullable=False)
 
     submitted_at = Column(DateTime, nullable=False, server_default=func.now())

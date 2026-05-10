@@ -13,6 +13,7 @@ import '../features/competition/presentation/teams_control_page.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/leaderboard/presentation/leaderboard_page.dart';
 import '../features/model_submission/presentation/model_submission_page.dart';
+import '../features/model_submission/presentation/model_submission_upload_page.dart';
 import '../features/validation/presentation/validation_page.dart';
 import '../features/evaluation/presentation/evaluation_page.dart';
 import '../features/data_validation/presentation/data_validation_page.dart';
@@ -121,6 +122,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id'];
           if (id == null || id.isEmpty) return const HomePage();
           return ModelSubmissionPage(competitionId: id);
+        },
+      ),
+      GoRoute(
+        path: ModelSubmissionUploadPage.routePath,
+        name: ModelSubmissionUploadPage.routeName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null || id.isEmpty) return const HomePage();
+          return ModelSubmissionUploadPage(competitionId: id);
         },
       ),
       GoRoute(
