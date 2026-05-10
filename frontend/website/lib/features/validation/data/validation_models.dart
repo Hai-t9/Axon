@@ -38,18 +38,18 @@ class ValidationListResponse {
 }
 
 class ValidationVoteResponse {
-  final bool success;
-  final String message;
+  final int validationId;
+  final String label;
 
   const ValidationVoteResponse({
-    required this.success,
-    required this.message,
+    required this.validationId,
+    required this.label,
   });
 
   factory ValidationVoteResponse.fromJson(Map<String, dynamic> json) {
     return ValidationVoteResponse(
-      success: json['success'] as bool? ?? false,
-      message: json['message'] as String? ?? '',
+      validationId: json['validation_id'] as int? ?? 0,
+      label: json['label'] as String? ?? '',
     );
   }
 }
