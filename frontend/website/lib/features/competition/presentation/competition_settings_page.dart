@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/validation/validators.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../widgets/auth/auth_text_field.dart';
@@ -12,6 +13,8 @@ import '../../home/presentation/home_page.dart';
 import '../data/competition_repository.dart';
 import '../state/competition_details_controller.dart';
 import 'competition_dashboard_page.dart';
+import 'phase_control_page.dart';
+import 'teams_control_page.dart';
 
 class CompetitionSettingsPage extends ConsumerStatefulWidget {
   const CompetitionSettingsPage({super.key, required this.competitionId});
@@ -29,8 +32,10 @@ class CompetitionSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _CompetitionSettingsPageState
-    extends ConsumerState<CompetitionSettingsPage> {
+    extends ConsumerState<CompetitionSettingsPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+  late final TabController _tabController;
 
   // Basic
   final _nameCtl = TextEditingController();
@@ -66,18 +71,33 @@ class _CompetitionSettingsPageState
   final Set<String> _selectedFormats = {};
   final _labelCtl = TextEditingController();
 
+  // Teams
+  final Map<String, List<String>> _teams = {};
+  final _teamNameCtl = TextEditingController();
+  final List<String> _pendingEmails = [];
+  final _emailCtl = TextEditingController();
+
   String? _loadedId;
   bool _isSaving = false;
   bool _isDeleting = false;
-  final Set<int> _expanded = {0};
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 8, vsync: this);
+    _tabController.addListener(() {
+      setState(() {});
+    });
+  }
 
   @override
   void dispose() {
+    _tabController.dispose();
     for (final c in [
       _nameCtl, _descCtl, _dateCtl, _inviteCtl, _overviewCtl, _termsCtl,
       _dataMdCtl, _dataExCtl, _scoringExCtl,
       _maxValCtl, _dupThreshCtl, _modelDirCtl, _dataDirCtl, _infFuncCtl,
-      _maxSizeMbCtl, _pyMinCtl, _labelCtl,
+      _maxSizeMbCtl, _pyMinCtl, _labelCtl, _teamNameCtl, _emailCtl,
     ]) {
       c.dispose();
     }
@@ -258,16 +278,31 @@ class _CompetitionSettingsPageState
     }
   }
 
-  void _toggle(int i) {
-    setState(() {
-      if (_expanded.contains(i)) { _expanded.remove(i); } else { _expanded.add(i); }
-    });
-  }
-
   void _addLabel(String v) {
     final t = v.trim();
     if (t.isNotEmpty && !_labels.contains(t)) {
       setState(() { _labels.add(t); _labelCtl.clear(); });
+    }
+  }
+
+  void _addEmail() {
+    final v = _emailCtl.text.trim().toLowerCase();
+    if (v.isNotEmpty && !_pendingEmails.contains(v)) {
+      setState(() {
+        _pendingEmails.add(v);
+        _emailCtl.clear();
+      });
+    }
+  }
+
+  void _addTeam() {
+    final name = _teamNameCtl.text.trim();
+    if (name.isNotEmpty && _pendingEmails.isNotEmpty) {
+      setState(() {
+        _teams[name] = List.from(_pendingEmails);
+        _teamNameCtl.clear();
+        _pendingEmails.clear();
+      });
     }
   }
 
@@ -277,6 +312,7 @@ class _CompetitionSettingsPageState
     final theme = Theme.of(context);
 
     return AxonScaffold(
+      scrollable: false,
       child: state.when(
         loading: () => const Center(child: Padding(padding: EdgeInsets.all(AppSpacing.lg), child: CircularProgressIndicator())),
         error: (e, _) => Center(child: Text(e.toString())),
@@ -287,7 +323,6 @@ class _CompetitionSettingsPageState
             autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(children: [
                   Expanded(child: PageHeader(title: 'Manage: ${competition.name}', subtitle: 'Edit all competition settings.')),
@@ -301,133 +336,39 @@ class _CompetitionSettingsPageState
                   ),
                 ]),
                 const SizedBox(height: AppSpacing.lg),
-
-                _Sec(index: 0, icon: Icons.emoji_events_outlined, title: 'Basic information', expanded: _expanded, onToggle: () => _toggle(0), children: [
-                  AuthTextField(controller: _nameCtl, label: 'Name *', hint: 'Competition name', keyboardType: TextInputType.text, textInputAction: TextInputAction.next, prefixIcon: Icons.emoji_events_outlined, validator: (v) => (v?.trim().isEmpty ?? true) ? 'Required' : null),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _descCtl, maxLines: 3, decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.notes_outlined), alignLabelWithHint: true)),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _dateCtl, readOnly: true, onTap: _pickDate, decoration: const InputDecoration(labelText: 'Launch date', hintText: 'YYYY-MM-DD', prefixIcon: Icon(Icons.calendar_today_outlined))),
-                  const SizedBox(height: AppSpacing.md),
-                  AuthTextField(controller: _inviteCtl, label: 'Invitation link', hint: 'https://axon.ai/invite/...', keyboardType: TextInputType.url, textInputAction: TextInputAction.done, prefixIcon: Icons.link),
-                ]),
-                const SizedBox(height: AppSpacing.sm),
-
-                _Sec(index: 1, icon: Icons.article_outlined, title: 'Overview & terms', expanded: _expanded, onToggle: () => _toggle(1), children: [
-                  TextFormField(controller: _overviewCtl, maxLines: 8, decoration: const InputDecoration(labelText: 'Overview', alignLabelWithHint: true, border: OutlineInputBorder())),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _termsCtl, maxLines: 5, decoration: const InputDecoration(labelText: 'Terms & conditions', alignLabelWithHint: true, border: OutlineInputBorder())),
-                ]),
-                const SizedBox(height: AppSpacing.sm),
-
-                _Sec(index: 2, icon: Icons.dataset_outlined, title: 'Data & evaluation', expanded: _expanded, onToggle: () => _toggle(2), children: [
-                  TextFormField(controller: _dataMdCtl, maxLines: 5, decoration: const InputDecoration(labelText: 'Dataset description', alignLabelWithHint: true, border: OutlineInputBorder())),
-                  const SizedBox(height: AppSpacing.md),
-                  const Text('Image formats', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: 8,
-                    children: ['PNG', 'JPEG', 'SVG'].map((ext) => FilterChip(
-                      label: Text(ext),
-                      selected: _selectedFormats.contains(ext),
-                      onSelected: (sel) => setState(() {
-                        if (sel) { _selectedFormats.add(ext); } else { _selectedFormats.remove(ext); }
-                      }),
-                    )).toList(),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _dataExCtl, decoration: const InputDecoration(labelText: 'Data example URL', prefixIcon: Icon(Icons.link))),
-                  const Divider(height: 32),
-                  const Text('Evaluation metric', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: 8,
-                    children: ['F1 score', 'Accuracy', 'Precision', 'Recall', 'ROC AUC'].map((m) => FilterChip(
-                      label: Text(m),
-                      selected: _selectedEvaluation == m,
-                      onSelected: (sel) => setState(() => _selectedEvaluation = sel ? m : null),
-                    )).toList(),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  const Text('Only one metric can be selected.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  const SizedBox(height: AppSpacing.md),
-                  const Text('Evaluation protocol', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: 8,
-                    children: ['standard', 'loto', 'toto'].map((p) => FilterChip(
-                      label: Text(p),
-                      selected: _selectedProtocol == p,
-                      onSelected: (sel) => setState(() => _selectedProtocol = p),
-                    )).toList(),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  const Text('standard: train/val split, loto: leave-one-task-out, toto: train-on-task-only.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _scoringExCtl, decoration: const InputDecoration(labelText: 'Scoring example URL', prefixIcon: Icon(Icons.link))),
-                ]),
-                const SizedBox(height: AppSpacing.sm),
-
-                _Sec(index: 3, icon: Icons.tune_outlined, title: 'Quality settings', expanded: _expanded, onToggle: () => _toggle(3), children: [
-                  TextFormField(controller: _maxValCtl, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Max validations per image', prefixIcon: Icon(Icons.repeat_outlined))),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _dupThreshCtl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Duplicate threshold (0–1)', prefixIcon: Icon(Icons.content_copy_outlined))),
-                ]),
-                const SizedBox(height: AppSpacing.sm),
-
-                _Sec(index: 4, icon: Icons.memory_outlined, title: 'Model submission spec', expanded: _expanded, onToggle: () => _toggle(4), children: [
-                  Row(children: [
-                    Expanded(child: TextFormField(controller: _modelDirCtl, decoration: const InputDecoration(labelText: 'Model dir', prefixIcon: Icon(Icons.folder_outlined)))),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(child: TextFormField(controller: _dataDirCtl, decoration: const InputDecoration(labelText: 'Data dir', prefixIcon: Icon(Icons.folder_outlined)))),
-                  ]),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(children: [
-                    Expanded(child: TextFormField(controller: _infFuncCtl, decoration: const InputDecoration(labelText: 'Inference function', prefixIcon: Icon(Icons.functions_outlined)))),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(child: TextFormField(controller: _maxSizeMbCtl, decoration: const InputDecoration(labelText: 'Max size (MB)', prefixIcon: Icon(Icons.sd_storage_outlined)))),
-                  ]),
-                  const SizedBox(height: AppSpacing.md),
-                  TextFormField(controller: _pyMinCtl, decoration: const InputDecoration(labelText: 'Min Python version', prefixIcon: Icon(Icons.code))),
-                  const SizedBox(height: AppSpacing.md),
-                  Text('Allowed formats', style: theme.textTheme.labelLarge),
-                  const SizedBox(height: AppSpacing.xs),
-                  Wrap(spacing: AppSpacing.sm, children: _formats.keys.map((f) => FilterChip(label: Text(f), selected: _formats[f]!, onSelected: (v) => setState(() => _formats[f] = v))).toList()),
-                ]),
-                const SizedBox(height: AppSpacing.sm),
-
-                _Sec(index: 5, icon: Icons.label_outlined, title: 'Labels', expanded: _expanded, onToggle: () => _toggle(5), children: [
-                  Row(children: [
-                    Expanded(child: TextField(controller: _labelCtl, decoration: const InputDecoration(labelText: 'Label name', hintText: 'e.g. cat'), onSubmitted: _addLabel)),
-                    const SizedBox(width: AppSpacing.sm),
-                    ElevatedButton(onPressed: () => _addLabel(_labelCtl.text), child: const Text('Add')),
-                  ]),
-                  if (_labels.isNotEmpty) const SizedBox(height: AppSpacing.md),
-                  Wrap(spacing: AppSpacing.xs, runSpacing: AppSpacing.xs, children: _labels.map((l) => Chip(label: Text(l), onDeleted: () => setState(() => _labels.remove(l)))).toList()),
-                ]),
-                const SizedBox(height: AppSpacing.lg),
-
-                // Danger zone
-                Card(
-                  color: AppColors.error.withValues(alpha: 0.05),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Row(children: [
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Danger zone', style: theme.textTheme.titleSmall?.copyWith(color: AppColors.error, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text('Permanently delete this competition and all its data.', style: theme.textTheme.bodySmall),
-                      ])),
-                      OutlinedButton.icon(
-                        onPressed: _isDeleting ? null : _delete,
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete'),
-                        style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)),
-                      ),
-                    ]),
+                TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: AppColors.textSecondary,
+                  indicatorColor: theme.colorScheme.primary,
+                  tabs: const [
+                    Tab(text: 'Basics'),
+                    Tab(text: 'Overview'),
+                    Tab(text: 'Data & Eval'),
+                    Tab(text: 'Quality'),
+                    Tab(text: 'Model'),
+                    Tab(text: 'Labels'),
+                    Tab(text: 'Teams'),
+                    Tab(text: 'Phases'),
+                  ],
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: IndexedStack(
+                    index: _tabController.index,
+                    children: [
+                      _buildBasicsTab(),
+                      _buildOverviewTab(),
+                      _buildDataEvalTab(),
+                      _buildQualityTab(),
+                      _buildModelTab(),
+                      _buildLabelsTab(),
+                      _buildTeamsTab(),
+                      _buildPhasesTab(),
+                    ],
                   ),
                 ),
-                const SizedBox(height: AppSpacing.lg),
               ],
             ),
           );
@@ -436,44 +377,339 @@ class _CompetitionSettingsPageState
     );
   }
 
-  String _two(int v) => v.toString().padLeft(2, '0');
-}
-
-class _Sec extends StatelessWidget {
-  const _Sec({required this.index, required this.icon, required this.title, required this.expanded, required this.onToggle, required this.children});
-  final int index;
-  final IconData icon;
-  final String title;
-  final Set<int> expanded;
-  final VoidCallback onToggle;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final isOpen = expanded.contains(index);
-    final theme = Theme.of(context);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: [
-        InkWell(
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-            child: Row(children: [
-              Container(width: 36, height: 36, decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: theme.colorScheme.primary, size: 18)),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(child: Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600))),
-              AnimatedRotation(turns: isOpen ? 0.5 : 0, duration: const Duration(milliseconds: 200), child: const Icon(Icons.expand_more)),
-            ]),
+  // ── TAB: Basics ──
+  Widget _buildBasicsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AuthTextField(
+            controller: _nameCtl,
+            label: 'Competition name *',
+            hint: 'Axon Label Sprint 2025',
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.next,
+            prefixIcon: Icons.emoji_events_outlined,
+            validator: Validators.competitionName,
           ),
-        ),
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children)),
-          crossFadeState: isOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 250),
-        ),
-      ]),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            controller: _descCtl,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Description (optional)',
+              hintText: 'A short summary visible on the competition card.',
+              prefixIcon: Icon(Icons.notes_outlined),
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            controller: _dateCtl,
+            readOnly: true,
+            onTap: _pickDate,
+            decoration: const InputDecoration(
+              labelText: 'Launch date (optional)',
+              hintText: 'YYYY-MM-DD',
+              prefixIcon: Icon(Icons.calendar_today_outlined),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AuthTextField(
+            controller: _inviteCtl,
+            label: 'Invitation link',
+            hint: 'https://axon.ai/invite/...',
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.done,
+            prefixIcon: Icons.link,
+          ),
+        ],
+      ),
     );
   }
+
+  // ── TAB: Overview ──
+  Widget _buildOverviewTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _overviewCtl,
+            maxLines: 8,
+            decoration: const InputDecoration(
+              labelText: 'Competition overview (optional)',
+              hintText: 'Full description, supports markdown...',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            controller: _termsCtl,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Terms & conditions (optional)',
+              hintText: 'Rules participants must accept...',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── TAB: Data & Eval ──
+  Widget _buildDataEvalTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _dataMdCtl,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Dataset description (optional)',
+              hintText: 'Source, size, structure...',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Text(
+            'Image formats',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 8,
+            children: ['PNG', 'JPEG', 'SVG']
+                .map((ext) => FilterChip(
+                      label: Text(ext),
+                      selected: _selectedFormats.contains(ext),
+                      onSelected: (sel) => setState(() {
+                        if (sel) { _selectedFormats.add(ext); } else { _selectedFormats.remove(ext); }
+                      }),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            controller: _dataExCtl,
+            decoration: const InputDecoration(
+              labelText: 'Data example URL (optional)',
+              hintText: 'https://example.com/sample.zip',
+              prefixIcon: Icon(Icons.link),
+            ),
+          ),
+          const Divider(height: 32),
+          const Text(
+            'Evaluation metric',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 8,
+            children: ['F1 score', 'Accuracy', 'Precision', 'Recall', 'ROC AUC']
+                .map((m) => FilterChip(
+                      label: Text(m),
+                      selected: _selectedEvaluation == m,
+                      onSelected: (sel) => setState(() => _selectedEvaluation = sel ? m : null),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const Text(
+            'Only one metric can be selected.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Text(
+            'Evaluation protocol',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 8,
+            children: ['standard', 'loto', 'toto']
+                .map((p) => FilterChip(
+                      label: Text(p),
+                      selected: _selectedProtocol == p,
+                      onSelected: (sel) => setState(() => _selectedProtocol = p),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const Text(
+            'standard: train/val split, loto: leave-one-task-out, toto: train-on-task-only.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            controller: _scoringExCtl,
+            decoration: const InputDecoration(
+              labelText: 'Scoring example URL (optional)',
+              hintText: 'https://example.com/scoring.py',
+              prefixIcon: Icon(Icons.link),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── TAB: Quality ──
+  Widget _buildQualityTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _maxValCtl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: 'Max validations per image (optional)',
+              hintText: 'e.g. 3',
+              prefixIcon: Icon(Icons.repeat_outlined),
+              helperText: 'How many times each image must be validated.',
+            ),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return null;
+              final n = int.tryParse(v.trim());
+              if (n == null || n <= 0) return 'Must be a positive integer.';
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            controller: _dupThreshCtl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Duplicate threshold (optional)',
+              hintText: 'e.g. 0.95',
+              prefixIcon: Icon(Icons.content_copy_outlined),
+              helperText: 'Similarity score 0–1 above which images are flagged.',
+            ),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return null;
+              final n = double.tryParse(v.trim());
+              if (n == null || n < 0 || n > 1) return 'Must be 0–1.';
+              return null;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── TAB: Model ──
+  Widget _buildModelTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Define what participants must include in their Docker submission.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(children: [
+            Expanded(child: TextFormField(controller: _modelDirCtl, decoration: const InputDecoration(labelText: 'Model directory', hintText: 'model', prefixIcon: Icon(Icons.folder_outlined)))),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: TextFormField(controller: _dataDirCtl, decoration: const InputDecoration(labelText: 'Data directory', hintText: 'data', prefixIcon: Icon(Icons.folder_outlined)))),
+          ]),
+          const SizedBox(height: AppSpacing.md),
+          Row(children: [
+            Expanded(child: TextFormField(controller: _infFuncCtl, decoration: const InputDecoration(labelText: 'Inference function', hintText: 'predict', prefixIcon: Icon(Icons.functions_outlined)))),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: TextFormField(controller: _maxSizeMbCtl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Max size (MB)', hintText: '500', prefixIcon: Icon(Icons.sd_storage_outlined)))),
+          ]),
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(controller: _pyMinCtl, decoration: const InputDecoration(labelText: 'Min Python version (optional)', hintText: 'e.g. 3.9', prefixIcon: Icon(Icons.code))),
+          const SizedBox(height: AppSpacing.md),
+          const Text('Allowed model formats', style: TextStyle(fontWeight: FontWeight.w500)),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(spacing: AppSpacing.sm, children: _formats.keys.map((f) => FilterChip(label: Text(f), selected: _formats[f]!, onSelected: (v) => setState(() => _formats[f] = v))).toList()),
+        ],
+      ),
+    );
+  }
+
+  // ── TAB: Labels ──
+  Widget _buildLabelsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(child: TextField(controller: _labelCtl, decoration: const InputDecoration(labelText: 'Label name', hintText: 'e.g. cat'), onSubmitted: _addLabel)),
+            const SizedBox(width: AppSpacing.sm),
+            ElevatedButton(onPressed: () => _addLabel(_labelCtl.text), child: const Text('Add')),
+          ]),
+          if (_labels.isNotEmpty) const SizedBox(height: AppSpacing.md),
+          Wrap(spacing: AppSpacing.xs, runSpacing: AppSpacing.xs, children: _labels.map((l) => Chip(label: Text(l), onDeleted: () => setState(() => _labels.remove(l)))).toList()),
+        ],
+      ),
+    );
+  }
+
+  // ── TAB: Teams ──
+  Widget _buildTeamsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Manage team membership from the dedicated Teams page.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.go(TeamsControlPage.routeForId(widget.competitionId)),
+              icon: const Icon(Icons.group_outlined),
+              label: const Text('Open Teams Management'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── TAB: Phases ──
+  Widget _buildPhasesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Manage phase deadlines and transitions from the dedicated Phases page.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.go(PhaseControlPage.routeForId(widget.competitionId)),
+              icon: const Icon(Icons.lan_outlined),
+              label: const Text('Open Phase Control'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _two(int v) => v.toString().padLeft(2, '0');
 }

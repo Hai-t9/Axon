@@ -17,7 +17,6 @@ class User(Base):
     fullname = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
-    phone = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     roles = relationship("Role", back_populates="user", cascade="all, delete-orphan")

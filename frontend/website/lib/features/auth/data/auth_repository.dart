@@ -28,13 +28,11 @@ class AuthRepository {
     required String email,
     required String password,
     required String fullName,
-    required String phone,
   }) async {
     final payload = {
       'email': email.trim(),
       'password': password,
       'full_name': fullName.trim(),
-      'phone': phone.trim(),
     };
     final response = await _apiClient.postJson('/register/signup', payload);
     return AuthSession.fromJson(response);

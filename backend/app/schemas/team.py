@@ -38,7 +38,6 @@ class MemberWithStatus(BaseModel):
     id: UUID | int | str
     fullname: str
     email: EmailStr
-    phone: Optional[str] = None
     created_at: Optional[datetime] = None
     joined: int  # 0=invited/not joined, 1=joined
 

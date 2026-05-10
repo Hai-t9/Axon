@@ -126,12 +126,6 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const Divider(color: Color(0xFF3A3A50), height: 1),
                     ListTile(
-                      leading: const Icon(Icons.phone_outlined, color: Color(0xFF5F75EE)),
-                      title: const Text('Phone Number'),
-                      subtitle: Text(user?.phone ?? 'Not provided', style: const TextStyle(color: Colors.white70)),
-                    ),
-                    const Divider(color: Color(0xFF3A3A50), height: 1),
-                    ListTile(
                       leading: const Icon(Icons.shield_outlined, color: Color(0xFF5F75EE)),
                       title: const Text('Role'),
                       subtitle: Text(role, style: const TextStyle(color: Colors.white70)),

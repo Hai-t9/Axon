@@ -66,7 +66,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       setState(() {});
     });
@@ -207,6 +207,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                   Tab(text: 'Dataset Insights'),
                   Tab(text: 'Team'),
                   Tab(text: 'Modules'),
+                  Tab(text: 'Details'),
                 ],
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -239,8 +240,10 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
       case 2:
         return _buildTeamTab(context, dashboardState);
       case 3:
-      default:
         return _buildModulesTab(context, dashboardState);
+      case 4:
+      default:
+        return _buildDetailsTab(context, competition, dashboardState);
     }
   }
 
@@ -312,11 +315,6 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (competition.description != null && competition.description!.isNotEmpty) ...[
-          _buildSectionHeader(context, 'Description'),
-          Text(competition.description!, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: AppSpacing.xl),
-        ],
         Row(
           children: [
             Expanded(child: _buildSectionHeader(context, 'Phase Information')),
@@ -412,6 +410,88 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           error: (e, _) => _buildErrorState(context, e),
         ),
       ],
+    );
+  }
+
+  // --- TAB 4: DETAILS ---
+  Widget _buildDetailsTab(BuildContext context, Competition competition, AsyncValue<DashboardBase> dashboardState) {
+    final theme = Theme.of(context);
+    final config = competition.config;
+    final overview = config?.overview;
+    final description = competition.description;
+    final terms = config?.termsConditions;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (overview != null && overview.isNotEmpty) ...[
+            _buildSectionHeader(context, 'Overview'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(overview, style: theme.textTheme.bodyMedium),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+          if (description != null && description.isNotEmpty) ...[
+            _buildSectionHeader(context, 'Description'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(description, style: theme.textTheme.bodyMedium),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+          if (terms != null && terms.isNotEmpty) ...[
+            _buildSectionHeader(context, 'Terms & Conditions'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(terms, style: theme.textTheme.bodyMedium),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+          if ((overview == null || overview.isEmpty) &&
+              (description == null || description.isEmpty) &&
+              (terms == null || terms.isEmpty))
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+                color: AppColors.surface,
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.info_outline, size: 48, color: AppColors.textSecondary),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'No details have been provided for this competition yet.',
+                    style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 

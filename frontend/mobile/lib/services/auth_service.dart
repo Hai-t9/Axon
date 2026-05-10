@@ -82,7 +82,7 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<void> signup(String email, String password, String fullName, String phone) async {
+  Future<void> signup(String email, String password, String fullName) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final dio = ref.read(dioProvider);
@@ -92,7 +92,6 @@ class AuthNotifier extends Notifier<AuthState> {
           'email': email.trim(),
           'password': password,
           'full_name': fullName.trim(),
-          'phone': phone.trim(),
         },
       );
       final data = response.data as Map<String, dynamic>;

@@ -86,8 +86,6 @@ class ProfilePage extends ConsumerWidget {
           _infoRow(Icons.person, 'Name', profile.fullname ?? 'Not set', muted),
           const Divider(),
           _infoRow(Icons.email, 'Email', profile.email, muted),
-          const Divider(),
-          _infoRow(Icons.phone, 'Phone', profile.phone ?? 'Not set', muted),
           if (profile.createdAt != null) ...[
             const Divider(),
             _infoRow(Icons.calendar_today, 'Member since', profile.createdAt!, muted),

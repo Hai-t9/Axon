@@ -36,7 +36,6 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     required String email,
     required String password,
     required String fullName,
-    required String phone,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard<AuthSession?>(() async {
@@ -44,7 +43,6 @@ class AuthController extends AsyncNotifier<AuthSession?> {
             email: email,
             password: password,
             fullName: fullName,
-            phone: phone,
           );
       await _save(session);
       return session;
@@ -65,7 +63,6 @@ class AuthController extends AsyncNotifier<AuthSession?> {
           'id': session.user.id,
           'fullname': session.user.fullname,
           'email': session.user.email,
-          'phone': session.user.phone,
         },
       });
       await prefs.setString(_storageKey, data);

@@ -17,18 +17,6 @@ class Validators {
     return null;
   }
 
-  static String? phone(String? value) {
-    final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) {
-      return 'Phone is required.';
-    }
-    final normalized = trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
-    if (normalized.length < 7) {
-      return 'Enter a valid phone number.';
-    }
-    return null;
-  }
-
   static String? password(String? value) {
     final trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) {

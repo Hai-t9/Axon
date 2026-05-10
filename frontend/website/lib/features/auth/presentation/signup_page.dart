@@ -31,7 +31,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   late final ProviderSubscription<AsyncValue<AuthSession?>> _authSubscription;
@@ -61,7 +60,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     _authSubscription.close();
     _fullNameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -86,7 +84,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           email: _emailController.text,
           password: _passwordController.text,
           fullName: _fullNameController.text,
-          phone: _phoneController.text,
         );
   }
 
@@ -146,20 +143,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       prefixIcon: Icons.alternate_email,
                       validator: Validators.email,
                       autofillHints: const [AutofillHints.email],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  DelayedReveal(
-                    delay: const Duration(milliseconds: 260),
-                    child: AuthTextField(
-                      controller: _phoneController,
-                      label: 'Phone',
-                      hint: '+1 555 0130',
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
-                      prefixIcon: Icons.phone_outlined,
-                      validator: Validators.phone,
-                      autofillHints: const [AutofillHints.telephoneNumber],
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
