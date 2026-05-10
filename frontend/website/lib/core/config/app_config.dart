@@ -3,7 +3,7 @@ class AppConfig {
     'API_BASE_URL',
 
 
-    defaultValue: 'https://prix-competition-roland-leadership.trycloudflare.com/api/v1',
+    defaultValue: 'http://localhost:8000/api/v1',
 
   );
 

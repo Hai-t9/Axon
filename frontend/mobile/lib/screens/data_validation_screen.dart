@@ -132,7 +132,8 @@ class _DataValidationScreenState extends ConsumerState<DataValidationScreen> {
   }
 
   String _buildImageUrl(String filepath) {
-    final base = ApiConfig.baseUrl.replaceAll('/api/v1', '');
+    var base = ApiConfig.baseUrl.replaceAll('/api/v1', '');
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
     final normalized = filepath.replaceAll('\\', '/');
     if (normalized.startsWith('http')) return normalized;
     return '$base/$normalized';

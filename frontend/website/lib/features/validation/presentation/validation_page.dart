@@ -186,7 +186,8 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
   }
 
   String _buildImageUrl(String filepath) {
-    final base = AppConfig.apiBaseUrl.replaceAll('/api/v1', '');
+    var base = AppConfig.apiBaseUrl.replaceAll('/api/v1', '');
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
     final normalized = filepath.replaceAll('\\', '/');
     if (normalized.startsWith('http')) return normalized;
     return '$base/$normalized';
