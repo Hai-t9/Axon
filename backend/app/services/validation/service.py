@@ -64,13 +64,26 @@ class ValidationService:
 
         image_ids = self.repository.get_team_assignments(team_id)
         if not image_ids:
-            return {"image_ids": []}
+            return {"images": [], "total": 0}
 
         # Filter out already-validated images
         unvalidated_ids = self.repository.filter_unvalidated_images(image_ids)
         
         shuffled = self._deterministic_shuffle(unvalidated_ids, participant_id)
-        return {"image_ids": [str(img_id) for img_id in shuffled]}
+        
+        # Fetch details (filepath, current_label) for each image
+        details = self.repository.fetch_image_details(shuffled)
+        
+        images = [
+            {
+                "image_id": str(img_id),
+                "filepath": details[img_id]["filepath"],
+                "current_label": details[img_id]["label"],
+            }
+            for img_id in shuffled
+            if img_id in details
+        ]
+        return {"images": images, "total": len(images)}
 
     def submit_vote(self, image_id: UUID, validator_id: UUID, label: str) -> dict:
         vote = self.repository.insert_vote(image_id, validator_id, label)
