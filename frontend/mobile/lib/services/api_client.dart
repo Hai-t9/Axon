@@ -13,7 +13,7 @@ class TokenNotifier extends Notifier<String?> {
 final authTokenProvider = NotifierProvider<TokenNotifier, String?>(TokenNotifier.new);
 
 class ApiConfig {
-  static String baseUrl = 'http://127.0.0.1:8000';
+  static String baseUrl = 'https://stood-triangle-mangy.ngrok-free.dev/';
 }
 
 class AuthInterceptor extends Interceptor {
