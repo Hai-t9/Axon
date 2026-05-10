@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/competition_service.dart';
 import '../services/offline_queue_service.dart';
 import '../services/upload_service.dart';
 import 'preview_screen.dart';
@@ -36,6 +37,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   int _burstCount = 0;
   bool _isCapturing = false;
   bool _showFlash = false;
+  bool _phaseChecked = false;
+  bool _wrongPhase = false;
 
   late final List<String> _availableLabels;
 
@@ -50,6 +53,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
       'disease',
       'pest'
     ];
+    _checkPhaseAndCamera();
+  }
+
+  Future<void> _checkPhaseAndCamera() async {
+    try {
+      final service = ref.read(competitionServiceProvider);
+      final phase = await service.getCurrentPhase(widget.competitionId);
+      final currentPhase = phase['current_phase'] as String? ?? '';
+      if (currentPhase != '1') {
+        if (mounted) setState(() { _phaseChecked = true; _wrongPhase = true; });
+        return;
+      }
+    } catch (_) {
+      // Offline or error — allow camera, backend will enforce phase on upload
+    }
+    if (mounted) setState(() => _phaseChecked = true);
     _checkCameraPermission();
   }
 
@@ -157,7 +176,65 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   Widget build(BuildContext context) {
     final connectivity = ref.watch(connectivityProvider);
 
-    if (_checkingPermission) {
+    if (_wrongPhase) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF1C1C28),
+        appBar: AppBar(
+          title: const Text('Capture Asset'),
+          backgroundColor: const Color(0xFF252536),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5A53C).withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.lock_rounded, size: 64, color: Color(0xFFE5A53C)),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Wrong Phase',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Image capture is only available during the Data Collection phase. Please wait for the competition to enter the correct phase.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white60, fontSize: 15, height: 1.5),
+                ),
+                const SizedBox(height: 40),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('Go Back'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5F75EE),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!_phaseChecked || _checkingPermission) {
       return Scaffold(
         backgroundColor: const Color(0xFF1C1C28),
         appBar: AppBar(title: const Text('Capture Asset')),

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/competition_service.dart';
 import '../services/upload_service.dart';
 import '../services/metadata_service.dart';
 import '../services/offline_queue_service.dart';
@@ -53,6 +54,26 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
     }
 
     setState(() => _isUploading = true);
+
+    try {
+      final phase = await ref.read(competitionServiceProvider).getCurrentPhase(widget.competitionId);
+      if ((phase['current_phase'] as String? ?? '') != '1') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Upload is only allowed during the Data Collection phase.'),
+              backgroundColor: const Color(0xFFE5A53C),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+        setState(() => _isUploading = false);
+        return;
+      }
+    } catch (_) {
+      // Offline — will be enforced by backend on sync
+    }
 
     try {
       final uploadService = ref.read(uploadServiceProvider);
