@@ -6,9 +6,4 @@ class AppConfig {
     defaultValue: 'https://obligations-guides-bradley-nottingham.trycloudflare.com/api/v1',
 
   );
-
-  static const googleClientId = String.fromEnvironment(
-    'GOOGLE_CLIENT_ID',
-    defaultValue: '',
-  );
 }

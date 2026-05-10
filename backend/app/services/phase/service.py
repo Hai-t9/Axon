@@ -7,15 +7,14 @@ from app.models import Competition
 
 from .repository import PhaseRepository
 
-_PHASE_ORDER = ["0", "1", "2", "3", "4", "5"]
+_PHASE_ORDER = ["0", "1", "2", "3", "4"]
 
 PHASE_LABELS = {
     "0": "Awaiting Initialisation",
     "1": "Data Collection",
     "2": "Data Validation",
     "3": "Model Submission",
-    "4": "Model Evaluation",
-    "5": "Finale & Leaderboard",
+    "4": "Finale & Leaderboard",
 }
 
 
@@ -265,7 +264,7 @@ class PhaseService:
 
         entry = self._ensure_phase_log(competition_id)
         current_phase = entry.current_phase
-        if current_phase == "5":
+        if current_phase == "4":
             raise ValidationError("Cannot set deadline for the final phase")
 
         phase_dates = self._ensure_phase_dates(entry.phase_dates)

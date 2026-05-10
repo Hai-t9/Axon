@@ -84,20 +84,17 @@ class _HostCompetitionPageState extends ConsumerState<HostCompetitionPage>
     '1': null,
     '2': null,
     '3': null,
-    '4': null,
   };
   final Map<String, TextEditingController> _deadlineCtrls = {
     '1': TextEditingController(),
     '2': TextEditingController(),
     '3': TextEditingController(),
-    '4': TextEditingController(),
   };
 
   static const Map<String, String> _phaseLabels = {
     '1': 'Data Collection',
     '2': 'Data Validation',
     '3': 'Model Submission',
-    '4': 'Model Evaluation',
   };
 
   final Set<String> _selectedFormats = {};

@@ -34,8 +34,7 @@ const Map<String, String> _phaseLabels = {
   '1': 'Data Collection',
   '2': 'Data Validation',
   '3': 'Model Submission',
-  '4': 'Model Evaluation',
-  '5': 'Finale & Leaderboard',
+  '4': 'Finale & Leaderboard',
 };
 
 const Map<String, IconData> _phaseIcons = {
@@ -43,8 +42,7 @@ const Map<String, IconData> _phaseIcons = {
   '1': Icons.cloud_upload_outlined,
   '2': Icons.rate_review_outlined,
   '3': Icons.rocket_launch_outlined,
-  '4': Icons.science_outlined,
-  '5': Icons.emoji_events_outlined,
+  '4': Icons.emoji_events_outlined,
 };
 
 class CompetitionDashboardPage extends ConsumerStatefulWidget {
@@ -373,7 +371,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                                 color: AppColors.textSecondary,
                               ),
                             ),
-                            if (dashboard.phaseInfo.currentPhase != '5') ...[
+                            if (dashboard.phaseInfo.currentPhase != '4') ...[
                               const SizedBox(height: AppSpacing.md),
                               _PhaseCountdown(
                                 phaseDates: dashboard.phaseInfo.phaseDates,
