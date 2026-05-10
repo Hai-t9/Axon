@@ -1,7 +1,31 @@
+import logging
+import os
 import time
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Response
+
+load_dotenv()  # must run before any os.getenv(...); database.py also calls it but too late
+
+# Replace uvicorn's root handlers with our own so that child loggers
+# (model_submission.service, workers.executor, etc.) inherit
+# the correct level and output format regardless of uvicorn's dictConfig.
+_log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, logging.INFO)
+_root = logging.getLogger()
+_root.setLevel(_log_level)
+for h in _root.handlers[:]:
+    _root.removeHandler(h)
+_h = logging.StreamHandler()
+_h.setLevel(_log_level)
+_h.setFormatter(logging.Formatter("%(asctime)s [%(name)s] %(levelname)s %(message)s"))
+_root.addHandler(_h)
+
+# Suppress verbose third-party loggers when app debug is on
+if _log_level <= logging.DEBUG:
+    for noisy in ("botocore", "urllib3", "s3transfer", "boto3", "httpx"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -41,19 +65,22 @@ app = FastAPI(lifespan=lifespan)
 
 # ------------------------------------------------------------------ #
 #  Middleware Stack (outermost runs first on request)                  #
-#  Order: RequestID → RequestLogging → RateLimit → SecurityHeaders → CORS
+#  Order: CORS → RequestID → RequestLogging → RateLimit → SecurityHeaders
 # ------------------------------------------------------------------ #
+# CORS must be outermost so preflight OPTIONS requests get CORS headers
+# before any middleware (e.g. RateLimit) can short-circuit them.
 
-app.add_middleware(CORSMiddleware,                                           # 5th: innermost middlewares
+app.add_middleware(
+    CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SecurityHeadersMiddleware)                                # 4th
-app.add_middleware(RateLimitMiddleware)                                      # 3rd
-app.add_middleware(RequestLoggingMiddleware)                                 # 2nd
-app.add_middleware(RequestIDMiddleware)                                      # 1st: outermost (runs first)
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ------------------------------------------------------------------ #
 

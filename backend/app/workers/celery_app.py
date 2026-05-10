@@ -1,14 +1,19 @@
+import logging
 import multiprocessing
 import os
 
 from celery import Celery
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+logger = logging.getLogger("workers.celery")
+
+# Dedicated env var for Celery's task queue (separate from REDIS_URL which is for caching).
+# Defaults to localhost so the worker works out of the box without env overrides.
+CELERY_REDIS_URL = os.getenv("CELERY_REDIS_URL", "redis://localhost:6379/0")
 
 celery_app = Celery(
     "axon",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=CELERY_REDIS_URL,
+    backend=CELERY_REDIS_URL,
     include=["app.workers.evaluation_worker"],
 )
 
@@ -26,4 +31,9 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     worker_concurrency=concurrency,
     broker_connection_retry_on_startup=True,
+)
+
+logger.debug(
+    "Celery app configured: broker=%s concurrency=%d gpu=%s",
+    CELERY_REDIS_URL, concurrency, gpu_enabled,
 )

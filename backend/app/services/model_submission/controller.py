@@ -1,7 +1,11 @@
+import logging
+import traceback
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger("model_submission.controller")
 
 from app.core.auth import extract_bearer_token
 from app.core.database import SessionLocal
@@ -113,6 +117,7 @@ async def submit_model(
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError:
+        logger.exception("submit_model failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -142,6 +147,7 @@ async def get_submission_spec(
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except ValueError:
+        logger.exception("get_submission_spec failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -177,6 +183,7 @@ async def list_models_by_competition(
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except ValueError:
+        logger.exception("list_models_by_competition failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -208,13 +215,14 @@ async def list_team_models(
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
     except ValueError:
+        logger.exception("get_team_model_history failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
 @router.get(
-    "/teams/{team_id}/models/history",
-    response_model=ModelHistoryResponse,
-    summary="Get a team's full submission history",
+    "/models/{model_id}",
+    response_model=ModelResponse,
+    summary="Get model submission details",
 )
 async def get_team_model_history(
     team_id: str,
@@ -272,12 +280,8 @@ async def get_model(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError:
+        logger.exception("get_model failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid model ID format.")
-
-
-# ------------------------------------------------------------------ #
-#  Schedule                                                           #
-# ------------------------------------------------------------------ #
 
 
 @router.put(
@@ -305,12 +309,8 @@ async def schedule_model_for_evaluation(
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError:
+        logger.exception("schedule_model_for_evaluation failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid model ID format.")
-
-
-# ------------------------------------------------------------------ #
-#  Delete                                                             #
-# ------------------------------------------------------------------ #
 
 
 @router.delete(
@@ -335,4 +335,5 @@ async def delete_model(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError:
+        logger.exception("delete_model failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid model ID format.")

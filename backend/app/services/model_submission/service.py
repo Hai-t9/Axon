@@ -1,5 +1,6 @@
 import ast
 import hashlib
+import logging
 import os
 import zipfile
 from datetime import datetime
@@ -7,6 +8,8 @@ from io import BytesIO
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
+
+logger = logging.getLogger("model_submission.service")
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.models.model_model import ModelStatus
@@ -77,6 +80,9 @@ class ModelSubmissionService:
           6. Persist model record + metadata in DB
           7. Auto-schedule for evaluation
         """
+        logger.debug("submit_model: team=%s comp=%s file=%s",
+                     team_id, competition_id, file.filename)
+
         # 1. Must be a zip
         if not file.filename or not file.filename.lower().endswith(".zip"):
             raise ValidationError(
@@ -87,6 +93,7 @@ class ModelSubmissionService:
         file_content = await file.read()
         if not file_content:
             raise ValidationError("Uploaded file is empty.")
+        logger.debug("Read %d bytes from upload", len(file_content))
 
         # 2. Validate team eligibility and competition phase
         team = self._validate_team_eligibility(team_id, competition_id, user_id)
@@ -134,8 +141,12 @@ class ModelSubmissionService:
 
         # 8. Auto-schedule
         config = self.repository.find_competition_config(competition_id)
-        protocol = getattr(config, 'evaluation', None) if config else None
-        protocol = str(protocol) if protocol else "standard"
+        protocol = "standard"
+        if config and isinstance(config.model_spec, dict):
+            protocol = config.model_spec.get("evaluation_protocol", "standard")
+        if protocol not in ("standard", "loto", "toto"):
+            protocol = "standard"
+        logger.debug("Auto-scheduling model %s with protocol=%s", model.id, protocol)
         self._schedule_for_evaluation(model.id, protocol)
 
         return {
@@ -502,6 +513,7 @@ class ModelSubmissionService:
                 model_id=model_id,
                 protocol=protocol,
             )
+            db.commit()
         finally:
             db.close()
 

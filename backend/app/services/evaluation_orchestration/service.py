@@ -27,6 +27,7 @@ class EvaluationOrchestrationService:
         protocol: str,
         requested_folds: Optional[int] = None,
     ) -> dict:
+        logger.debug("scheduleEvaluation: model=%s protocol=%s folds=%s", model_id, protocol, requested_folds)
         model = self.repository.find_model_by_id(model_id)
         if not model:
             raise NotFoundError(f"Model {model_id} not found.")
@@ -39,6 +40,8 @@ class EvaluationOrchestrationService:
         competition_id = UUID(str(model.competition_id))
         teams = self.repository.find_teams_by_competition(competition_id)
         total_folds = self._determine_fold_count(protocol, teams, requested_folds)
+        logger.debug("scheduleEvaluation: determined %d folds from protocol=%s teams=%d",
+                     total_folds, protocol, len(teams))
 
         job = self.repository.create_evaluation_job(
             model_id=model_id,
@@ -192,6 +195,7 @@ class EvaluationOrchestrationService:
     # ------------------------------------------------------------------ #
 
     def retryFailedEvaluation(self, evaluation_id: UUID) -> dict:
+        logger.debug("retryFailedEvaluation: evaluation=%s", evaluation_id)
         job = self.repository.find_evaluation_by_id(evaluation_id)
         if not job:
             raise NotFoundError(f"Evaluation {evaluation_id} not found.")
@@ -288,12 +292,14 @@ class EvaluationOrchestrationService:
 
     def _queue_tasks(self, job, tasks: list, protocol: str) -> None:
         job_id = UUID(str(job.id))
+        logger.debug("Queueing %d tasks for evaluation job %s", len(tasks), job_id)
         try:
             from app.workers.evaluation_worker import run_evaluation_task  # type: ignore[import]
 
             for task in tasks:
                 task_id = UUID(str(task.id))
                 run_evaluation_task.delay(str(task_id))
+                logger.debug("Queued task %s for evaluation", task_id)
                 self.repository.update_task_status(task_id, TaskStatus.queued)
             self.repository.update_evaluation_status(job_id, EvaluationStatus.queued)
         except Exception:

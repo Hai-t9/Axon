@@ -45,6 +45,7 @@ class _CompetitionSettingsPageState
   final _dataMdCtl = TextEditingController();
   final _dataExCtl = TextEditingController();
   String? _selectedEvaluation;
+  String _selectedProtocol = 'standard';
   final _scoringExCtl = TextEditingController();
   final _maxValCtl = TextEditingController();
   final _dupThreshCtl = TextEditingController();
@@ -118,6 +119,7 @@ class _CompetitionSettingsPageState
         _infFuncCtl.text = ms['inference_function'] ?? 'predict';
         _maxSizeMbCtl.text = (ms['max_size_mb'] ?? 500).toString();
         _pyMinCtl.text = ms['python_version_min'] ?? '';
+        _selectedProtocol = ms['evaluation_protocol'] ?? 'standard';
         final allowed = ms['allowed_model_formats'] as List<dynamic>?;
         if (allowed != null) {
           for (final k in _formats.keys) {
@@ -195,6 +197,7 @@ class _CompetitionSettingsPageState
           'max_size_mb': double.tryParse(_maxSizeMbCtl.text.trim()) ?? 500.0,
           if (_pyMinCtl.text.trim().isNotEmpty)
             'python_version_min': _pyMinCtl.text.trim(),
+          'evaluation_protocol': _selectedProtocol,
         },
       };
       final maxVal = int.tryParse(_maxValCtl.text.trim());
@@ -347,6 +350,19 @@ class _CompetitionSettingsPageState
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   const Text('Only one metric can be selected.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text('Evaluation protocol', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    children: ['standard', 'loto', 'toto'].map((p) => FilterChip(
+                      label: Text(p),
+                      selected: _selectedProtocol == p,
+                      onSelected: (sel) => setState(() => _selectedProtocol = p),
+                    )).toList(),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text('standard: train/val split, loto: leave-one-task-out, toto: train-on-task-only.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(controller: _scoringExCtl, decoration: const InputDecoration(labelText: 'Scoring example URL', prefixIcon: Icon(Icons.link))),
                 ]),
