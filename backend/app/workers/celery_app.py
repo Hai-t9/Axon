@@ -3,12 +3,14 @@ import os
 
 from celery import Celery
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+# Dedicated env var for Celery's task queue (separate from REDIS_URL which is for caching).
+# Defaults to localhost so the worker works out of the box without env overrides.
+CELERY_REDIS_URL = os.getenv("CELERY_REDIS_URL", "redis://localhost:6379/0")
 
 celery_app = Celery(
     "axon",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=CELERY_REDIS_URL,
+    backend=CELERY_REDIS_URL,
     include=["app.workers.evaluation_worker"],
 )
 
