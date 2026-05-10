@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:html';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/auth_models.dart';
 import '../data/auth_repository.dart';
@@ -27,7 +27,7 @@ class AuthController extends AsyncNotifier<AuthSession?> {
             email: email,
             password: password,
           );
-      _save(session);
+      await _save(session);
       return session;
     });
   }
@@ -44,26 +44,19 @@ class AuthController extends AsyncNotifier<AuthSession?> {
             password: password,
             fullName: fullName,
           );
-      _save(session);
+      await _save(session);
       return session;
     });
   }
 
-  Future<void> signInWithGoogle() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard<AuthSession?>(() async {
-      return ref.read(authRepositoryProvider).signInWithGoogle();
-    });
-  }
-
   Future<void> signOut() async {
-    await ref.read(authRepositoryProvider).signOutGoogle();
-    _clear();
+    await _clear();
     state = const AsyncData(null);
   }
 
-  void _save(AuthSession session) {
+  Future<void> _save(AuthSession session) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
       final data = jsonEncode({
         'access_token': session.accessToken,
         'user': {
@@ -72,20 +65,18 @@ class AuthController extends AsyncNotifier<AuthSession?> {
           'email': session.user.email,
         },
       });
-      document.cookie =
-          '$_storageKey=${Uri.encodeComponent(data)}; path=/; max-age=604800';
+      await prefs.setString(_storageKey, data);
     } catch (_) {
       // Storage unavailable
     }
   }
 
-  AuthSession? _load() {
+  Future<AuthSession?> _load() async {
     try {
-      final cookies = document.cookie ?? '';
-      final match = RegExp('$_storageKey=([^;]+)').firstMatch(cookies);
-      if (match == null) return null;
-      final data =
-          jsonDecode(Uri.decodeComponent(match.group(1)!)) as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_storageKey);
+      if (stored == null) return null;
+      final data = jsonDecode(stored) as Map<String, dynamic>;
       final accessToken = data['access_token'] as String?;
       final userData = data['user'] as Map<String, dynamic>?;
       if (accessToken == null || userData == null) return null;
@@ -100,9 +91,10 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     }
   }
 
-  void _clear() {
+  Future<void> _clear() async {
     try {
-      document.cookie = '$_storageKey=; path=/; max-age=0';
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_storageKey);
     } catch (_) {
       // Storage unavailable
     }

@@ -46,7 +46,8 @@ class _ImageGalleryScreenState extends ConsumerState<ImageGalleryScreen> {
 
   String _getImageUrl(String filepath) {
     final normalizedPath = filepath.replaceAll('\\', '/');
-    final base = ApiConfig.baseUrl;
+    var base = ApiConfig.baseUrl;
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
 
     if (normalizedPath.startsWith('http')) {
       return normalizedPath;

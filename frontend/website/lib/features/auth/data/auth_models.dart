@@ -1,4 +1,4 @@
-enum AuthProvider { password, google }
+enum AuthProvider { password }
 
 class AuthUser {
   const AuthUser({
@@ -21,33 +21,18 @@ class AuthUser {
   }
 }
 
-  factory AuthUser.google({required String email, String? displayName}) {
-    final fallbackName = email.split('@').first;
-    return AuthUser(
-      fullname: (displayName == null || displayName.trim().isEmpty)
-          ? fallbackName
-          : displayName.trim(),
-      email: email,
-    );
-  }
-}
-
 class AuthSession {
   const AuthSession({
     required this.provider,
     required this.user,
     this.accessToken,
     this.tokenType,
-    this.googleAccessToken,
-    this.googleIdToken,
   });
 
   final AuthProvider provider;
   final String? accessToken;
   final String? tokenType;
   final AuthUser user;
-  final String? googleAccessToken;
-  final String? googleIdToken;
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     return AuthSession(
@@ -57,20 +42,4 @@ class AuthSession {
       user: AuthUser.fromJson(json['user'] as Map<String, dynamic>),
     );
   }
-
-  factory AuthSession.google({
-    required String email,
-    String? displayName,
-    String? accessToken,
-    String? idToken,
-  }) {
-    return AuthSession(
-      provider: AuthProvider.google,
-      googleAccessToken: accessToken,
-      googleIdToken: idToken,
-      user: AuthUser.google(email: email, displayName: displayName),
-    );
-  }
-
-  bool get isGoogle => provider == AuthProvider.google;
 }

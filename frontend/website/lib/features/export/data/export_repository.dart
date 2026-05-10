@@ -1,4 +1,7 @@
-import 'dart:html' as html;
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html if (dart.library.io) '';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -51,7 +54,7 @@ class ExportRepository {
       '/competitions/$competitionId/export/team-dataset',
       headers: _authHeaders(),
     );
-    _triggerDownload(bytes, 'dataset.zip');
+    await _triggerDownload(bytes, 'dataset.zip');
   }
 
   Future<void> downloadFullDataset(String competitionId) async {
@@ -59,17 +62,23 @@ class ExportRepository {
       '/competitions/$competitionId/export/full-dataset',
       headers: _authHeaders(),
     );
-    _triggerDownload(bytes, 'full_dataset.zip');
+    await _triggerDownload(bytes, 'full_dataset.zip');
   }
 
-  void _triggerDownload(List<int> bytes, String filename) {
-    final blob = html.Blob([bytes], 'application/zip');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    (html.document.createElement('a') as html.AnchorElement)
-      ..href = url
-      ..download = filename
-      ..click();
-    html.Url.revokeObjectUrl(url);
+  Future<void> _triggerDownload(List<int> bytes, String filename) async {
+    if (kIsWeb) {
+      final blob = html.Blob([bytes], 'application/zip');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      (html.document.createElement('a') as html.AnchorElement)
+        ..href = url
+        ..download = filename
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } else {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsBytes(bytes);
+    }
   }
 }
 

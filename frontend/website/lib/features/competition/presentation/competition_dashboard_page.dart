@@ -34,8 +34,7 @@ const Map<String, String> _phaseLabels = {
   '1': 'Data Collection',
   '2': 'Data Validation',
   '3': 'Model Submission',
-  '4': 'Model Evaluation',
-  '5': 'Finale & Leaderboard',
+  '4': 'Finale & Leaderboard',
 };
 
 const Map<String, IconData> _phaseIcons = {
@@ -43,8 +42,7 @@ const Map<String, IconData> _phaseIcons = {
   '1': Icons.cloud_upload_outlined,
   '2': Icons.rate_review_outlined,
   '3': Icons.rocket_launch_outlined,
-  '4': Icons.science_outlined,
-  '5': Icons.emoji_events_outlined,
+  '4': Icons.emoji_events_outlined,
 };
 
 class CompetitionDashboardPage extends ConsumerStatefulWidget {
@@ -373,7 +371,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
                                 color: AppColors.textSecondary,
                               ),
                             ),
-                            if (dashboard.phaseInfo.currentPhase != '5') ...[
+                            if (dashboard.phaseInfo.currentPhase != '4') ...[
                               const SizedBox(height: AppSpacing.md),
                               _PhaseCountdown(
                                 phaseDates: dashboard.phaseInfo.phaseDates,
@@ -873,57 +871,84 @@ class _ParticipantTeamViewState extends ConsumerState<_ParticipantTeamView> {
       type: exts.isNotEmpty ? FileType.custom : FileType.image,
       allowedExtensions: exts.isNotEmpty ? exts : null,
       withData: true,
+      allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
 
-    final file = result.files.first;
-    if (file.bytes == null) return;
-
-    // Validate extension against config
-    final ext = file.name.split('.').last.toLowerCase();
-    if (exts.isNotEmpty && !exts.contains(ext)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('File extension "$ext" not allowed. Allowed: ${exts.join(", ")}'),
-          backgroundColor: AppColors.error,
-        ));
+    // Validate all files first
+    final validFiles = <PlatformFile>[];
+    for (final file in result.files) {
+      if (file.bytes == null) continue;
+      final ext = file.name.split('.').last.toLowerCase();
+      if (exts.isNotEmpty && !exts.contains(ext)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('"${file.name}": extension "$ext" not allowed. Allowed: ${exts.join(", ")}'),
+            backgroundColor: AppColors.error,
+          ));
+        }
+        continue;
       }
-      return;
+      validFiles.add(file);
     }
 
-    // Show label picker dialog
+    if (validFiles.isEmpty) return;
+
+    // Show label picker ONCE — same label applies to all selected images
     final labels = _availableLabels;
     final selectedLabel = await _showLabelPicker(context, labels);
     if (selectedLabel == null || !mounted) return;
 
     setState(() => _uploading = true);
-    try {
-      final api = ref.read(apiClientProvider);
-      final token = ref.read(authSessionProvider)?.accessToken;
-      await api.postMultipart(
-        '/teams/${widget.partDash.teamInfo.id}/images',
-        fileField: 'file',
-        fileBytes: file.bytes!,
-        fileName: file.name,
-        fields: {'label': selectedLabel},
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Image uploaded successfully'),
+    final api = ref.read(apiClientProvider);
+    final token = ref.read(authSessionProvider)?.accessToken;
+    final headers = {'Authorization': 'Bearer $token'};
+    int uploaded = 0;
+    int failed = 0;
+
+    for (final file in validFiles) {
+      try {
+        if (!mounted) return;
+        await api.postMultipart(
+          '/teams/${widget.partDash.teamInfo.id}/images',
+          fileField: 'file',
+          fileBytes: file.bytes!,
+          fileName: file.name,
+          fields: {'label': selectedLabel},
+          headers: headers,
+        );
+        uploaded++;
+      } catch (e) {
+        failed++;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('"${file.name}" failed: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ));
+        }
+      }
+    }
+
+    if (mounted) {
+      final messenger = ScaffoldMessenger.of(context);
+      if (failed == 0) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(uploaded == 1
+              ? 'Image uploaded successfully'
+              : '$uploaded images uploaded successfully'),
           backgroundColor: AppColors.success,
         ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Upload failed: $e'),
-          backgroundColor: AppColors.error,
+      } else {
+        messenger.showSnackBar(SnackBar(
+          content: Text('$uploaded uploaded, $failed failed'),
+          backgroundColor: Colors.orange,
         ));
       }
-    } finally {
-      if (mounted) setState(() => _uploading = false);
+      ref.invalidate(dashboardProvider(widget.competitionId));
     }
+
+    if (mounted) setState(() => _uploading = false);
   }
 
   Future<String?> _showLabelPicker(BuildContext context, List<String> labels) {
@@ -1005,7 +1030,7 @@ class _ParticipantTeamViewState extends ConsumerState<_ParticipantTeamView> {
                   icon: _uploading
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.cloud_upload_outlined),
-                  label: Text(_uploading ? 'Uploading...' : 'Upload Image'),
+                  label: Text(_uploading ? 'Uploading...' : 'Upload Images'),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
