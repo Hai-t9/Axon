@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class ValidationImage(BaseModel):
-    id: int
+    id: str
     filepath: str
 
 
