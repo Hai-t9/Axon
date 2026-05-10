@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -59,15 +60,15 @@ class ModelSubmitRequest(BaseModel):
 class ModelSubmitResponse(BaseModel):
     """Response after successful model submission"""
 
-    id: str
-    team_id: int
-    competition_id: int
+    id: UUID
+    team_id: UUID
+    competition_id: UUID
     filename: str
     format: str
     version: int
     status: str
     submitted_at: datetime
-    submitted_by: int
+    submitted_by: UUID
     message: str = "Model submitted successfully"
 
     class Config:
@@ -77,9 +78,9 @@ class ModelSubmitResponse(BaseModel):
 class ModelResponse(BaseModel):
     """Response schema for model details"""
 
-    id: str
-    team_id: int
-    competition_id: int
+    id: UUID
+    team_id: UUID
+    competition_id: UUID
     filename: str
     storage_path: str
     format: str
@@ -88,7 +89,7 @@ class ModelResponse(BaseModel):
     status: str
     version: int
     submitted_at: datetime
-    submitted_by: int
+    submitted_by: UUID
     scheduled_at: Optional[datetime]
     metadata: Optional[ModelMetadataResponse]
 

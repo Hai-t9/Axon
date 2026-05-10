@@ -1,62 +1,73 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/network/api_client.dart';
-import '../../auth/data/auth_models.dart';
-import '../../auth/state/auth_session_provider.dart';
-import 'model_submission_models.dart';
+import 'package:website/core/network/api_client.dart';
+import 'package:website/features/auth/data/auth_models.dart';
+import 'package:website/features/auth/state/auth_session_provider.dart';
+import 'package:website/features/model_submission/data/model_submission_models.dart';
 
 final modelSubmissionRepositoryProvider = Provider<ModelSubmissionRepository>((ref) {
-  return ModelSubmissionRepository(
-    apiClient: ref.watch(apiClientProvider),
-    session: ref.watch(authSessionProvider),
-  );
+  final apiClient = ref.watch(apiClientProvider);
+  final session = ref.watch(authSessionProvider);
+  return ModelSubmissionRepository(apiClient, session);
 });
 
 class ModelSubmissionRepository {
-  ModelSubmissionRepository({
-    required ApiClient apiClient,
-    required AuthSession? session,
-  })  : _apiClient = apiClient,
-        _session = session;
-
   final ApiClient _apiClient;
   final AuthSession? _session;
 
-  Future<List<ModelSubmission>> getModels(String competitionId) async {
-    final response = await _apiClient.getJson(
-      '/competitions/$competitionId/models',
-      headers: _authHeaders(),
-    );
-    final raw = response['models'] as List<dynamic>? ?? [];
-    return raw
-        .map((e) => ModelSubmission.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  Future<List<ModelSubmission>> getTeamModels(String teamId) async {
-    final response = await _apiClient.getJson(
-      '/teams/$teamId/models',
-      headers: _authHeaders(),
-    );
-    final raw = response['models'] as List<dynamic>? ?? [];
-    return raw
-        .map((e) => ModelSubmission.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  Future<ModelSpec> getSubmissionSpec(String competitionId) async {
-    final response = await _apiClient.getJson(
-      '/competitions/$competitionId/models/spec',
-      headers: _authHeaders(),
-    );
-    return ModelSpec.fromJson(response);
-  }
+  ModelSubmissionRepository(this._apiClient, this._session);
 
   Map<String, String> _authHeaders() {
     final token = _session?.accessToken;
     if (token == null || token.isEmpty) {
-      throw Exception('Please sign in to continue.');
+      return {};
     }
     return {'Authorization': 'Bearer $token'};
+  }
+
+  Future<ModelSpec> getModelSpec(String competitionId) async {
+    final response = await _apiClient.getJson(
+      '/competitions/$competitionId/config',
+      headers: _authHeaders(),
+    );
+    // The spec is in config.model_spec
+    if (response['model_spec'] != null) {
+      return ModelSpec.fromJson(response['model_spec']);
+    }
+    return ModelSpec.defaultSpec();
+  }
+
+  Future<List<ModelSubmission>> getSubmissions(String competitionId) async {
+    final response = await _apiClient.getJson(
+      '/competitions/$competitionId/models',
+      headers: _authHeaders(),
+    );
+    final List<dynamic> items = response['items'] ?? [];
+    return items.map((item) => ModelSubmission.fromJson(item)).toList();
+  }
+
+  Future<SubmitModelResponse> submitModel({
+    required String competitionId,
+    required SubmitModelRequest request,
+    required List<int> fileBytes,
+    required String fileName,
+    void Function(double progress)? onProgress,
+  }) async {
+    // The query parameters are passed in the URL for this specific endpoint as per backend contract
+    final queryParams = request.toQueryParameters();
+    final queryString = Uri(queryParameters: queryParams).query;
+    final path = '/competitions/$competitionId/models/submit?$queryString';
+
+    final response = await _apiClient.postMultipart(
+      path,
+      fileField: 'file',
+      fileBytes: fileBytes,
+      fileName: fileName,
+      headers: _authHeaders(),
+      onProgress: onProgress != null
+          ? (sent, total) => onProgress(sent / total)
+          : null,
+    );
+
+    return SubmitModelResponse.fromJson(response);
   }
 }

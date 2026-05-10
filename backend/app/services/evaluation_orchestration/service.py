@@ -30,7 +30,7 @@ class EvaluationOrchestrationService:
         model = self.repository.find_model_by_id(model_id)
         if not model:
             raise NotFoundError(f"Model {model_id} not found.")
-        if model.status is not ModelStatus.SCHEDULED:
+        if model.status != ModelStatus.SCHEDULED.value:
             raise ValidationError(
                 f"Cannot evaluate model in '{model.status}' status. "
                 "Model must be in SCHEDULED status."
@@ -51,7 +51,7 @@ class EvaluationOrchestrationService:
 
         self._queue_tasks(job, tasks, protocol)
 
-        model.status = ModelStatus.QUEUED  # type: ignore[assignment]
+        model.status = ModelStatus.QUEUED.value  # type: ignore[assignment]
 
         return {
             "id": str(job.id),

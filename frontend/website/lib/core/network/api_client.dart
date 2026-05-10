@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:http_parser/http_parser.dart' as parser;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -132,11 +134,18 @@ class ApiClient {
     required String fileName,
     Map<String, String>? fields,
     Map<String, String>? headers,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final uri = Uri.parse(_normalize(baseUrl, path));
-    final request = http.MultipartRequest('POST', uri);
+    final request = _MultipartRequestWithProgress(
+      'POST',
+      uri,
+      onProgress: onProgress,
+    );
+
     if (headers != null) request.headers.addAll(headers);
     if (fields != null) request.fields.addAll(fields);
+
     final ext = fileName.split('.').last.toLowerCase();
     request.files.add(http.MultipartFile.fromBytes(
       fileField,
@@ -144,25 +153,28 @@ class ApiClient {
       filename: fileName,
       contentType: _mediaTypeForExtension(ext),
     ));
+
     final streamed = await _client.send(request);
     final response = await http.Response.fromStream(streamed);
+
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(response.statusCode, _parseError(response.body));
     }
+
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) return decoded;
     throw const ApiException(500, 'Unexpected response format');
   }
 
-  http.MediaType? _mediaTypeForExtension(String ext) {
+  parser.MediaType? _mediaTypeForExtension(String ext) {
     switch (ext) {
       case 'png':
-        return http.MediaType('image', 'png');
+        return parser.MediaType('image', 'png');
       case 'jpg':
       case 'jpeg':
-        return http.MediaType('image', 'jpeg');
+        return parser.MediaType('image', 'jpeg');
       case 'svg':
-        return http.MediaType('image', 'svg+xml');
+        return parser.MediaType('image', 'svg+xml');
       default:
         return null;
     }
@@ -204,4 +216,33 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class _MultipartRequestWithProgress extends http.MultipartRequest {
+  _MultipartRequestWithProgress(
+    super.method,
+    super.url, {
+    this.onProgress,
+  });
+
+  final void Function(int bytes, int totalBytes)? onProgress;
+
+  @override
+  http.ByteStream finalize() {
+    final byteStream = super.finalize();
+    if (onProgress == null) return byteStream;
+
+    final total = contentLength;
+    int bytes = 0;
+
+    final t = StreamTransformer<List<int>, List<int>>.fromHandlers(
+      handleData: (List<int> data, EventSink<List<int>> sink) {
+        bytes += data.length;
+        onProgress!(bytes, total);
+        sink.add(data);
+      },
+    );
+
+    return http.ByteStream(byteStream.transform(t));
+  }
 }
