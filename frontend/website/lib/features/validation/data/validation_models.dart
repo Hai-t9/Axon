@@ -1,6 +1,6 @@
 /// Represents a single image to be validated, with its display data.
 class ValidationImage {
-  final int imageId;
+  final String imageId;
   final String? filepath;
   final String? imageUrl;
   final String? currentLabel;
@@ -13,8 +13,9 @@ class ValidationImage {
   });
 
   factory ValidationImage.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
     return ValidationImage(
-      imageId: (json['id'] as num?)?.toInt() ?? 0,
+      imageId: id is String ? id : (id is num ? id.toString() : ''),
       filepath: json['filepath'] as String?,
       imageUrl: json['image_url'] as String?,
       currentLabel: json['label'] as String?,
@@ -25,14 +26,14 @@ class ValidationImage {
 /// The response from GET /competitions/:compId/validations/list
 /// Contains only image IDs — the frontend fetches details per image.
 class ValidationListResponse {
-  final List<int> imageIds;
+  final List<String> imageIds;
 
   const ValidationListResponse({required this.imageIds});
 
   factory ValidationListResponse.fromJson(Map<String, dynamic> json) {
     final raw = json['image_ids'] as List<dynamic>? ?? [];
     return ValidationListResponse(
-      imageIds: raw.map((e) => (e as num).toInt()).toList(),
+      imageIds: raw.map((e) => e as String).toList(),
     );
   }
 }
@@ -57,7 +58,7 @@ class ValidationVoteResponse {
 
 /// Pending validation image (from GET /competitions/:compId/validations/pending)
 class ValidationPendingImage {
-  final int id;
+  final String id;
   final String filepath;
   final String label;
 
@@ -69,7 +70,7 @@ class ValidationPendingImage {
 
   factory ValidationPendingImage.fromJson(Map<String, dynamic> json) {
     return ValidationPendingImage(
-      id: (json['id'] as num).toInt(),
+      id: json['id']?.toString() ?? '',
       filepath: json['filepath'] as String? ?? '',
       label: json['label'] as String? ?? '',
     );

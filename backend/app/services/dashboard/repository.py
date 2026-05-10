@@ -145,7 +145,7 @@ class DashboardRepository:
             .all()
         )
         return [{
-            "image_id": m.image_id,
+            "image_id": str(m.image_id),
             "gps_info": m.gps_info,
             "location_metadata": {
                 "make": m.make,
@@ -182,7 +182,7 @@ class DashboardRepository:
             .all()
         )
         return [{
-            "image_id": m.image_id,
+            "image_id": str(m.image_id),
             "gps_info": m.gps_info,
             "location_metadata": {
                 "make": m.make,

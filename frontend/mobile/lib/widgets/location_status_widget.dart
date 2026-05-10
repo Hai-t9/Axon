@@ -39,11 +39,15 @@ class LocationStatusWidget extends StatelessWidget {
         }
 
         return GestureDetector(
-          onTap: result.permissionDenied && !result.permissionPermanentlyDenied
-              ? () => Permission.location.request()
-              : result.permissionPermanentlyDenied
-                  ? () => openAppSettings()
-                  : null,
+          onTap: () {
+            if (!result.serviceEnabled) {
+              openAppSettings();
+            } else if (result.permissionDenied && !result.permissionPermanentlyDenied) {
+              Permission.location.request();
+            } else if (result.permissionPermanentlyDenied) {
+              openAppSettings();
+            }
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(

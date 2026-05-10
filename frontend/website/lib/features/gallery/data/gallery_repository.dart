@@ -72,6 +72,13 @@ class GalleryRepository {
     );
   }
 
+  Future<void> deleteImage(String imageId) async {
+    await _apiClient.delete(
+      '/images/$imageId',
+      headers: _authHeaders(),
+    );
+  }
+
   Future<List<String>> getTeamLabels(String teamId) async {
     try {
       final stats = await getTeamStats(teamId);

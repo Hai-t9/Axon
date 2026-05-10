@@ -82,7 +82,7 @@ async def handle_get_validation_list(
 
 @router.post("/images/{image_id}/validations", response_model=ValidationVoteResponse)
 async def submit_vote(
-    image_id: int,
+    image_id: UUID,
     payload: ValidationVoteCreate,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
@@ -102,7 +102,7 @@ async def submit_vote(
 
 @router.post("/images/{image_id}/validations/skip")
 async def skip_image(
-    image_id: int,
+    image_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     validation_service: ValidationService = Depends(get_validation_service),

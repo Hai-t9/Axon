@@ -174,8 +174,8 @@ class OfflineQueueNotifier extends Notifier<List<QueuedUpload>> {
           msg = e.toString();
         }
 
-        // If the server rejects it as a duplicate, it's already safely in the DB!
-        if (msg.toLowerCase().contains('duplicate')) {
+        final lower = msg.toLowerCase();
+        if (lower.contains('duplicate') || lower.contains('data collection phase')) {
           removeFromQueue(i);
         } else {
           markFailed(i, msg);

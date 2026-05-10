@@ -90,6 +90,10 @@ class CompetitionService {
     }
   }
 
+  Future<void> deleteImage(String imageId) async {
+    await _dio.delete('/api/v1/images/$imageId');
+  }
+
   Future<LeaderboardResponse> getLeaderboard(String competitionId,
       {String type = 'public'}) async {
     final response = await _dio.get(
@@ -98,6 +102,49 @@ class CompetitionService {
     );
     return LeaderboardResponse.fromJson(
         response.data as Map<String, dynamic>);
+  }
+
+  Future<Map<String, dynamic>> getDataValidationQueue(String competitionId) async {
+    final response = await _dio.get(
+      '/api/v1/competitions/$competitionId/data-validation/queue',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> validateImage(String competitionId, String imageId) async {
+    final response = await _dio.post(
+      '/api/v1/competitions/$competitionId/data-validation/images/$imageId/validate',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> skipImage(String competitionId, String imageId) async {
+    final response = await _dio.post(
+      '/api/v1/competitions/$competitionId/data-validation/images/$imageId/skip',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> correctLabel(String competitionId, String imageId, String label) async {
+    final response = await _dio.post(
+      '/api/v1/competitions/$competitionId/data-validation/images/$imageId/correct',
+      data: {'label': label},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getDataValidationProgress(String competitionId) async {
+    final response = await _dio.get(
+      '/api/v1/competitions/$competitionId/data-validation/progress',
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getCurrentPhase(String competitionId) async {
+    final response = await _dio.get(
+      '/api/v1/competitions/$competitionId/phase',
+    );
+    return response.data as Map<String, dynamic>;
   }
 }
 final competitionServiceProvider = Provider<CompetitionService>((ref) {

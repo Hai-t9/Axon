@@ -13,10 +13,8 @@ import '../../../widgets/layout/axon_scaffold.dart';
 import '../../../widgets/layout/page_header.dart';
 import '../../../features/leaderboard/presentation/leaderboard_page.dart';
 import '../../../features/model_submission/presentation/model_submission_page.dart';
-import '../../../features/validation/data/validation_repository.dart';
 import '../../../features/validation/presentation/validation_page.dart';
 import '../../../features/evaluation/presentation/evaluation_page.dart';
-import '../../../features/data_validation/presentation/data_validation_page.dart';
 import '../../auth/state/auth_session_provider.dart';
 import '../data/competition_repository.dart';
 import '../state/competition_details_controller.dart';
@@ -244,7 +242,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
         return _buildTeamTab(context, dashboardState);
       case 3:
       default:
-        return _buildModulesTab(context);
+        return _buildModulesTab(context, dashboardState);
     }
   }
 
@@ -465,17 +463,8 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           
           if (dashboard.labelDistribution.isNotEmpty) ...[
             _buildSectionHeader(context, 'Label Distribution'),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: dashboard.labelDistribution.entries.map((e) {
-                return Chip(
-                  label: Text('${e.key}: ${e.value}'),
-                  backgroundColor: AppColors.surfaceAlt,
-                  side: BorderSide.none,
-                );
-              }).toList(),
-            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildLabelHistogram(context, dashboard.labelDistribution),
             const SizedBox(height: AppSpacing.xl),
           ],
 
@@ -496,6 +485,66 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildLabelHistogram(BuildContext context, Map<String, int> distribution) {
+    final cs = Theme.of(context).colorScheme;
+    final entries = distribution.entries.toList();
+    final maxVal = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+
+    final palette = List.generate(8, (i) =>
+        HSLColor.fromAHSL(1.0, (i * 45.0) % 360, 0.80, 0.50).toColor());
+
+    return Column(
+      children: entries.asMap().entries.map((entry) {
+        final i = entry.key;
+        final e = entry.value;
+        final ratio = maxVal > 0 ? e.value / maxVal : 0.0;
+        final color = palette[i % palette.length];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                child: Text(e.key,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          height: 24,
+                          color: cs.surfaceContainerHighest,
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: ratio,
+                            child: Container(color: color),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    SizedBox(
+                      width: 40,
+                      child: Text('${e.value}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, color: color),
+                          textAlign: TextAlign.right),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -582,12 +631,13 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
   }
 
   // --- TAB 4: MODULES ---
-  Widget _buildModulesTab(BuildContext context) {
+  Widget _buildModulesTab(BuildContext context, AsyncValue<DashboardBase> dashboardState) {
+    final dashboard = dashboardState.asData?.value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(context, 'Active Modules'),
-        _buildModuleGrid(context, widget.competitionId),
+        _buildModuleGrid(context, widget.competitionId, dashboard: dashboard),
       ],
     );
   }
@@ -658,9 +708,11 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
     );
   }
 
-  Widget _buildModuleGrid(BuildContext context, String competitionId) {
-    final roleAsync = ref.watch(competitionRoleProvider(competitionId));
-    final role = roleAsync.asData?.value;
+  Widget _buildModuleGrid(BuildContext context, String competitionId, {DashboardBase? dashboard}) {
+    final isHost = dashboard?.isHost ?? false;
+    final currentPhase = dashboard?.phaseInfo.currentPhase ?? '';
+    final isValidationPhase = (int.tryParse(currentPhase) ?? 0) >= 2;
+
     final modules = [
       _ModuleData(
         icon: Icons.emoji_events,
@@ -676,26 +728,20 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
         color: AppColors.primaryDark,
         route: ModelSubmissionPage.routeForId(competitionId),
       ),
-      _ModuleData(
-        icon: Icons.how_to_vote,
-        title: 'Validation',
-        subtitle: 'Vote on image labels',
-        color: AppColors.success,
-        route: ValidationPage.routeForId(competitionId),
-      ),
+      if (!isHost && isValidationPhase)
+        _ModuleData(
+          icon: Icons.how_to_vote,
+          title: 'Validation',
+          subtitle: 'Vote on image labels',
+          color: AppColors.success,
+          route: ValidationPage.routeForId(competitionId),
+        ),
       _ModuleData(
         icon: Icons.science,
         title: 'Evaluations',
         subtitle: 'Evaluation results',
         color: const Color(0xFFE5A53C),
         route: EvaluationPage.routeForId(competitionId),
-      ),
-      _ModuleData(
-        icon: Icons.verified,
-        title: 'Data Validation',
-        subtitle: 'Review image labels',
-        color: AppColors.primaryDark,
-        route: DataValidationPage.routeForId(competitionId),
       ),
       _ModuleData(
         icon: Icons.photo_library_outlined,
@@ -725,47 +771,14 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
       itemCount: modules.length,
       itemBuilder: (context, index) {
         final module = modules[index];
-        final isValidation = module.title == 'Validation';
         return _ModuleCard(
           data: module,
-          onTap: () {
-            if (isValidation && role != null && (role == 'host' || role == 'staff')) {
-              _callGenerateThenNavigate(competitionId, module.route);
-            } else {
-              context.go(module.route);
-            }
-          },
+          onTap: () => context.go(module.route),
         );
       },
     );
   }
 
-  Future<void> _callGenerateThenNavigate(
-      String competitionId, String route) async {
-    try {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(SnackBar(
-        content: const Text('Generating validation assignments...'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 10),
-      ));
-
-      final repo = ref.read(validationRepositoryProvider);
-      await repo.generateValidation(competitionId);
-
-      if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      context.go(route);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Failed to generate validation: $e'),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-      ));
-    }
-  }
 }
 
 class _ParticipantTeamView extends ConsumerStatefulWidget {

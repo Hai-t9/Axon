@@ -15,15 +15,15 @@ class DashboardService:
 
     def _serialize_phase_info(self, phase_info) -> dict:
         return {
-            "competition_id": phase_info.competition_id,
+            "competition_id": str(phase_info.competition_id),
             "current_phase": phase_info.current_phase,
             "phase_dates": phase_info.phase_dates or {},
         }
 
     def _serialize_config(self, config) -> dict:
         return {
-            "id": config.id,
-            "competition_id": config.competition_id,
+            "id": str(config.id),
+            "competition_id": str(config.competition_id),
             "labels": config.labels,
             "data_ex": config.data_ex,
             "scoring_ex": config.scoring_ex,
@@ -48,9 +48,9 @@ class DashboardService:
 
     def _serialize_team(self, team) -> dict:
         return {
-            "id": team.id,
+            "id": str(team.id),
             "name": team.name,
-            "comp_id": team.comp_id,
+            "comp_id": str(team.comp_id),
             "user_emails": team.user_emails,
         }
 
@@ -61,9 +61,9 @@ class DashboardService:
         label_distribution = self.repository.find_team_label_distribution(team.id)
 
         return {
-            "id": team.id,
+            "id": str(team.id),
             "name": team.name,
-            "comp_id": team.comp_id,
+            "comp_id": str(team.comp_id),
             "user_emails": team.user_emails,
             "device_stats": device_stats,
             "label_distribution": label_distribution,
