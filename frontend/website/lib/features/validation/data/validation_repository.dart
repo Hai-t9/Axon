@@ -21,17 +21,6 @@ class ValidationRepository {
   final ApiClient _apiClient;
   final AuthSession? _session;
 
-  /// Triggers generation of validation assignments for all teams.
-  /// POST /competitions/:compId/validations/generate
-  Future<void> generateValidation(String competitionId) async {
-    await _apiClient.postJson(
-      '/competitions/$competitionId/validations/generate',
-      {},
-      headers: _authHeaders(),
-    );
-  }
-
-  /// Fetches the full list of image IDs assigned for validation.
   /// GET /competitions/:compId/validations/list
   Future<ValidationListResponse> getValidationList(String competitionId) async {
     final response = await _apiClient.getJson(
@@ -41,19 +30,9 @@ class ValidationRepository {
     return ValidationListResponse.fromJson(response);
   }
 
-  /// Fetches a single image's details (filepath, label, etc.)
-  /// GET /images/:imageId
-  Future<ValidationImage> getImageDetails(String imageId) async {
-    final response = await _apiClient.getJson(
-      '/images/$imageId',
-      headers: _authHeaders(),
-    );
-    return ValidationImage.fromJson(response);
-  }
-
-  /// Submits a validation vote for a specific image.
-  /// POST /images/:imageId/validations
-  Future<ValidationVoteResponse> submitVote(String imageId, String label) async {
+  /// POST /images/:imageId/validations  body: {"label": label}
+  Future<ValidationVoteResponse> validateImage(
+      String imageId, String label) async {
     final response = await _apiClient.postJson(
       '/images/$imageId/validations',
       {'label': label},
@@ -62,7 +41,6 @@ class ValidationRepository {
     return ValidationVoteResponse.fromJson(response);
   }
 
-  /// Skips validation for a specific image.
   /// POST /images/:imageId/validations/skip
   Future<void> skipImage(String imageId) async {
     await _apiClient.postJson(
@@ -70,21 +48,6 @@ class ValidationRepository {
       {},
       headers: _authHeaders(),
     );
-  }
-
-  /// Fetches images still pending validation.
-  /// GET /competitions/:compId/validations/pending
-  Future<List<ValidationPendingImage>> getPendingValidations(
-      String competitionId) async {
-    final response = await _apiClient.getJson(
-      '/competitions/$competitionId/validations/pending',
-      headers: _authHeaders(),
-    );
-    final raw = response['images'] as List<dynamic>? ?? [];
-    return raw
-        .map((e) =>
-            ValidationPendingImage.fromJson(e as Map<String, dynamic>))
-        .toList();
   }
 
   Map<String, String> _authHeaders() {

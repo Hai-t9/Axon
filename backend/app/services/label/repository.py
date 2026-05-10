@@ -38,6 +38,10 @@ class LabelRepository:
         self.db.refresh(entry)
         return entry
 
+    def update_image_label(self, image_id: UUID, label: str) -> None:
+        self.db.query(Image).filter(Image.id == image_id).update({"label": label})
+        self.db.commit()
+
     def get_image_with_team(self, image_id: UUID) -> Image | None:
         return self.db.query(Image).filter(Image.id == image_id).first()
 
@@ -46,6 +50,10 @@ class LabelRepository:
         if img:
             img.filepath = new_filepath  # type: ignore[assignment]
             self.db.commit()
+
+    def set_image_status(self, image_id: UUID, status: str) -> None:
+        self.db.query(Image).filter(Image.id == image_id).update({"status": status})
+        self.db.commit()
 
     def set_label_validated(self, image_id: UUID) -> Label | None:
         entry = self.find_by_image_id(image_id)

@@ -83,15 +83,16 @@ class ValidationRepository:
         )
 
     def fetch_all_competition_images(self, comp_id: UUID) -> list[UUID]:
-        """Fetch all image IDs in the competition, ordered by ID."""
+        """Fetch all image IDs in the competition, ordered by image_id."""
         rows = (
-            self.db.query(Image.id)
+            self.db.query(Label.image_id)
+            .join(Image, Image.id == Label.image_id)
             .join(Team, Team.id == Image.team_id)
             .filter(Team.comp_id == comp_id)
-            .order_by(Image.id.asc())
+            .order_by(Label.image_id.asc())
             .all()
         )
-        return [row.id for row in rows]
+        return [row.image_id for row in rows]
 
     def store_team_assignments(self, team_id: UUID, image_ids: list[UUID]) -> bool:
         return self._set_assignment_list(
@@ -245,16 +246,28 @@ class ValidationRepository:
         )
         return [img_id for img_id in image_ids if img_id not in validated_ids]
 
+    def fetch_image_details(self, image_ids: list[UUID]) -> dict[UUID, dict]:
+        rows = (
+            self.db.query(Label.image_id, Image.filepath, Label.label)
+            .join(Label, Label.image_id == Image.id)
+            .filter(Label.image_id.in_(image_ids))
+            .all()
+        )
+        return {
+            row.image_id: {"filepath": row.filepath, "label": row.label}
+            for row in rows
+        }
+
     def find_pending_by_comp(self, comp_id: UUID) -> list[dict]:
         rows = (
-            self.db.query(Image.id, Image.filepath, Label.label)
-            .join(Label, Label.image_id == Image.id)
+            self.db.query(Label.image_id, Image.filepath, Label.label)
+            .join(Image, Image.id == Label.image_id)
             .join(Team, Team.id == Image.team_id)
             .filter(Team.comp_id == comp_id, Label.validated.is_(False))
-            .order_by(Image.id.asc())
+            .order_by(Label.image_id.asc())
             .all()
         )
         return [
-            {"id": row.id, "filepath": row.filepath, "label": row.label}
+            {"id": row.image_id, "filepath": row.filepath, "label": row.label}
             for row in rows
         ]

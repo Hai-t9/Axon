@@ -12,21 +12,6 @@ final validationListProvider =
       .getValidationList(competitionId);
 });
 
-/// Fetches a single image's details by its ID.
-final imageDetailsProvider =
-    FutureProvider.family<ValidationImage, String>((ref, imageId) {
-  return ref.read(validationRepositoryProvider).getImageDetails(imageId);
-});
-
-/// Fetches pending validations for a competition.
-final pendingValidationsProvider =
-    FutureProvider.family<List<ValidationPendingImage>, String>(
-        (ref, competitionId) {
-  return ref
-      .read(validationRepositoryProvider)
-      .getPendingValidations(competitionId);
-});
-
 /// Extracts the label names from the competition config.
 /// The config.labels field is a map where keys are label names.
 final competitionLabelsProvider =

@@ -1,4 +1,3 @@
-/// Represents a single image to be validated, with its display data.
 class ValidationImage {
   final String imageId;
   final String? filepath;
@@ -13,34 +12,33 @@ class ValidationImage {
   });
 
   factory ValidationImage.fromJson(Map<String, dynamic> json) {
-    final id = json['id'];
+    final id = json['image_id'] ?? json['id'];
     return ValidationImage(
-      imageId: id is String ? id : (id is num ? id.toString() : ''),
+      imageId: id?.toString() ?? '',
       filepath: json['filepath'] as String?,
       imageUrl: json['image_url'] as String?,
-      currentLabel: json['label'] as String?,
+      currentLabel: (json['current_label'] ?? json['label']) as String?,
     );
   }
 }
 
-/// The response from GET /competitions/:compId/validations/list
-/// Contains only image IDs — the frontend fetches details per image.
 class ValidationListResponse {
-  final List<String> imageIds;
+  final List<ValidationImage> images;
 
-  const ValidationListResponse({required this.imageIds});
+  const ValidationListResponse({required this.images});
 
   factory ValidationListResponse.fromJson(Map<String, dynamic> json) {
-    final raw = json['image_ids'] as List<dynamic>? ?? [];
+    final raw = json['images'] as List<dynamic>? ?? [];
     return ValidationListResponse(
-      imageIds: raw.map((e) => e as String).toList(),
+      images: raw
+          .map((e) => ValidationImage.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
 
-/// The response from POST /images/:imageId/validations
 class ValidationVoteResponse {
-  final int validationId;
+  final String validationId;
   final String label;
 
   const ValidationVoteResponse({
@@ -49,14 +47,14 @@ class ValidationVoteResponse {
   });
 
   factory ValidationVoteResponse.fromJson(Map<String, dynamic> json) {
+    final raw = json['validation_id'];
     return ValidationVoteResponse(
-      validationId: (json['validation_id'] as num).toInt(),
-      label: json['label'] as String,
+      validationId: raw?.toString() ?? '',
+      label: json['label'] as String? ?? '',
     );
   }
 }
 
-/// Pending validation image (from GET /competitions/:compId/validations/pending)
 class ValidationPendingImage {
   final String id;
   final String filepath;

@@ -76,10 +76,14 @@ class LabelService:
         # Update label in DB
         label_entry = self.repository.modify_label(image_id, new_label)
 
+        # Sync Image.label so the gallery shows the validated label
+        self.repository.update_image_label(image_id, new_label)
+
         return label_entry
 
     def validate_label(self, image_id: UUID):
         label_entry = self.repository.set_label_validated(image_id)
         if not label_entry:
             raise NotFoundError("Label not found")
+        self.repository.set_image_status(image_id, "verified")
         return label_entry
