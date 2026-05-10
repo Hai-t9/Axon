@@ -81,7 +81,7 @@ class LeaderboardService:
         phase, phase_label = self._get_phase_info(comp_id)
 
         # Phase gate: only show leaderboard in Model Submission (3) or later
-        phase_num = int(phase)
+        phase_num = int(phase) if phase is not None else 0
         if phase_num < 3:
             return {
                 "entries": [],
@@ -94,12 +94,12 @@ class LeaderboardService:
 
         mock_entries = self._generate_mock_entries(comp_id, leaderboard_type)
 
-        if limit is not None:
-            mock_entries = mock_entries[:limit]
-
         total_teams = len({
             entry["team"]["id"] for entry in mock_entries
         })
+
+        if limit is not None:
+            mock_entries = mock_entries[:limit]
 
         return {
             "entries": mock_entries,
