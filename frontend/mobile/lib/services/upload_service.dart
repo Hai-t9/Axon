@@ -80,10 +80,9 @@ class UploadService {
         metadata: metadata,
       );
     } catch (e) {
-      // If it throws a server error like Duplicate, we shouldn't queue it, but if it's network we do
       final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('duplicate')) {
-        throw Exception('Duplicate image detected. Not queued.');
+      if (errorMsg.contains('duplicate') || errorMsg.contains('data collection phase')) {
+        throw Exception(e.toString().replaceAll('Exception: Server Rejection: ', ''));
       }
       
       _ref.read(offlineQueueProvider.notifier).addToQueue(

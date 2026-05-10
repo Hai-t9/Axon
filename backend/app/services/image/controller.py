@@ -8,6 +8,7 @@ from app.core.auth import extract_bearer_token
 from app.core.exceptions import AuthenticationError
 from app.services.auth.repository import AuthRepository
 from app.services.auth.service import AuthService
+from app.models import PhaseLog
 from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
@@ -51,6 +52,15 @@ async def upload_image(
 ):
     repo = ImageRepository(db)
     service = ImageService(repo)
+
+    comp_id = repo.get_comp_id(team_id)
+    if comp_id:
+        phase = db.query(PhaseLog).filter(PhaseLog.competition_id == comp_id).first()
+        if phase and phase.current_phase != "1":
+            raise HTTPException(
+                status_code=400,
+                detail="Image upload is only allowed during the Data Collection phase."
+            )
 
     try:
         record = await service.upload_image(current_user_id, team_id, file, label)
