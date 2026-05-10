@@ -133,9 +133,13 @@ class ModelSubmissionService:
         self.repository.save_model_metadata(model.id, metadata)  # type: ignore[arg-type]
 
         # 8. Auto-schedule
+        # 8. Auto-schedule
         config = self.repository.find_competition_config(competition_id)
-        protocol = getattr(config, 'evaluation', None) if config else None
-        protocol = str(protocol) if protocol else "standard"
+        protocol = "standard"
+        if config and isinstance(config.model_spec, dict):
+            protocol = config.model_spec.get("evaluation_protocol", "standard")
+        if protocol not in ("standard", "loto", "toto"):
+            protocol = "standard"
         self._schedule_for_evaluation(model.id, protocol)
 
         return {
