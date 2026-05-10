@@ -611,7 +611,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
           ),
           const SizedBox(height: AppSpacing.xl),
           OutlinedButton.icon(
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/competitions/${widget.competitionId}'),
             icon: const Icon(Icons.arrow_back_rounded),
             label: const Text('Back to Dashboard'),
           ),
