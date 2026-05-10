@@ -1,3 +1,4 @@
+import os
 import time
 
 import pytest
@@ -10,6 +11,10 @@ from app.core.gateway import (
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
 )
+
+# Prevent tests from using the shared Upstash Redis (set by .env via dotenv)
+# so each test gets an isolated in-memory rate limit store instead.
+os.environ.pop("REDIS_URL", None)
 
 
 def _make_app(*middlewares):

@@ -149,10 +149,10 @@ def model(
         filename="model.zip",
         storage_path="models/test.zip",
         model_hash="abc123",
-        format=ModelFormat.PYTORCH,
+        format=ModelFormat.PYTORCH.value,
         framework_version="1.9",
         size_mb=0.5,
-        status=ModelStatus.SCHEDULED,
+        status=ModelStatus.SCHEDULED.value,
         version=1,
     )
     test_db.add(m)

@@ -86,7 +86,7 @@ def _create_model_and_evaluation(
         filename=os.path.basename(docker_img_filepath),
         storage_path=docker_img_filepath,
         model_hash=f"hash_{os.path.basename(docker_img_filepath)}",
-        format=ModelFormat.ONNX,
+        format=ModelFormat.ONNX.value,
         framework_version="1.0",
         size_mb=1.0,
         version=1,
