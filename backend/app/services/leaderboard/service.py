@@ -37,16 +37,20 @@ class LeaderboardService:
 
         entries = self.repository.find_best_score_per_team(comp_id, limit)
 
+        # Assign ranks (tied scores share the same rank)
+        ranked = []
+        current_rank = 0
+        previous_score = None
+        for index, entry in enumerate(entries, start=1):
+            score = entry["score"]
+            if previous_score is None or score != previous_score:
+                current_rank = index
+                previous_score = score
+            entry["rank"] = current_rank
+            ranked.append(entry)
+
         if limit is not None:
-            mock_entries = mock_entries[:limit]
-
-        total_teams = len({
-            entry["team"]["id"] for entry in mock_entries
-        })
-
-        if limit is not None:
-            mock_entries = mock_entries[:limit]
-
+            ranked = ranked[:limit]
 
         return {
             "entries": ranked,
