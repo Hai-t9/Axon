@@ -14,7 +14,7 @@ final authTokenProvider = NotifierProvider<TokenNotifier, String?>(TokenNotifier
 
 class ApiConfig {
 
-  static String baseUrl = 'https://stood-triangle-mangy.ngrok-free.dev/';
+  static String baseUrl = 'https://obligations-guides-bradley-nottingham.trycloudflare.com/';
 
 }
 

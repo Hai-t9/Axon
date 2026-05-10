@@ -65,19 +65,22 @@ app = FastAPI(lifespan=lifespan)
 
 # ------------------------------------------------------------------ #
 #  Middleware Stack (outermost runs first on request)                  #
-#  Order: RequestID → RequestLogging → RateLimit → SecurityHeaders → CORS
+#  Order: CORS → RequestID → RequestLogging → RateLimit → SecurityHeaders
 # ------------------------------------------------------------------ #
+# CORS must be outermost so preflight OPTIONS requests get CORS headers
+# before any middleware (e.g. RateLimit) can short-circuit them.
 
-app.add_middleware(CORSMiddleware,                                           # 5th: innermost middlewares
+app.add_middleware(
+    CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SecurityHeadersMiddleware)                                # 4th
-app.add_middleware(RateLimitMiddleware)                                      # 3rd
-app.add_middleware(RequestLoggingMiddleware)                                 # 2nd
-app.add_middleware(RequestIDMiddleware)                                      # 1st: outermost (runs first)
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ------------------------------------------------------------------ #
 

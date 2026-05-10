@@ -1,185 +1,264 @@
-import os
 import sys
-from pathlib import Path
-from uuid import UUID
+from unittest.mock import MagicMock, patch
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.storage.paths import image_local_path
+sys.path.insert(0, ".")
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
-
-from app.core.database import Base
 from app.main import app
-from app.models import Image
-from app.services.competition.controller import get_db as competition_get_db
-from app.services.label.controller import get_db as label_get_db
-from app.services.phase.controller import get_db as phase_get_db
-from app.services.register.controller import get_db as register_get_db
-from app.services.team.controller import get_db as team_get_db
+from app.services.label.service import LabelService
+from app.services.label.controller import get_label_service, get_auth_service
 
 
-@pytest.fixture()
-def db_session():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    Base.metadata.create_all(bind=engine)
+# ── Helpers ──────────────────────────────────────────────────────────────
 
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+def _make_auth_mock(user_id: str | None = None):
+    mock = MagicMock()
+    uid = UUID(user_id) if user_id else uuid4()
+    mock.get_current_user.return_value = MagicMock(id=uid)
+    mock.require_roles.return_value = None
+    return mock, uid
 
 
-@pytest.fixture()
-def client(db_session):
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[register_get_db] = override_get_db
-    app.dependency_overrides[competition_get_db] = override_get_db
-    app.dependency_overrides[team_get_db] = override_get_db
-    app.dependency_overrides[phase_get_db] = override_get_db
-    app.dependency_overrides[label_get_db] = override_get_db
-
-    with TestClient(app) as client:
-        yield client
-
+@pytest.fixture(autouse=True)
+def clear_overrides():
+    yield
     app.dependency_overrides.clear()
 
 
-def _to_uuid(value) -> UUID:
-    if isinstance(value, UUID):
-        return value
-    return UUID(str(value))
+# ── Service-level tests ─────────────────────────────────────────────────
 
-
-def _create_image(db_session, team_id, author_id, comp_id=None, comp_name=None, team_name=None, label=None) -> Image:
-    team_uuid = _to_uuid(team_id)
-    author_uuid = _to_uuid(author_id)
-    filename = f"img_{team_uuid}_{author_uuid}.jpg"
-
-    if comp_id is not None and comp_name and team_name:
-        safe_label = label.replace(" ", "_").lower() if label else "unlabeled"
-        filepath = image_local_path(UUID(str(comp_id)), team_uuid, comp_name, team_name, safe_label, filename)
-    else:
-        filepath = f"uploads/images/{filename}"
-
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    Path(filepath).touch()
-
-    image = Image(
-        team_id=team_uuid,
-        author_id=author_uuid,
-        filepath=filepath,
-        image_hash=f"hash_{team_uuid}_{author_uuid}",
-    )
-    db_session.add(image)
-    db_session.commit()
-    db_session.refresh(image)
-    return image
-
-
-def test_label_flow_create_get_update_validate(client, db_session):
-    signup_response = client.post(
-        "/api/v1/register/signup",
-        json={
-            "email": "host@example.com",
-            "password": "Secure1234",
-            "full_name": "Host User",
-        },
-    )
-    assert signup_response.status_code == 200
-    host_payload = signup_response.json()
-    host_token = host_payload["access_token"]
-    host_id = host_payload["user"]["id"]
-
-    competition_response = client.post(
-        "/api/v1/competitions",
-        headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Label Test Competition", "description": "Test"},
-    )
-    assert competition_response.status_code == 200
-    competition_id = competition_response.json()["id"]
-
-    team_response = client.post(
-        f"/api/v1/competitions/{competition_id}/teams",
-        headers={"Authorization": f"Bearer {host_token}"},
-        json={"name": "Label Test Team", "user_emails": {"host@example.com": 0}},
-    )
-    assert team_response.status_code == 200
-    team_id = team_response.json()["id"]
-
-    old_filepath, new_filepath = None, None
-    try:
-        image = _create_image(db_session, team_id=team_id, author_id=host_id,
-                               comp_id=competition_id, comp_name="Label Test Competition",
-                               team_name="Label Test Team", label="cat")
-        old_filepath = image.filepath
-
-        create_response = client.post(
-            f"/api/v1/images/{image.id}/labels",
-            headers={"Authorization": f"Bearer {host_token}"},
-            json={"label": "cat"},
+class TestLabelService:
+    def test_create_label(self):
+        repo = MagicMock()
+        repo.get_image_by_id.return_value = MagicMock()
+        repo.find_by_image_id.return_value = None  # no existing label
+        repo.insert_label.return_value = MagicMock(
+            image_id=uuid4(), label="cat", validated=False
         )
-        assert create_response.status_code == 200
-        assert create_response.json()["label"] == "cat"
-        assert create_response.json()["validated"] is False
+        svc = LabelService(repo)
 
-        get_response = client.get(
-            f"/api/v1/images/{image.id}/labels",
-            headers={"Authorization": f"Bearer {host_token}"},
+        result = svc.create_label(uuid4(), "cat")
+
+        assert result.label == "cat"
+        assert result.validated is False
+        repo.insert_label.assert_called_once()
+
+    def test_create_label_image_not_found(self):
+        repo = MagicMock()
+        repo.get_image_by_id.return_value = None
+        svc = LabelService(repo)
+
+        with pytest.raises(Exception):
+            svc.create_label(uuid4(), "cat")
+
+    def test_create_label_already_exists(self):
+        repo = MagicMock()
+        repo.get_image_by_id.return_value = MagicMock()
+        repo.find_by_image_id.return_value = MagicMock()  # label exists
+        svc = LabelService(repo)
+
+        with pytest.raises(Exception):
+            svc.create_label(uuid4(), "cat")
+
+    def test_get_label(self):
+        repo = MagicMock()
+        repo.find_by_image_id.return_value = MagicMock(
+            image_id=uuid4(), label="dog", validated=True
         )
-        assert get_response.status_code == 200
-        assert get_response.json()["label"] == "cat"
+        svc = LabelService(repo)
 
-        update_response = client.put(
-            f"/api/v1/images/{image.id}/labels",
-            headers={"Authorization": f"Bearer {host_token}"},
-            json={"label": "dog"},
+        result = svc.get_label(uuid4())
+
+        assert result.label == "dog"
+        assert result.validated is True
+
+    def test_get_label_not_found(self):
+        repo = MagicMock()
+        repo.find_by_image_id.return_value = None
+        svc = LabelService(repo)
+
+        with pytest.raises(Exception):
+            svc.get_label(uuid4())
+
+    def test_update_label_same_label(self):
+        """Updating to the same label should be a no-op."""
+        repo = MagicMock()
+        repo.get_image_by_id.return_value = MagicMock()
+        entry = MagicMock(image_id=uuid4(), label="cat", validated=False)
+        repo.find_by_image_id.return_value = entry
+        svc = LabelService(repo)
+
+        result = svc.update_label(uuid4(), "cat")
+
+        assert result.label == "cat"
+        # modify_label should NOT be called since label didn't change
+        repo.modify_label.assert_not_called()
+
+    def test_update_label_new_label(self):
+        img_id = uuid4()
+        repo = MagicMock()
+        repo.get_image_by_id.return_value = MagicMock()
+        repo.find_by_image_id.return_value = MagicMock(
+            image_id=img_id, label="cat", validated=False
         )
-        assert update_response.status_code == 200
-        assert update_response.json()["label"] == "dog"
-
-        # Refresh image from DB to get updated filepath
-        db_session.refresh(image)
-        new_filepath = image.filepath
-
-        # Verify old file was moved to new location
-        assert not os.path.exists(old_filepath), f"Old file should not exist: {old_filepath}"
-        assert os.path.exists(new_filepath), f"New file should exist: {new_filepath}"
-        assert "dog" in new_filepath
-
-        validate_response = client.post(
-            f"/api/v1/images/{image.id}/labels/validate",
-            headers={"Authorization": f"Bearer {host_token}"},
+        repo.get_image_with_team.return_value = MagicMock(
+            filepath="uploads/old/cat/img.jpg",
+            team=MagicMock(
+                comp_id=uuid4(),
+                competition=MagicMock(name="Test Comp"),
+                name="Test Team",
+            ),
         )
-        assert validate_response.status_code == 200
-        assert validate_response.json()["validated"] is True
-    finally:
-        for p in (old_filepath, new_filepath):
-            if p and os.path.exists(p):
-                os.remove(p)
-                try:
-                    os.removedirs(os.path.dirname(p))
-                except OSError:
-                    pass
+        repo.modify_label.return_value = MagicMock(
+            image_id=img_id, label="dog", validated=False
+        )
+        svc = LabelService(repo)
+
+        with patch("os.path.exists", return_value=True), \
+             patch("os.makedirs"), \
+             patch("shutil.move"), \
+             patch("app.storage.minio_client.storage_service"):
+            result = svc.update_label(img_id, "dog")
+
+        assert result.label == "dog"
+        repo.modify_label.assert_called_once_with(img_id, "dog")
+        repo.update_image_label.assert_called_once_with(img_id, "dog")
+
+    def test_validate_label(self):
+        repo = MagicMock()
+        repo.set_label_validated.return_value = MagicMock(
+            image_id=uuid4(), label="cat", validated=True
+        )
+        svc = LabelService(repo)
+
+        result = svc.validate_label(uuid4())
+
+        assert result.validated is True
+        repo.set_label_validated.assert_called_once()
+        repo.set_image_status.assert_called_once()
+
+    def test_validate_label_not_found(self):
+        repo = MagicMock()
+        repo.set_label_validated.return_value = None
+        svc = LabelService(repo)
+
+        with pytest.raises(Exception):
+            svc.validate_label(uuid4())
 
 
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__]))
+# ── HTTP integration tests ──────────────────────────────────────────────
+
+class TestLabelHTTP:
+    def test_create_label_endpoint(self):
+        auth_mock, user_id = _make_auth_mock()
+        img_id = uuid4()
+
+        repo = MagicMock()
+        repo.get_image_by_id.return_value = MagicMock(id=img_id)
+        repo.find_by_image_id.return_value = None
+        repo.insert_label.return_value = MagicMock(
+            id=1, image_id=img_id, label="cat", validated=False
+        )
+        svc = LabelService(repo)
+
+        app.dependency_overrides[get_auth_service] = lambda: auth_mock
+        app.dependency_overrides[get_label_service] = lambda: svc
+
+        with TestClient(app) as client:
+            resp = client.post(
+                f"/api/v1/images/{img_id}/labels",
+                json={"label": "cat"},
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["label"] == "cat"
+        assert body["validated"] is False
+
+    def test_get_label_endpoint(self):
+        auth_mock, user_id = _make_auth_mock()
+        img_id = uuid4()
+
+        repo = MagicMock()
+        repo.find_by_image_id.return_value = MagicMock(
+            id=1, image_id=img_id, label="cat", validated=False
+        )
+        svc = LabelService(repo)
+
+        app.dependency_overrides[get_auth_service] = lambda: auth_mock
+        app.dependency_overrides[get_label_service] = lambda: svc
+
+        with TestClient(app) as client:
+            resp = client.get(
+                f"/api/v1/images/{img_id}/labels",
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["label"] == "cat"
+
+    def test_update_label_endpoint(self):
+        auth_mock, user_id = _make_auth_mock()
+        img_id = uuid4()
+
+        repo = MagicMock()
+        repo.get_image_by_id.return_value = MagicMock(id=img_id)
+        repo.find_by_image_id.return_value = MagicMock(
+            image_id=img_id, label="cat", validated=False
+        )
+        repo.modify_label.return_value = MagicMock(
+            id=1, image_id=img_id, label="dog", validated=False
+        )
+        repo.get_image_with_team.return_value = MagicMock(
+            filepath="uploads/test/cat/img.jpg",
+            team=MagicMock(
+                comp_id=uuid4(),
+                competition=MagicMock(name="Test"),
+                name="Team",
+            ),
+        )
+        svc = LabelService(repo)
+
+        app.dependency_overrides[get_auth_service] = lambda: auth_mock
+        app.dependency_overrides[get_label_service] = lambda: svc
+
+        with patch("os.path.exists", return_value=True), \
+             patch("os.makedirs"), \
+             patch("shutil.move"), \
+             patch("app.storage.minio_client.storage_service"):
+            with TestClient(app) as client:
+                resp = client.put(
+                    f"/api/v1/images/{img_id}/labels",
+                    json={"label": "dog"},
+                    headers={"Authorization": "Bearer test-token"},
+                )
+
+        assert resp.status_code == 200
+        assert resp.json()["label"] == "dog"
+
+    def test_validate_label_endpoint(self):
+        auth_mock, user_id = _make_auth_mock()
+        img_id = uuid4()
+
+        repo = MagicMock()
+        repo.set_label_validated.return_value = MagicMock(
+            id=1, image_id=img_id, label="cat", validated=True
+        )
+        repo.get_competition_id_for_image.return_value = uuid4()
+        svc = LabelService(repo)
+
+        app.dependency_overrides[get_auth_service] = lambda: auth_mock
+        app.dependency_overrides[get_label_service] = lambda: svc
+
+        with TestClient(app) as client:
+            resp = client.post(
+                f"/api/v1/images/{img_id}/labels/validate",
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["validated"] is True

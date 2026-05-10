@@ -16,8 +16,7 @@ const Map<String, String> phaseLabels = {
   '1': 'Data Collection',
   '2': 'Data Validation',
   '3': 'Model Submission',
-  '4': 'Model Evaluation',
-  '5': 'Finale & Leaderboard',
+  '4': 'Finale & Leaderboard',
 };
 
 class PhaseControlPage extends ConsumerStatefulWidget {
@@ -41,7 +40,7 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
 
-  static const _phaseList = ['0', '1', '2', '3', '4', '5'];
+  static const _phaseList = ['0', '1', '2', '3', '4'];
 
   @override
   void initState() {
@@ -231,7 +230,7 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
     final isFirst = currentIdx <= 0;
     final nextPhase = isLast ? null : _phaseList[currentIdx + 1];
     final prevPhase = isFirst ? null : _phaseList[currentIdx - 1];
-    final isPhaseFive = currentPhase == '5';
+    final isPhaseFour = currentPhase == '4';
 
     return AxonScaffold(
       child: Column(
@@ -285,7 +284,7 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
                         ],
                       )),
                     ]),
-                    if (!isPhaseFive) ...[
+                    if (!isPhaseFour) ...[
                       const SizedBox(height: AppSpacing.lg),
                       Row(children: [
                         const Icon(Icons.timer_outlined, size: 16, color: AppColors.textSecondary),
@@ -319,7 +318,7 @@ class _PhaseControlPageState extends ConsumerState<PhaseControlPage> {
                             label: Text('Advance to Phase $nextPhase'),
                           ),
                       ],
-                      if (!isPhaseFive) ...[
+                      if (!isPhaseFour) ...[
                         const SizedBox(width: AppSpacing.md),
                         OutlinedButton.icon(
                           onPressed: _extendDeadline,

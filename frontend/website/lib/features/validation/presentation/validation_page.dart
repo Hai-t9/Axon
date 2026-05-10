@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
@@ -185,7 +186,8 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
   }
 
   String _buildImageUrl(String filepath) {
-    final base = AppConfig.apiBaseUrl.replaceAll('/api/v1', '');
+    var base = AppConfig.apiBaseUrl.replaceAll('/api/v1', '');
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
     final normalized = filepath.replaceAll('\\', '/');
     if (normalized.startsWith('http')) return normalized;
     return '$base/$normalized';
@@ -610,7 +612,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
           ),
           const SizedBox(height: AppSpacing.xl),
           OutlinedButton.icon(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.go('/competitions/${widget.competitionId}'),
             icon: const Icon(Icons.arrow_back_rounded),
             label: const Text('Back to Dashboard'),
           ),

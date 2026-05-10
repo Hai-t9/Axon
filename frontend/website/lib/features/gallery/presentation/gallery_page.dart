@@ -29,7 +29,8 @@ class _GalleryPageState extends ConsumerState<GalleryPage> {
   String? _labelFilter;
 
   String _getImageUrl(String filepath) {
-    final base = AppConfig.apiBaseUrl.replaceAll('/api/v1', '');
+    var base = AppConfig.apiBaseUrl.replaceAll('/api/v1', '');
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
     final normalizedPath = filepath.replaceAll('\\', '/');
     if (normalizedPath.startsWith('http')) return normalizedPath;
     if (!normalizedPath.startsWith('uploads/')) return '$base/uploads/$normalizedPath';

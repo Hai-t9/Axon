@@ -27,32 +27,6 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
-class GoogleButton extends StatelessWidget {
-  const GoogleButton({
-    super.key,
-    required this.label,
-    this.onPressed,
-    this.isLoading = false,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: isLoading ? null : onPressed,
-      child: _ButtonContent(
-        label: label,
-        isLoading: isLoading,
-        leading: const _GoogleMark(),
-        loaderColor: AppColors.primaryDark,
-      ),
-    );
-  }
-}
-
 class _ButtonContent extends StatelessWidget {
   const _ButtonContent({
     required this.label,
@@ -92,27 +66,4 @@ class _ButtonContent extends StatelessWidget {
   }
 }
 
-class _GoogleMark extends StatelessWidget {
-  const _GoogleMark();
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 26,
-      height: 26,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Text(
-        'G',
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: AppColors.primaryDark,
-        ),
-      ),
-    );
-  }
-}

@@ -24,7 +24,7 @@ class LeaderboardService:
         phase, phase_label = self._get_phase_info(comp_id)
 
         # Phase gate: only show leaderboard in Model Submission (3) or later
-        phase_num = int(phase)
+        phase_num = int(phase) if phase is not None else 0
         if phase_num < 3:
             return {
                 "entries": [],
@@ -37,7 +37,6 @@ class LeaderboardService:
 
         entries = self.repository.find_best_score_per_team(comp_id, limit)
 
-<<<<<<< Updated upstream
         if limit is not None:
             mock_entries = mock_entries[:limit]
 
@@ -45,23 +44,10 @@ class LeaderboardService:
             entry["team"]["id"] for entry in mock_entries
         })
 
-=======
-        # Assign ranks (tied scores share the same rank)
-        ranked = []
-        current_rank = 0
-        previous_score = None
-        for index, entry in enumerate(entries, start=1):
-            score = entry["score"]
-            if previous_score is None or score != previous_score:
-                current_rank = index
-                previous_score = score
-            entry["rank"] = current_rank
-            ranked.append(entry)
-
         if limit is not None:
-            ranked = ranked[:limit]
+            mock_entries = mock_entries[:limit]
 
->>>>>>> Stashed changes
+
         return {
             "entries": ranked,
             "total_teams": len({

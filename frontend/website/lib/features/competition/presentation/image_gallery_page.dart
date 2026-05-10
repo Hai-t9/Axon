@@ -96,7 +96,8 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
   }
 
   String _getImageUrl(String filepath) {
-    final base = AppConfig.apiBaseUrl.replaceFirst('/api/v1', '');
+    var base = AppConfig.apiBaseUrl.replaceFirst('/api/v1', '');
+    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
     final normalizedPath = filepath.replaceAll('\\', '/');
 
     if (normalizedPath.startsWith('http')) {
