@@ -101,7 +101,7 @@ def run_evaluation_task(self, task_id: str):
                 shutil.rmtree(model_dir, ignore_errors=True)
 
     except Exception as exc:
-        logger.error(f"Evaluation task {task_id} failed: {exc}")
+        logger.exception(f"Evaluation task {task_id} failed")
         try:
             task_uuid = UUID(task_id)
             task = db.query(EvaluationTask).filter(EvaluationTask.id == task_uuid).first()
