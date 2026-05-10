@@ -21,41 +21,30 @@ class ValidationRepository {
   final ApiClient _apiClient;
   final AuthSession? _session;
 
-  /// GET /competitions/:compId/data-validation/queue
+  /// GET /competitions/:compId/validations/list
   Future<ValidationListResponse> getValidationList(String competitionId) async {
     final response = await _apiClient.getJson(
-      '/competitions/$competitionId/data-validation/queue',
+      '/competitions/$competitionId/validations/list',
       headers: _authHeaders(),
     );
     return ValidationListResponse.fromJson(response);
   }
 
-  /// POST /competitions/:compId/data-validation/images/:imageId/validate
+  /// POST /images/:imageId/validations  body: {"label": label}
   Future<ValidationVoteResponse> validateImage(
-      String competitionId, String imageId) async {
+      String imageId, String label) async {
     final response = await _apiClient.postJson(
-      '/competitions/$competitionId/data-validation/images/$imageId/validate',
-      {},
-      headers: _authHeaders(),
-    );
-    return ValidationVoteResponse.fromJson(response);
-  }
-
-  /// POST /competitions/:compId/data-validation/images/:imageId/correct
-  Future<ValidationVoteResponse> correctLabel(
-      String competitionId, String imageId, String label) async {
-    final response = await _apiClient.postJson(
-      '/competitions/$competitionId/data-validation/images/$imageId/correct',
+      '/images/$imageId/validations',
       {'label': label},
       headers: _authHeaders(),
     );
     return ValidationVoteResponse.fromJson(response);
   }
 
-  /// POST /competitions/:compId/data-validation/images/:imageId/skip
-  Future<void> skipImage(String competitionId, String imageId) async {
+  /// POST /images/:imageId/validations/skip
+  Future<void> skipImage(String imageId) async {
     await _apiClient.postJson(
-      '/competitions/$competitionId/data-validation/images/$imageId/skip',
+      '/images/$imageId/validations/skip',
       {},
       headers: _authHeaders(),
     );

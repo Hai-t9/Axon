@@ -114,11 +114,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
     try {
       final repo = ref.read(validationRepositoryProvider);
       final image = _images[_currentIndex];
-      if (_selectedLabel == image.currentLabel) {
-        await repo.validateImage(widget.competitionId, image.imageId);
-      } else {
-        await repo.correctLabel(widget.competitionId, image.imageId, _selectedLabel!);
-      }
+      await repo.validateImage(image.imageId, _selectedLabel!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -155,7 +151,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
     setState(() => _isSkipping = true);
     try {
       final repo = ref.read(validationRepositoryProvider);
-      await repo.skipImage(widget.competitionId, _images[_currentIndex].imageId);
+      await repo.skipImage(_images[_currentIndex].imageId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

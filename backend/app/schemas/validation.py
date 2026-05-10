@@ -2,16 +2,20 @@ from pydantic import BaseModel
 
 
 class ValidationImage(BaseModel):
+    image_id: str
+    filepath: str
+    current_label: str
+
+
+class ValidationPendingImage(BaseModel):
     id: str
     filepath: str
-
-
-class ValidationPendingImage(ValidationImage):
     label: str
 
 
 class ValidationListResponse(BaseModel):
-    image_ids: list[str]
+    images: list[ValidationImage]
+    total: int
 
 
 class ValidationVoteCreate(BaseModel):
