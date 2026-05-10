@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
@@ -610,7 +611,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
           ),
           const SizedBox(height: AppSpacing.xl),
           OutlinedButton.icon(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.pop(),
             icon: const Icon(Icons.arrow_back_rounded),
             label: const Text('Back to Dashboard'),
           ),
