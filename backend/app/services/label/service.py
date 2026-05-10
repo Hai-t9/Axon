@@ -56,22 +56,19 @@ class LabelService:
 
         old_local = image_local_path(comp_id, team_id, comp_name, team_name, old_label, filename)
         new_local = image_local_path(comp_id, team_id, comp_name, team_name, new_label, filename)
+        old_s3 = image_key(comp_id, team_id, comp_name, team_name, old_label, filename)
+        new_s3 = image_key(comp_id, team_id, comp_name, team_name, new_label, filename)
 
+        # Always move in S3 — works regardless of local file presence
+        storage_service.copy_file(old_s3, new_s3)
+        storage_service.delete_file(old_s3)
+
+        # Local move — only if the local file actually exists
         if os.path.exists(old_local):
-            old_s3 = image_key(comp_id, team_id, comp_name, team_name, old_label, filename)
-            new_s3 = image_key(comp_id, team_id, comp_name, team_name, new_label, filename)
-
             os.makedirs(os.path.dirname(new_local), exist_ok=True)
+            shutil.move(old_local, new_local)
 
-            # S3 ops first (may fall back to local copy+delete if S3 unavailable)
-            storage_service.copy_file(old_s3, new_s3)
-            storage_service.delete_file(old_s3)
-
-            # Local move — only if still needed (S3 fallback already moved it)
-            if os.path.exists(old_local):
-                shutil.move(old_local, new_local)
-
-            self.repository.update_image_filepath(image_id, new_local)
+        self.repository.update_image_filepath(image_id, new_local)
 
         # Update label in DB
         label_entry = self.repository.modify_label(image_id, new_label)
