@@ -17,7 +17,7 @@ class DataValidationService:
         images = self.repository.get_images_for_validation(team_id)
         return {"images": images, "total": len(images)}
 
-    def validate(self, image_id: int, user_id: UUID) -> dict:
+    def validate(self, image_id: UUID, user_id: UUID) -> dict:
         label = (
             self.repository.db.query(Label)
             .filter(Label.image_id == image_id)
@@ -27,13 +27,13 @@ class DataValidationService:
             raise NotFoundError("Label not found for this image")
         if label.validated:
             raise ValidationError("Label already validated")
-        self.repository.validate_label(label.id)
+        self.repository.validate_label(label.id, image_id, user_id, label.label)
         return {"success": True, "message": "Label validated"}
 
-    def skip(self, image_id: int, user_id: UUID) -> dict:
+    def skip(self, image_id: UUID, user_id: UUID) -> dict:
         return {"success": True, "message": "Image skipped"}
 
-    def correct(self, image_id: int, new_label: str, user_id: UUID) -> dict:
+    def correct(self, image_id: UUID, new_label: str, user_id: UUID) -> dict:
         label = (
             self.repository.db.query(Label)
             .filter(Label.image_id == image_id)
@@ -41,7 +41,7 @@ class DataValidationService:
         )
         if not label:
             raise NotFoundError("Label not found for this image")
-        self.repository.correct_label(label.id, new_label)
+        self.repository.correct_label(label.id, image_id, new_label, user_id)
         return {"success": True, "message": "Label corrected"}
 
     def get_progress(self, comp_id: UUID, user_id: UUID) -> dict:

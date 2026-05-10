@@ -54,7 +54,7 @@ class DashboardCache:
             "cached_at": datetime.utcnow().isoformat(),
             "data": data,
         }
-        raw = json.dumps(payload)
+        raw = json.dumps(payload, default=str)
         if self.ttl_seconds > 0:
             self.client.setex(self._key(comp_id), self.ttl_seconds, raw)
         else:

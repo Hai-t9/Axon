@@ -124,7 +124,7 @@ class ModelSubmissionService:
             storage_path=storage_path,
             model_hash=model_hash,
             format=validation_result["detected_format"],
-            framework_version=metadata.get("framework_version", "unknown"),
+            framework_version=metadata.get("framework_version") or "unknown",
             size_mb=size_mb,
             submitted_by=user_id,
             version=next_version,
@@ -139,7 +139,7 @@ class ModelSubmissionService:
         self._schedule_for_evaluation(model.id, protocol)
 
         return {
-            "id": str(model.id),
+            "id": model.id,
             "team_id": model.team_id,
             "competition_id": model.competition_id,
             "filename": model.filename,
@@ -547,9 +547,9 @@ class ModelSubmissionService:
         if not model:
             raise NotFoundError(f"Model {model_id} not found")
 
-        if model.status not in [ModelStatus.RECEIVED, ModelStatus.VALIDATED]:
+        if ModelStatus(model.status) not in [ModelStatus.RECEIVED, ModelStatus.VALIDATED]:
             raise ValidationError(
-                f"Cannot schedule a model in '{model.status.value}' status. "
+                f"Cannot schedule a model in '{model.status}' status. "
                 "Must be RECEIVED or VALIDATED."
             )
 

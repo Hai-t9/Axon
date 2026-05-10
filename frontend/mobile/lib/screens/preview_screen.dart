@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/competition_service.dart';
 import '../services/upload_service.dart';
 import '../services/metadata_service.dart';
 import '../services/offline_queue_service.dart';
@@ -30,6 +31,8 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
   bool _isUploading = false;
   String? _selectedLabel;
   late final List<String> _availableLabels;
+  ImageMetadata? _metadata;
+  bool _capturingGps = false;
 
   @override
   void initState() {
@@ -37,6 +40,56 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
     _availableLabels = widget.availableLabels ?? [
       'seedling', 'tillering', 'flowering', 'maturity', 'disease', 'pest'
     ];
+    _metadata = widget.capturedMetadata;
+  }
+
+  Future<void> _captureGps() async {
+    setState(() => _capturingGps = true);
+    try {
+      final position = await MetadataService().getCurrentPosition();
+      if (position != null && mounted) {
+        setState(() {
+          _metadata = ImageMetadata(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            deviceModel: _metadata?.deviceModel,
+            deviceBrand: _metadata?.deviceBrand,
+            timestamp: DateTime.now().toIso8601String(),
+          );
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('GPS location captured'),
+            backgroundColor: const Color(0xFF33E1A6),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Could not get GPS location. Make sure location is enabled.'),
+              backgroundColor: const Color(0xFFE5A53C),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('GPS error: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _capturingGps = false);
+    }
   }
 
   Future<void> _uploadImage({bool forceOnline = false}) async {
@@ -55,6 +108,26 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
     setState(() => _isUploading = true);
 
     try {
+      final phase = await ref.read(competitionServiceProvider).getCurrentPhase(widget.competitionId);
+      if ((phase['current_phase'] as String? ?? '') != '1') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Upload is only allowed during the Data Collection phase.'),
+              backgroundColor: const Color(0xFFE5A53C),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+        setState(() => _isUploading = false);
+        return;
+      }
+    } catch (_) {
+      // Offline — will be enforced by backend on sync
+    }
+
+    try {
       final uploadService = ref.read(uploadServiceProvider);
 
       if (forceOnline) {
@@ -62,14 +135,14 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
           filePath: widget.imagePath,
           teamId: widget.teamId,
           label: _selectedLabel!,
-          metadata: widget.capturedMetadata,
+          metadata: _metadata,
         );
       } else {
         await uploadService.uploadOrQueue(
           filePath: widget.imagePath,
           teamId: widget.teamId,
           label: _selectedLabel!,
-          metadata: widget.capturedMetadata,
+          metadata: _metadata,
         );
       }
 
@@ -116,7 +189,6 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final metadata = widget.capturedMetadata;
     final connectivity = ref.watch(connectivityProvider);
 
     return Scaffold(
@@ -223,9 +295,50 @@ class _PreviewScreenState extends ConsumerState<PreviewScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (metadata != null) _buildMetadataChips(metadata),
+                            if (_metadata != null) _buildMetadataChips(_metadata!),
                             const SizedBox(height: 8),
-                            const LocationStatusWidget(),
+                            Row(
+                              children: [
+                                const Expanded(child: LocationStatusWidget()),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _capturingGps ? null : _captureGps,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF5F75EE).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFF5F75EE).withOpacity(0.4)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _capturingGps
+                                            ? const SizedBox(
+                                                width: 14, height: 14,
+                                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF5F75EE)),
+                                              )
+                                            : Icon(
+                                                _metadata?.latitude != null
+                                                    ? Icons.location_on
+                                                    : Icons.location_searching,
+                                                size: 14, color: const Color(0xFF5F75EE),
+                                              ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _capturingGps
+                                              ? 'Capturing...'
+                                              : _metadata?.latitude != null
+                                                  ? 'GPS Locked'
+                                                  : 'Get GPS',
+                                          style: const TextStyle(color: Color(0xFF5F75EE), fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),

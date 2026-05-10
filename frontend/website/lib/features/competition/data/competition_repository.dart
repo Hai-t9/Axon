@@ -164,6 +164,13 @@ class CompetitionRepository {
     }
   }
 
+  Future<Map<String, dynamic>> getMyTeam(String competitionId) async {
+    return await _apiClient.getJson(
+      '/competitions/$competitionId/my-team',
+      headers: _authHeaders(),
+    );
+  }
+
   Future<Map<String, dynamic>> leaveCompetition(String competitionId) async {
     final response = await _apiClient.postJson(
       '/competitions/$competitionId/leave',

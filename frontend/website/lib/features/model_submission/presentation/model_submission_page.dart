@@ -1,201 +1,160 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../theme/app_colors.dart';
-import '../../../theme/app_spacing.dart';
-import '../../../widgets/layout/axon_scaffold.dart';
-import '../../../widgets/layout/page_header.dart';
-import '../data/model_submission_models.dart';
-import '../state/model_submission_controller.dart';
+import 'package:go_router/go_router.dart';
+import 'package:website/theme/app_spacing.dart';
+import 'package:website/widgets/layout/axon_scaffold.dart';
+import 'package:website/widgets/layout/page_header.dart';
+import 'package:website/features/model_submission/state/model_submission_controller.dart';
+import 'package:website/features/model_submission/presentation/model_submission_upload_page.dart';
 
 class ModelSubmissionPage extends ConsumerWidget {
-  const ModelSubmissionPage({super.key, required this.competitionId});
-
-  static const routeName = 'model-submission';
-  static const routePath = '/competitions/:id/models';
-
   final String competitionId;
+
+  const ModelSubmissionPage({
+    super.key,
+    required this.competitionId,
+  });
+
+  static const routeName = 'model_submission';
+  static const routePath = '/competitions/:id/models';
 
   static String routeForId(String id) => '/competitions/$id/models';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final modelsState = ref.watch(modelListProvider(competitionId));
-    final specState = ref.watch(modelSpecProvider(competitionId));
+    final submissionsAsync = ref.watch(modelSubmissionListProvider(competitionId));
 
     return AxonScaffold(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const PageHeader(title: 'Model Submission', subtitle: 'Submit and manage models'),
-          const SizedBox(height: AppSpacing.lg),
-          specState.whenOrNull(
-            data: (spec) => _buildSpecCard(context, spec as ModelSpec),
-          ) ?? const SizedBox.shrink(),
-          const SizedBox(height: AppSpacing.lg),
-          Text('Submitted Models',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.md),
-          modelsState.when(
-            data: (models) {
-              if (models.isEmpty) {
-                return _emptyState(context);
-              }
-              return _buildModelList(context, models);
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => _errorState(context, err.toString(), ref),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSpecCard(BuildContext context, ModelSpec spec) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-        color: AppColors.surface,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Submission Requirements',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.sm),
-          Text('Max size: ${spec.maxSizeMb}MB'),
-          if (spec.supportedFormats.isNotEmpty)
-            Text('Supported formats: ${spec.supportedFormats.join(', ')}'),
-        ],
-      ),
-    );
-  }
-
-  Widget _emptyState(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
-        color: AppColors.surface,
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.cloud_upload_outlined, size: 64, color: AppColors.textSecondary),
-          const SizedBox(height: AppSpacing.md),
-          Text('No models submitted yet',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.sm),
-          const Text('Submit a Docker model package to get started.'),
-        ],
-      ),
-    );
-  }
-
-  Widget _errorState(BuildContext context, String error, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-        color: AppColors.surface,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Unable to load models',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: AppSpacing.sm),
-          Text(error),
-          const SizedBox(height: AppSpacing.md),
-          TextButton(
-            onPressed: () => ref.refresh(modelListProvider(competitionId)),
-            child: const Text('Try again'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModelList(BuildContext context, List<ModelSubmission> models) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-        color: AppColors.surface,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-              color: AppColors.surfaceAlt,
-              child: Row(
-                children: [
-                  Expanded(flex: 3, child: Text('Filename',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSecondary))),
-                  Expanded(flex: 2, child: Text('Status',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSecondary))),
-                  Expanded(flex: 1, child: Text('Version',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSecondary))),
-                ],
+          PageHeader(
+            title: 'Model Submissions',
+            subtitle: 'Manage and track your model submissions for this competition.',
+            actions: [
+              ElevatedButton.icon(
+                onPressed: () => context.push(ModelSubmissionUploadPage.routeForId(competitionId)),
+                icon: const Icon(Icons.upload),
+                label: const Text('Submit Model'),
               ),
-            ),
-            ...(models as List<ModelSubmission>).map((ModelSubmission m) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: AppColors.border.withOpacity(0.3))),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(m.filename, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          if (m.framework != null)
-                            Text(m.framework!, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                        ],
+            ],
+          ),
+          SizedBox(height: AppSpacing.xl),
+          submissionsAsync.when(
+            data: (submissions) {
+              if (submissions.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.xxxl),
+                    child: Column(
+                      children: [
+                        Icon(Icons.model_training, size: 64, color: Colors.grey.shade400),
+                        SizedBox(height: AppSpacing.md),
+                        Text(
+                          'No models submitted yet',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Colors.grey.shade600,
+                              ),
+                        ),
+                        SizedBox(height: AppSpacing.sm),
+                        const Text('Start by submitting your first model zip file.'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: submissions.length,
+                separatorBuilder: (context, index) => const Divider(),
+                itemBuilder: (context, index) {
+                  final submission = submissions[index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: _getStatusColor(submission.status).withOpacity(0.1),
+                      child: Icon(
+                        _getStatusIcon(submission.status),
+                        color: _getStatusColor(submission.status),
                       ),
                     ),
-                    Expanded(flex: 2, child: _statusChip(m.status)),
-                    Expanded(
-                      flex: 1,
-                      child: Text('v${m.version}',
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text('${submission.filename} (v${submission.version})'),
+                    subtitle: Text(
+                      'Submitted on ${_formatDate(submission.submittedAt)}${submission.description != null ? ' • ${submission.description}' : ''}',
                     ),
-                  ],
-                ),
+                    trailing: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(submission.status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppSpacing.sm),
+                      ),
+                      child: Text(
+                        submission.status.toUpperCase(),
+                        style: TextStyle(
+                          color: _getStatusColor(submission.status),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               );
-            }),
-          ],
-        ),
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(child: Text('Error: $err')),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _statusChip(String status) {
-    final color = switch (status) {
-      'completed' => AppColors.success,
-      'failed' => AppColors.error,
-      'evaluating' || 'queued' => const Color(0xFFE5A53C),
-      _ => AppColors.textSecondary,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(status, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
-    );
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'succeeded':
+        return Colors.green;
+      case 'failed':
+      case 'error':
+        return Colors.red;
+      case 'processing':
+      case 'validating':
+      case 'running':
+        return Colors.blue;
+      case 'pending':
+      case 'queued':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'succeeded':
+        return Icons.check_circle;
+      case 'failed':
+      case 'error':
+        return Icons.error;
+      case 'processing':
+      case 'validating':
+      case 'running':
+        return Icons.sync;
+      case 'pending':
+      case 'queued':
+        return Icons.timer;
+      default:
+        return Icons.help;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

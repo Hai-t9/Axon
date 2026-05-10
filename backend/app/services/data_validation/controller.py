@@ -56,7 +56,7 @@ async def get_validation_queue(
 @router.post("/images/{image_id}/validate")
 async def validate_image(
     comp_id: UUID,
-    image_id: int,
+    image_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     validation_service: DataValidationService = Depends(get_validation_service),
@@ -76,7 +76,7 @@ async def validate_image(
 @router.post("/images/{image_id}/skip")
 async def skip_image(
     comp_id: UUID,
-    image_id: int,
+    image_id: UUID,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     validation_service: DataValidationService = Depends(get_validation_service),
@@ -94,7 +94,7 @@ async def skip_image(
 @router.post("/images/{image_id}/correct")
 async def correct_label(
     comp_id: UUID,
-    image_id: int,
+    image_id: UUID,
     payload: CorrectLabelRequest,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),

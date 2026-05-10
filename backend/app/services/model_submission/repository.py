@@ -37,12 +37,12 @@ class ModelSubmissionRepository:
             filename=filename,
             storage_path=storage_path,
             model_hash=model_hash,
-            format=ModelFormat(format),  # convert string → enum member
+            format=ModelFormat(format).value,  # convert string → lowercase value
             framework_version=framework_version,
             size_mb=size_mb,
             submitted_by=submitted_by,
             version=version,
-            status=ModelStatus.RECEIVED,
+            status=ModelStatus.RECEIVED.value,
         )
         self.db.add(model)
         self.db.commit()
@@ -118,7 +118,7 @@ class ModelSubmissionRepository:
         """Update the status of a model"""
         model = self.find_by_id(model_id)
         if model:
-            model.status = status  # type: ignore[assignment]
+            model.status = status.value  # type: ignore[assignment]
             self.db.commit()
             self.db.refresh(model)
         return model  # type: ignore[return-value]
