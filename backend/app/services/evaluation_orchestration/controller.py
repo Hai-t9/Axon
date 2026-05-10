@@ -1,7 +1,10 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger("evaluation_orchestration.controller")
 
 from app.core.auth import extract_bearer_token
 from app.core.database import SessionLocal
@@ -78,6 +81,7 @@ async def schedule_evaluation(
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError:
+        logger.exception("schedule_evaluation failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -104,6 +108,7 @@ async def get_model_evaluation_status(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError:
+        logger.exception("get_model_evaluation_status failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -129,6 +134,7 @@ async def get_evaluation_status(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError:
+        logger.exception("get_evaluation_status failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -156,6 +162,7 @@ async def get_evaluation_results(
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError:
+        logger.exception("get_evaluation_results failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -185,6 +192,7 @@ async def retry_evaluation(
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError:
+        logger.exception("retry_evaluation failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -211,6 +219,7 @@ async def get_competition_evaluations(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError:
+        logger.exception("get_competition_evaluations failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")
 
 
@@ -236,4 +245,5 @@ async def get_competition_results(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError:
+        logger.exception("get_competition_results failed with ValueError")
         raise HTTPException(status_code=400, detail="Invalid UUID format.")

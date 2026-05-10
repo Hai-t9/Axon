@@ -1,7 +1,26 @@
+import logging
+import os
 import time
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Response
+
+load_dotenv()  # must run before any os.getenv(...); database.py also calls it but too late
+
+# Replace uvicorn's root handlers with our own so that child loggers
+# (model_submission.service, workers.executor, etc.) inherit
+# the correct level and output format regardless of uvicorn's dictConfig.
+_log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, logging.INFO)
+_root = logging.getLogger()
+_root.setLevel(_log_level)
+for h in _root.handlers[:]:
+    _root.removeHandler(h)
+_h = logging.StreamHandler()
+_h.setLevel(_log_level)
+_h.setFormatter(logging.Formatter("%(asctime)s [%(name)s] %(levelname)s %(message)s"))
+_root.addHandler(_h)
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 

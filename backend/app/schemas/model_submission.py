@@ -34,7 +34,7 @@ class ModelMetadataResponse(BaseModel):
     """Response schema for model metadata"""
 
     id: int
-    model_id: str
+    model_id: UUID
     model_name: str
     description: Optional[str]
     framework: str
@@ -47,8 +47,7 @@ class ModelMetadataResponse(BaseModel):
     performance_metrics: Optional[dict]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class ModelSubmitRequest(BaseModel):
@@ -91,10 +90,11 @@ class ModelResponse(BaseModel):
     submitted_at: datetime
     submitted_by: UUID
     scheduled_at: Optional[datetime]
-    metadata: Optional[ModelMetadataResponse]
+    metadata: Optional[ModelMetadataResponse] = Field(None, alias="model_metadata")
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 
 class ModelListResponse(BaseModel):

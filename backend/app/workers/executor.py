@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import random
 import shutil
@@ -6,6 +7,8 @@ import subprocess
 import tempfile
 import zipfile
 from typing import Optional
+
+logger = logging.getLogger("workers.executor")
 
 from sklearn.metrics import (
     accuracy_score,
@@ -25,9 +28,10 @@ def prepare_fold_data(job, task, images_by_team: dict, teams: list) -> tuple:
       - images_dir: directory with test image files (mounted to /data in the container)
       - gt_path:    path to ground_truth.json (used by evaluator, NOT mounted to container)
     """
-    protocol = str(job.protocol)
+    protocol = job.protocol.value if hasattr(job.protocol, 'value') else str(job.protocol)
     fold_index = task.task_number
     total_folds = job.total_folds
+    logger.debug("prepare_fold_data: protocol=%s fold=%d/%d", protocol, fold_index, total_folds)
 
     if protocol == "standard":
         images, ground_truth = _build_standard_kfold_data(
@@ -44,14 +48,18 @@ def prepare_fold_data(job, task, images_by_team: dict, teams: list) -> tuple:
     images_dir = os.path.join(temp_dir, "images")
     os.makedirs(images_dir, exist_ok=True)
 
+    copied = 0
     for img in images:
         if os.path.exists(img.filepath):
             dst = os.path.join(images_dir, os.path.basename(img.filepath))
             shutil.copy2(img.filepath, dst)
+            copied += 1
+    logger.debug("Copied %d test images to %s", copied, images_dir)
 
     gt_path = os.path.join(temp_dir, "ground_truth.json")
     with open(gt_path, "w") as f:
         json.dump(ground_truth, f)
+    logger.debug("Ground truth written to %s (%d entries)", gt_path, len(ground_truth))
 
     return images_dir, gt_path
 
@@ -133,16 +141,25 @@ def run_docker_evaluation(
     output_dir = tempfile.mkdtemp(prefix="axon_output_")
 
     try:
+        zip_size = os.path.getsize(model_zip_path)
+        logger.debug("Extracting model zip from %s (%d bytes)", model_zip_path, zip_size)
         with zipfile.ZipFile(model_zip_path, "r") as zf:
             zf.extractall(build_dir)
 
         image_tag = f"axon-eval-{task_id}"
-        subprocess.run(
+        logger.debug("Building Docker image %s from %s", image_tag, build_dir)
+        build_result = subprocess.run(
             ["docker", "build", "-t", image_tag, build_dir],
-            check=True,
+            check=False,
             capture_output=True,
             timeout=timeout,
         )
+        if build_result.returncode != 0:
+            raise RuntimeError(
+                f"Docker build failed. stdout: {build_result.stdout.decode()}"
+                f"stderr: {build_result.stderr.decode()}"
+            )
+        logger.debug("Docker image %s built successfully", image_tag)
 
         docker_run = [
             "docker", "run", "--rm",
@@ -165,18 +182,22 @@ def run_docker_evaluation(
         if result.returncode != 0:
             raise RuntimeError(
                 f"Docker container exited with code {result.returncode}. "
+                f"Stdout: {result.stdout.decode()}"
                 f"Stderr: {result.stderr.decode()}"
             )
+        logger.debug("Docker container finished successfully")
 
         predictions_path = os.path.join(output_dir, "predictions.json")
         if not os.path.exists(predictions_path):
             raise FileNotFoundError(
                 f"predictions.json not found in {output_dir}. "
-                f"Container output: {result.stdout.decode()}"
+                f"Container stdout: {result.stdout.decode()}\n"
+                f"Container stderr: {result.stderr.decode()}"
             )
 
         with open(predictions_path, "r") as f:
             predictions = json.load(f)
+        logger.debug("Loaded predictions with %d entries", len(predictions))
 
         subprocess.run(
             ["docker", "rmi", image_tag],
@@ -202,6 +223,9 @@ def compute_metrics(ground_truth: dict, predictions: dict) -> dict:
     common_keys = sorted(set(ground_truth.keys()) & set(predictions.keys()))
     y_true = [ground_truth[k] for k in common_keys]
     y_pred = [predictions[k] for k in common_keys]
+    logger.debug("compute_metrics: %d common keys, %d mismatched",
+                 len(common_keys),
+                 len(set(ground_truth.keys()) ^ set(predictions.keys())))
 
     return {
         "accuracy": accuracy_score(y_true, y_pred),

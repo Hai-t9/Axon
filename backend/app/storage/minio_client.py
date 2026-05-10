@@ -29,7 +29,7 @@ class MinioStorageService:
             self.minio_available = True
 
             boto_config = Config(
-                connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}
+                connect_timeout=10, read_timeout=30, retries={"max_attempts": 3}
             )
             self.s3_client = boto3.client(
                 "s3",
@@ -89,16 +89,36 @@ class MinioStorageService:
                 response = self.s3_client.get_object(
                     Bucket=self.bucket_name, Key=object_name
                 )
-                return response["Body"].read()
-            except Exception:
+                body = response["Body"].read()
+                if body:
+                    return body
+                logging.getLogger("storage").warning(
+                    "S3 returned empty body for %s, retrying once", object_name
+                )
+                # retry once for empty responses (race / propagation)
+                response = self.s3_client.get_object(
+                    Bucket=self.bucket_name, Key=object_name
+                )
+                body = response["Body"].read()
+                if body:
+                    return body
+            except Exception as exc:
+                logging.getLogger("storage").warning(
+                    "S3 get failed for %s: %s", object_name, exc
+                )
                 self.minio_available = False
 
         local_path = self._local_path(object_name)
         try:
-            with open(local_path, "rb") as f:
-                return f.read()
+            body = open(local_path, "rb").read()
+            if body:
+                return body
         except FileNotFoundError:
-            return b""
+            pass
+        raise FileNotFoundError(
+            f"Model zip not found at S3 key {object_name} "
+            f"(local fallback {local_path} also missing or empty)"
+        )
 
     def delete_file(self, object_name: str) -> bool:
         if self.minio_available:

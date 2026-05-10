@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def run_evaluation_task(self, task_id: str):
+    logger.debug("Starting evaluation task %s (retry=%d)", task_id, self.request.retries)
     db = SessionLocal()
     try:
         repo = EvaluationOrchestrationRepository(db)
@@ -42,6 +43,8 @@ def run_evaluation_task(self, task_id: str):
         model = db.query(Model).filter(Model.id == job.model_id).first()
         if not model:
             raise ValueError(f"Model {job.model_id} not found")
+        logger.debug("Task %s: job=%s model=%s protocol=%s fold=%d",
+                     task_id, job.id, model.id, job.protocol, task.task_number)
 
         teams = repo.find_teams_by_competition(UUID(str(job.competition_id)))
         images_by_team = {}
@@ -57,7 +60,9 @@ def run_evaluation_task(self, task_id: str):
         try:
             model_dir = tempfile.mkdtemp(prefix="axon_model_")
             model_zip_path = os.path.join(model_dir, "model.zip")
-            model_bytes = storage_service.get_file(str(model.storage_path))  # type: ignore[arg-type]
+            storage_path = str(model.storage_path)  # type: ignore[arg-type]
+            model_bytes = storage_service.get_file(storage_path)
+            logger.info("Fetched model zip from %s: %d bytes (empty=%s)", storage_path, len(model_bytes), len(model_bytes) == 0)
             with open(model_zip_path, "wb") as f:
                 f.write(model_bytes)
 

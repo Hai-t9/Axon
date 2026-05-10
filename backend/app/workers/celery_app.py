@@ -1,7 +1,10 @@
+import logging
 import multiprocessing
 import os
 
 from celery import Celery
+
+logger = logging.getLogger("workers.celery")
 
 # Dedicated env var for Celery's task queue (separate from REDIS_URL which is for caching).
 # Defaults to localhost so the worker works out of the box without env overrides.
@@ -28,4 +31,9 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     worker_concurrency=concurrency,
     broker_connection_retry_on_startup=True,
+)
+
+logger.debug(
+    "Celery app configured: broker=%s concurrency=%d gpu=%s",
+    CELERY_REDIS_URL, concurrency, gpu_enabled,
 )
