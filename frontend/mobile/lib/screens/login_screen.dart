@@ -16,14 +16,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isSignup = false;
   final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -36,12 +34,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     if (_isSignup) {
       final name = _nameController.text.trim();
-      final phone = _phoneController.text.trim();
-      if (name.isEmpty || phone.isEmpty) {
-        _showError('Name and phone are required');
+      if (name.isEmpty) {
+        _showError('Name is required');
         return;
       }
-      ref.read(authProvider.notifier).signup(email, password, name, phone);
+      ref.read(authProvider.notifier).signup(email, password, name);
     } else {
       ref.read(authProvider.notifier).login(email, password);
     }
@@ -168,16 +165,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             obscureText: true,
                           ),
-                          if (_isSignup) const SizedBox(height: 16),
-                          if (_isSignup)
-                            TextField(
-                              controller: _phoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Phone Number',
-                                prefixIcon: Icon(Icons.phone_outlined, color: Colors.white60),
-                              ),
-                              keyboardType: TextInputType.phone,
-                            ),
                         ],
                       ),
                     ),

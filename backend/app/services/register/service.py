@@ -20,7 +20,6 @@ class RegisterService:
                 "email": payload.email,
                 "password": hash_password(payload.password),
                 "fullname": full_name,
-                "phone": payload.phone,
             }
         )
         token = create_access_token(user.id)

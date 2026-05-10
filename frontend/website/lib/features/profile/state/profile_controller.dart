@@ -10,6 +10,5 @@ final profileProvider = Provider<ProfileData?>((ref) {
     'id': session.user.id,
     'email': session.user.email,
     'fullname': session.user.fullname,
-    'phone': session.user.phone,
   });
 });

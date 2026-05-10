@@ -5,13 +5,11 @@ class AuthUser {
     this.id,
     required this.fullname,
     required this.email,
-    this.phone,
   });
 
   final String? id;
   final String fullname;
   final String email;
-  final String? phone;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'];
@@ -19,9 +17,9 @@ class AuthUser {
       id: rawId == null ? null : rawId.toString(),
       fullname: (json['fullname'] ?? '') as String,
       email: (json['email'] ?? '') as String,
-      phone: json['phone'] as String?,
     );
   }
+}
 
   factory AuthUser.google({required String email, String? displayName}) {
     final fallbackName = email.split('@').first;

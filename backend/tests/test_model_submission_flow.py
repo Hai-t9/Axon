@@ -74,7 +74,6 @@ def host_user(test_db: Session) -> User:
         fullname="Host User",
         email="host@example.com",
         password="hashed_password",
-        phone=None,
     )
     test_db.add(user)
     test_db.commit()
@@ -89,7 +88,6 @@ def participant_user(test_db: Session) -> User:
         fullname="Participant User",
         email="participant@example.com",
         password="hashed_password",
-        phone=None,
     )
     test_db.add(user)
     test_db.commit()
@@ -455,7 +453,6 @@ class TestEligibilityAndPhase:
             fullname="Other User",
             email="other@example.com",
             password="hash",
-            phone=None,
         )
         test_db.add(other_user)
         test_db.commit()

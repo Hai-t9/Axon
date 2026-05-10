@@ -108,7 +108,6 @@ class TeamService:
                     "id": user.id,
                     "fullname": user.fullname,
                     "email": user.email,
-                    "phone": user.phone,
                     "created_at": user.created_at,
                     "joined": status,
                 })
@@ -117,7 +116,6 @@ class TeamService:
                     "id": "",
                     "fullname": email,
                     "email": email,
-                    "phone": None,
                     "created_at": None,
                     "joined": status,
                 })
