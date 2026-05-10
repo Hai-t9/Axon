@@ -38,7 +38,7 @@ class ValidationListResponse {
 }
 
 class ValidationVoteResponse {
-  final int validationId;
+  final String validationId;
   final String label;
 
   const ValidationVoteResponse({
@@ -47,8 +47,9 @@ class ValidationVoteResponse {
   });
 
   factory ValidationVoteResponse.fromJson(Map<String, dynamic> json) {
+    final raw = json['validation_id'];
     return ValidationVoteResponse(
-      validationId: json['validation_id'] as int? ?? 0,
+      validationId: raw?.toString() ?? '',
       label: json['label'] as String? ?? '',
     );
   }

@@ -23,7 +23,7 @@ class ValidationVoteCreate(BaseModel):
 
 
 class ValidationVoteResponse(BaseModel):
-    validation_id: int
+    validation_id: str
     label: str
 
 

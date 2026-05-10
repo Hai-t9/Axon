@@ -64,7 +64,10 @@ class ValidationService:
 
         image_ids = self.repository.get_team_assignments(team_id)
         if not image_ids:
-            return {"images": [], "total": 0}
+            self.generate_assignments(comp_id)
+            image_ids = self.repository.get_team_assignments(team_id)
+            if not image_ids:
+                return {"images": [], "total": 0}
 
         # Filter out already-validated images
         unvalidated_ids = self.repository.filter_unvalidated_images(image_ids)
@@ -107,7 +110,7 @@ class ValidationService:
             self.label_service.update_label(image_id, final_label)
             self.label_service.validate_label(image_id)
 
-        return {"validation_id": vote.id, "label": vote.label}
+        return {"validation_id": str(vote.id), "label": vote.label}
 
     def skip_image(self, image_id: UUID, participant_id: UUID) -> dict:
         """Handle image skip: remove from queue and increment skip count.
