@@ -1,0 +1,10 @@
+.venv
+.venv/
+pycache
+*.pyc
+.pytest_cache
+.git
+uploads/
+test_*.db
+supabase/
+.venv
