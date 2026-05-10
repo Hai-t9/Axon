@@ -13,8 +13,7 @@ import '../../home/presentation/home_page.dart';
 import '../data/competition_repository.dart';
 import '../state/competition_details_controller.dart';
 import 'competition_dashboard_page.dart';
-import 'phase_control_page.dart';
-import 'teams_control_page.dart';
+
 
 class CompetitionSettingsPage extends ConsumerStatefulWidget {
   const CompetitionSettingsPage({super.key, required this.competitionId});
@@ -84,7 +83,7 @@ class _CompetitionSettingsPageState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() {
       setState(() {});
     });
@@ -349,8 +348,6 @@ class _CompetitionSettingsPageState
                     Tab(text: 'Quality'),
                     Tab(text: 'Model'),
                     Tab(text: 'Labels'),
-                    Tab(text: 'Teams'),
-                    Tab(text: 'Phases'),
                   ],
                 ),
                 const Divider(height: 1),
@@ -364,8 +361,6 @@ class _CompetitionSettingsPageState
                       _buildQualityTab(),
                       _buildModelTab(),
                       _buildLabelsTab(),
-                      _buildTeamsTab(),
-                      _buildPhasesTab(),
                     ],
                   ),
                 ),
@@ -656,56 +651,6 @@ class _CompetitionSettingsPageState
           ]),
           if (_labels.isNotEmpty) const SizedBox(height: AppSpacing.md),
           Wrap(spacing: AppSpacing.xs, runSpacing: AppSpacing.xs, children: _labels.map((l) => Chip(label: Text(l), onDeleted: () => setState(() => _labels.remove(l)))).toList()),
-        ],
-      ),
-    );
-  }
-
-  // ── TAB: Teams ──
-  Widget _buildTeamsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Manage team membership from the dedicated Teams page.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => context.go(TeamsControlPage.routeForId(widget.competitionId)),
-              icon: const Icon(Icons.group_outlined),
-              label: const Text('Open Teams Management'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── TAB: Phases ──
-  Widget _buildPhasesTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Manage phase deadlines and transitions from the dedicated Phases page.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => context.go(PhaseControlPage.routeForId(widget.competitionId)),
-              icon: const Icon(Icons.lan_outlined),
-              label: const Text('Open Phase Control'),
-            ),
-          ),
         ],
       ),
     );
