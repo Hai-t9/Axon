@@ -24,7 +24,7 @@ class ValidationPage extends ConsumerStatefulWidget {
 
 class _ValidationPageState extends ConsumerState<ValidationPage>
     with SingleTickerProviderStateMixin {
-  List<String> _imageIds = [];
+  List<ValidationImage> _images = [];
   int _currentIndex = 0;
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -32,8 +32,6 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
   bool _isComplete = false;
   String? _errorMessage;
 
-  ValidationImage? _currentImage;
-  bool _isLoadingImage = false;
   String? _selectedLabel;
 
   late AnimationController _animController;
@@ -72,9 +70,9 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
       final result = await repo.getValidationList(widget.competitionId);
       if (!mounted) return;
       setState(() {
-        _imageIds = result.imageIds;
+        _images = result.images;
         _isLoading = false;
-        if (_imageIds.isEmpty) {
+        if (_images.isEmpty) {
           _isComplete = true;
         } else {
           _loadCurrentImage();
@@ -89,33 +87,15 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
     }
   }
 
-  Future<void> _loadCurrentImage() async {
-    if (_currentIndex >= _imageIds.length) {
+  void _loadCurrentImage() {
+    if (_currentIndex >= _images.length) {
       setState(() => _isComplete = true);
       return;
     }
     setState(() {
-      _isLoadingImage = true;
-      _selectedLabel = null;
-      _currentImage = null;
+      _selectedLabel = _images[_currentIndex].currentLabel;
     });
-    try {
-      final repo = ref.read(validationRepositoryProvider);
-      final image = await repo.getImageDetails(_imageIds[_currentIndex]);
-      if (!mounted) return;
-      setState(() {
-        _currentImage = image;
-        _selectedLabel = image.currentLabel;
-        _isLoadingImage = false;
-      });
-      _animController.forward(from: 0);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingImage = false;
-        _errorMessage = 'Failed to load image: $e';
-      });
-    }
+    _animController.forward(from: 0);
   }
 
   Future<void> _submitVote() async {
@@ -133,11 +113,16 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
     setState(() => _isSubmitting = true);
     try {
       final repo = ref.read(validationRepositoryProvider);
-      await repo.submitVote(_imageIds[_currentIndex], _selectedLabel!);
+      final image = _images[_currentIndex];
+      if (_selectedLabel == image.currentLabel) {
+        await repo.validateImage(widget.competitionId, image.imageId);
+      } else {
+        await repo.correctLabel(widget.competitionId, image.imageId, _selectedLabel!);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Vote submitted!'),
+          content: const Text('Label confirmed!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -147,7 +132,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
         _isSubmitting = false;
         _currentIndex++;
       });
-      if (_currentIndex >= _imageIds.length) {
+      if (_currentIndex >= _images.length) {
         setState(() => _isComplete = true);
       } else {
         _loadCurrentImage();
@@ -170,7 +155,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
     setState(() => _isSkipping = true);
     try {
       final repo = ref.read(validationRepositoryProvider);
-      await repo.skipImage(_imageIds[_currentIndex]);
+      await repo.skipImage(widget.competitionId, _images[_currentIndex].imageId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -184,7 +169,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
         _isSkipping = false;
         _currentIndex++;
       });
-      if (_currentIndex >= _imageIds.length) {
+      if (_currentIndex >= _images.length) {
         setState(() => _isComplete = true);
       } else {
         _loadCurrentImage();
@@ -229,10 +214,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
           if (!_isLoading && _errorMessage == null && !_isComplete) ...[
             _buildProgressBar(),
             const SizedBox(height: AppSpacing.lg),
-            if (_isLoadingImage)
-              const Center(child: CircularProgressIndicator())
-            else if (_currentImage != null)
-              _buildImageCard(labels),
+            if (_currentIndex < _images.length) _buildImageCard(labels),
           ],
         ],
       ),
@@ -241,7 +223,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
 
   // ── Progress Bar ──────────────────────────────────────────────────────
   Widget _buildProgressBar() {
-    final total = _imageIds.length;
+    final total = _images.length;
     final current = _currentIndex + 1;
     final progress = total > 0 ? current / total : 0.0;
 
@@ -307,7 +289,7 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
 
   // ── Image Validation Card ─────────────────────────────────────────────
   Widget _buildImageCard(List<String> configLabels) {
-    final image = _currentImage!;
+    final image = _images[_currentIndex];
 
     return FadeTransition(
       opacity: _fadeAnim,
@@ -496,8 +478,8 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
   Widget _buildLabelGrid(List<String> configLabels) {
     final labels = configLabels.isNotEmpty
         ? configLabels
-        : (_currentImage?.currentLabel != null
-            ? [_currentImage!.currentLabel!]
+        : (_images[_currentIndex].currentLabel != null
+            ? [_images[_currentIndex].currentLabel!]
             : <String>[]);
 
     if (labels.isEmpty) {
@@ -624,9 +606,9 @@ class _ValidationPageState extends ConsumerState<ValidationPage>
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            _imageIds.isEmpty
+            _images.isEmpty
                 ? 'No images were assigned for validation.'
-                : 'You have validated all ${_imageIds.length} images. Thank you!',
+                : 'You have validated all ${_images.length} images. Thank you!',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
           ),

@@ -38,7 +38,7 @@ class ValidationService:
         if not images:
             raise NotFoundError("No images found for competition")
 
-        threshold = self.repository.find_validation_threshold(comp_id) or 5
+        threshold = self.repository.find_validation_threshold(comp_id) or 3
 
         # Initialize per-team buckets
         team_assignments: dict[UUID, list[UUID]] = {team.id: [] for team in teams}
@@ -79,7 +79,7 @@ class ValidationService:
 
         threshold = self.repository.find_validation_threshold(
             self.label_service.get_competition_id(image_id)
-        ) or 5
+        ) or 3
 
         vote_count = self.repository.count_votes_for_image(image_id)
         skip_count = self.repository.get_skip_count(image_id)
@@ -116,7 +116,7 @@ class ValidationService:
         vote_count = self.repository.count_votes_for_image(image_id)
 
         # Get validation threshold
-        threshold = self.repository.find_validation_threshold(comp_id) or 5
+        threshold = self.repository.find_validation_threshold(comp_id) or 3
 
         # If total combined interactions >= threshold, auto-validate with original label or majority votes
         if vote_count + skip_count >= threshold:
