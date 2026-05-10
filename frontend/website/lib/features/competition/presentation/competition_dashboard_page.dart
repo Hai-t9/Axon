@@ -15,7 +15,6 @@ import '../../../features/leaderboard/presentation/leaderboard_page.dart';
 import '../../../features/model_submission/presentation/model_submission_page.dart';
 import '../../../features/validation/presentation/validation_page.dart';
 import '../../../features/evaluation/presentation/evaluation_page.dart';
-import '../../../features/data_validation/presentation/data_validation_page.dart';
 import '../../auth/state/auth_session_provider.dart';
 import '../data/competition_repository.dart';
 import '../state/competition_details_controller.dart';
@@ -243,7 +242,7 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
         return _buildTeamTab(context, dashboardState);
       case 3:
       default:
-        return _buildModulesTab(context);
+        return _buildModulesTab(context, dashboardState);
     }
   }
 
@@ -632,12 +631,13 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
   }
 
   // --- TAB 4: MODULES ---
-  Widget _buildModulesTab(BuildContext context) {
+  Widget _buildModulesTab(BuildContext context, AsyncValue<DashboardBase> dashboardState) {
+    final dashboard = dashboardState.asData?.value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(context, 'Active Modules'),
-        _buildModuleGrid(context, widget.competitionId),
+        _buildModuleGrid(context, widget.competitionId, dashboard: dashboard),
       ],
     );
   }
@@ -708,7 +708,11 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
     );
   }
 
-  Widget _buildModuleGrid(BuildContext context, String competitionId) {
+  Widget _buildModuleGrid(BuildContext context, String competitionId, {DashboardBase? dashboard}) {
+    final isHost = dashboard?.isHost ?? false;
+    final currentPhase = dashboard?.phaseInfo.currentPhase ?? '';
+    final isValidationPhase = (int.tryParse(currentPhase) ?? 0) >= 2;
+
     final modules = [
       _ModuleData(
         icon: Icons.emoji_events,
@@ -724,26 +728,20 @@ class _CompetitionDashboardPageState extends ConsumerState<CompetitionDashboardP
         color: AppColors.primaryDark,
         route: ModelSubmissionPage.routeForId(competitionId),
       ),
-      _ModuleData(
-        icon: Icons.how_to_vote,
-        title: 'Validation',
-        subtitle: 'Vote on image labels',
-        color: AppColors.success,
-        route: ValidationPage.routeForId(competitionId),
-      ),
+      if (!isHost && isValidationPhase)
+        _ModuleData(
+          icon: Icons.how_to_vote,
+          title: 'Validation',
+          subtitle: 'Vote on image labels',
+          color: AppColors.success,
+          route: ValidationPage.routeForId(competitionId),
+        ),
       _ModuleData(
         icon: Icons.science,
         title: 'Evaluations',
         subtitle: 'Evaluation results',
         color: const Color(0xFFE5A53C),
         route: EvaluationPage.routeForId(competitionId),
-      ),
-      _ModuleData(
-        icon: Icons.verified,
-        title: 'Data Validation',
-        subtitle: 'Review image labels',
-        color: AppColors.primaryDark,
-        route: DataValidationPage.routeForId(competitionId),
       ),
       _ModuleData(
         icon: Icons.photo_library_outlined,
