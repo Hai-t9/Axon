@@ -21,6 +21,11 @@ _h = logging.StreamHandler()
 _h.setLevel(_log_level)
 _h.setFormatter(logging.Formatter("%(asctime)s [%(name)s] %(levelname)s %(message)s"))
 _root.addHandler(_h)
+
+# Suppress verbose third-party loggers when app debug is on
+if _log_level <= logging.DEBUG:
+    for noisy in ("botocore", "urllib3", "s3transfer", "boto3", "httpx"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
