@@ -7,7 +7,6 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../widgets/auth/auth_buttons.dart';
 import '../../../widgets/auth/auth_card.dart';
-import '../../../widgets/auth/auth_divider.dart';
 import '../../../widgets/auth/auth_footer.dart';
 import '../../../widgets/auth/auth_header.dart';
 import '../../../widgets/auth/auth_scaffold.dart';
@@ -47,10 +46,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         data: (session) {
           if (!mounted) return;
           if (session != null && previous?.isLoading == true) {
-            final message = session.isGoogle
-                ? 'Signed in with Google.'
-                : 'Signed in successfully.';
-            _showMessage(message);
+            _showMessage('Signed in successfully.');
             context.go(HomePage.routePath);
           }
         },
@@ -161,21 +157,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 label: 'Sign in',
                 isLoading: isLoading,
                 onPressed: isLoading ? null : _submit,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            const AuthDivider(label: 'or'),
-            const SizedBox(height: AppSpacing.md),
-            DelayedReveal(
-              delay: const Duration(milliseconds: 320),
-              child: GoogleButton(
-                label: 'Continue with Google',
-                isLoading: isLoading,
-                onPressed: isLoading
-                    ? null
-                    : () => ref
-                        .read(authControllerProvider.notifier)
-                        .signInWithGoogle(),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),

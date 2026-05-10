@@ -1,5 +1,8 @@
 import 'dart:convert';
-import 'dart:html' as html;
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html if (dart.library.io) '';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +46,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     try {
       final repo = ref.read(exportRepositoryProvider);
       final data = await repo.exportTeamData(widget.competitionId);
-      _downloadJson(data, 'team_export.json');
+      await _downloadJson(data, 'team_export.json');
     } on ApiException catch (e) {
       setState(() => _teamError = e.message);
     } catch (e) {
@@ -78,7 +81,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     try {
       final repo = ref.read(exportRepositoryProvider);
       final data = await repo.exportFullData(widget.competitionId);
-      _downloadJson(data, 'full_export.json');
+      await _downloadJson(data, 'full_export.json');
     } on ApiException catch (e) {
       setState(() => _fullError = e.message);
     } catch (e) {
@@ -105,7 +108,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     }
   }
 
-  void _downloadJson(ExportResponse data, String filename) {
+  Future<void> _downloadJson(ExportResponse data, String filename) async {
     final json = {
       'type': data.type,
       'phase': data.phase,
@@ -155,13 +158,28 @@ class _ExportPageState extends ConsumerState<ExportPage> {
         }).toList(),
     };
 
-    final blob = html.Blob([jsonEncode(json)], 'application/json');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    (html.document.createElement('a') as html.AnchorElement)
-      ..href = url
-      ..download = filename
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    if (kIsWeb) {
+      final blob = html.Blob([jsonEncode(json)], 'application/json');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      (html.document.createElement('a') as html.AnchorElement)
+        ..href = url
+        ..download = filename
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } else {
+      await _saveFile(jsonEncode(json), filename);
+    }
+  }
+
+  Future<void> _saveFile(String content, String filename) async {
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$filename');
+    await file.writeAsString(content);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved to ${file.path}')),
+      );
+    }
   }
 
   @override
