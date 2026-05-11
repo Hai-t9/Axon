@@ -173,8 +173,6 @@ class RateLimitMiddleware:
 
 
 class SecurityHeadersMiddleware:
-    """Adds security-related HTTP headers to every response."""
-
     def __init__(self, app):
         self.app = app
 
@@ -189,7 +187,6 @@ class SecurityHeadersMiddleware:
                 headers = {
                     b"x-content-type-options": b"nosniff",
                     b"x-frame-options": b"DENY",
-                    b"content-security-policy": b"default-src 'none'",
                 }
                 existing = {h[0] for h in event["headers"]}
                 for name, value in headers.items():
