@@ -11,6 +11,8 @@ const _storageKey = 'auth_session';
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthSession?>(AuthController.new);
 
+final navigateToVerifyProvider = StateProvider<String?>((ref) => null);
+
 class AuthController extends AsyncNotifier<AuthSession?> {
   @override
   Future<AuthSession?> build() async {
@@ -38,15 +40,21 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     required String fullName,
   }) async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard<AuthSession?>(() async {
-      final session = await ref.read(authRepositoryProvider).signup(
+    try {
+      final response = await ref.read(authRepositoryProvider).signup(
             email: email,
             password: password,
             fullName: fullName,
           );
-      await _save(session);
-      return session;
-    });
+      ref.read(navigateToVerifyProvider.notifier).state = response.email;
+      state = const AsyncData(null);
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+    }
+  }
+
+  Future<void> resendVerification(String email) async {
+    await ref.read(authRepositoryProvider).resendVerification(email);
   }
 
   Future<void> signOut() async {

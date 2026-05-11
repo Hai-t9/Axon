@@ -53,7 +53,7 @@ class RegisterService:
         if not user or not verify_password(payload.password, user.password):
             raise AuthenticationError("Invalid email or password")
 
-        if not user.email_verified:
+        if user.email_verified is False:
             raise AuthenticationError(
                 "Please verify your email before logging in. "
                 "Check your inbox for the verification link."

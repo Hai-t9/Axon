@@ -24,7 +24,7 @@ class AuthRepository {
     return AuthSession.fromJson(response);
   }
 
-  Future<AuthSession> signup({
+  Future<SignupResponse> signup({
     required String email,
     required String password,
     required String fullName,
@@ -35,6 +35,13 @@ class AuthRepository {
       'full_name': fullName.trim(),
     };
     final response = await _apiClient.postJson('/register/signup', payload);
-    return AuthSession.fromJson(response);
+    return SignupResponse.fromJson(response);
+  }
+
+  Future<Map<String, dynamic>> resendVerification(String email) async {
+    return await _apiClient.postJson(
+      '/register/resend-verification',
+      {'email': email.trim()},
+    );
   }
 }

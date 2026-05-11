@@ -43,3 +43,23 @@ class AuthSession {
     );
   }
 }
+
+class SignupResponse {
+  final String message;
+  final String email;
+  final bool verificationSent;
+
+  const SignupResponse({
+    required this.message,
+    required this.email,
+    required this.verificationSent,
+  });
+
+  factory SignupResponse.fromJson(Map<String, dynamic> json) {
+    return SignupResponse(
+      message: json['message'] as String,
+      email: json['email'] as String,
+      verificationSent: json['verification_sent'] as bool,
+    );
+  }
+}

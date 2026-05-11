@@ -12,10 +12,9 @@ import '../../../widgets/auth/auth_header.dart';
 import '../../../widgets/auth/auth_scaffold.dart';
 import '../../../widgets/auth/auth_text_field.dart';
 import '../../../widgets/auth/delayed_reveal.dart';
-import '../data/auth_models.dart';
 import '../state/auth_controller.dart';
 import 'login_page.dart';
-import '../../home/presentation/home_page.dart';
+import 'verify_email_page.dart';
 
 class SignupPage extends ConsumerStatefulWidget {
   const SignupPage({super.key});
@@ -33,31 +32,9 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  late final ProviderSubscription<AsyncValue<AuthSession?>> _authSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _authSubscription = ref.listenManual(authControllerProvider, (previous, next) {
-      next.whenOrNull(
-        error: (error, _) {
-          if (!mounted) return;
-          _showMessage(error.toString(), isError: true);
-        },
-        data: (session) {
-          if (!mounted) return;
-          if (session != null && previous?.isLoading == true) {
-            _showMessage('Account created successfully.');
-            context.go(HomePage.routePath);
-          }
-        },
-      );
-    });
-  }
 
   @override
   void dispose() {
-    _authSubscription.close();
     _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -91,6 +68,22 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
+
+    ref.listen<String?>(navigateToVerifyProvider, (_, email) {
+      if (email != null) {
+        ref.read(navigateToVerifyProvider.notifier).state = null;
+        context.go('${VerifyEmailPage.routePath}?email=$email');
+      }
+    });
+
+    ref.listen<AsyncValue<AuthSession?>>(authControllerProvider, (_, next) {
+      next.whenOrNull(
+        error: (error, _) {
+          if (!mounted) return;
+          _showMessage(error.toString(), isError: true);
+        },
+      );
+    });
 
     return AuthScaffold(
       panelTitle: 'Start your Axon workspace',

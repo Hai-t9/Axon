@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/signup_page.dart';
+import '../features/auth/presentation/verify_email_page.dart';
 import '../features/auth/state/auth_controller.dart';
 import '../features/competition/presentation/competition_dashboard_page.dart';
 import '../features/competition/presentation/competition_settings_page.dart';
@@ -30,7 +31,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (authState.isLoading) return null;
 
       final isAuthRoute = state.matchedLocation == LoginPage.routePath ||
-          state.matchedLocation == SignupPage.routePath;
+          state.matchedLocation == SignupPage.routePath ||
+          state.matchedLocation.startsWith(VerifyEmailPage.routePath);
       if (!isLoggedIn && !isAuthRoute) {
         return LoginPage.routePath;
       }
@@ -54,6 +56,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: SignupPage.routePath,
         name: SignupPage.routeName,
         builder: (context, state) => const SignupPage(),
+      ),
+      GoRoute(
+        path: VerifyEmailPage.routePath,
+        name: VerifyEmailPage.routeName,
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'] ?? '';
+          return VerifyEmailPage(email: email);
+        },
       ),
       GoRoute(
         path: JoinCompetitionPage.routePath,
