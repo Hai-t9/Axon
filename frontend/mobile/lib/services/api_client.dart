@@ -14,7 +14,7 @@ final authTokenProvider = NotifierProvider<TokenNotifier, String?>(TokenNotifier
 
 class ApiConfig {
 
-  static String baseUrl = 'https://obligations-guides-bradley-nottingham.trycloudflare.com/';
+  static String baseUrl = 'https://cautious-acorn-4j4r565rr9gwfww-8000.app.github.dev/';
 
 }
 

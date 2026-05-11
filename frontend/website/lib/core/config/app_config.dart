@@ -3,7 +3,7 @@ class AppConfig {
     'API_BASE_URL',
 
 
-    defaultValue: 'https://clark-nations-bizrate-theta.trycloudflare.com/api/v1',
+    defaultValue: 'https://cautious-acorn-4j4r565rr9gwfww-8000.app.github.dev/api/v1',
 
   );
 
