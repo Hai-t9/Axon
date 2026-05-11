@@ -28,6 +28,8 @@ def _current_time() -> float:
 
 
 class ValidationRepository:
+    _warned_no_redis = False
+
     def __init__(self, db: Session, cache: ValidationCache | None = None):
         self.db = db
         self.cache = cache
@@ -35,11 +37,12 @@ class ValidationRepository:
     def _redis_client(self):
         if self.cache and getattr(self.cache, "client", None):
             return self.cache.client
-        logger.warning(
-            "[VALIDATION] No Redis client available (cache=%s client=%s) — using in-memory fallback",
-            self.cache is not None,
-            getattr(self.cache, "client", None) is not None if self.cache else False,
-        )
+        if not ValidationRepository._warned_no_redis:
+            logger.warning(
+                "[VALIDATION] No Redis client available (cache=%s) — using in-memory fallback. This warning only shows once.",
+                self.cache is not None,
+            )
+            ValidationRepository._warned_no_redis = True
         return None
 
     def _set_assignment_list(self, key: str, values: list[UUID], ttl_seconds: int) -> bool:

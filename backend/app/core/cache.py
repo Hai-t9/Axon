@@ -1,3 +1,4 @@
+import logging
 import json
 import os
 from datetime import datetime
@@ -9,6 +10,30 @@ try:
 except ImportError:  # pragma: no cover - optional dependency during scaffold stage
     redis = None
 
+logger = logging.getLogger(__name__)
+
+
+def _try_build_redis_client(url: str | None, label: str = "Redis"):
+    if redis is None:
+        logger.warning("[%s] redis-py not installed", label)
+        return None
+    if not url:
+        logger.warning("[%s] No URL configured", label)
+        return None
+    for attempt, ssl_kwargs in enumerate([
+        {"ssl_cert_reqs": None},
+        {},
+    ]):
+        try:
+            client = redis.Redis.from_url(url, decode_responses=True, **ssl_kwargs)
+            client.ping()
+            logger.info("[%s] Connected successfully (attempt %d, ssl_cert_reqs=%s)", label, attempt + 1, ssl_kwargs.get("ssl_cert_reqs"))
+            return client
+        except Exception as e:
+            logger.warning("[%s] Connection attempt %d failed: %s", label, attempt + 1, e)
+    logger.error("[%s] All connection attempts to %s failed", label, url)
+    return None
+
 
 class DashboardCache:
     def __init__(self):
@@ -19,16 +44,7 @@ class DashboardCache:
         self.client = self._build_client()
 
     def _build_client(self):
-        if redis is None:
-            return None
-        if not self.redis_url:
-            return None
-        try:
-            client = redis.Redis.from_url(self.redis_url, decode_responses=True)
-            client.ping()
-            return client
-        except Exception:
-            return None
+        return _try_build_redis_client(self.redis_url, "DashboardCache")
 
     def _key(self, comp_id: int) -> str:
         return f"dashboard:{comp_id}"
@@ -81,16 +97,7 @@ class ValidationCache:
         self.client = self._build_client()
 
     def _build_client(self):
-        if redis is None:
-            return None
-        if not self.redis_url:
-            return None
-        try:
-            client = redis.Redis.from_url(self.redis_url, decode_responses=True)
-            client.ping()
-            return client
-        except Exception:
-            return None
+        return _try_build_redis_client(self.redis_url, "ValidationCache")
 
 
 @lru_cache(maxsize=1)
