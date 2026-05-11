@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
@@ -11,7 +13,7 @@ from .model_enums import image_status_enum
 class Image(Base):
     __tablename__ = "image"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     team_id = Column(PostgresUUID(as_uuid=True), ForeignKey("team.id"), nullable=False)
     author_id = Column(
         PostgresUUID(as_uuid=True), ForeignKey("user.id"), nullable=False
@@ -30,7 +32,7 @@ class Image(Base):
 
     # Cleaner module columns — soft-delete for duplicates
     is_duplicate = Column(Boolean, nullable=False, server_default="false")
-    duplicate_of_id = Column(Integer, ForeignKey("image.id"), nullable=True)
+    duplicate_of_id = Column(PostgresUUID(as_uuid=True), ForeignKey("image.id"), nullable=True)
     duplicate_reason = Column(String, nullable=True)
     corrupted = Column(Boolean, nullable=False, server_default="false")
     corrupted_error = Column(Text, nullable=True)
@@ -60,7 +62,7 @@ class ImageMetadata(Base):
     __tablename__ = "image_metadata"
 
     id = Column(Integer, primary_key=True)
-    image_id = Column(Integer, ForeignKey("image.id"), unique=True, nullable=False)
+    image_id = Column(PostgresUUID(as_uuid=True), ForeignKey("image.id"), unique=True, nullable=False)
     gps_info = Column("GPSInfo", String, nullable=True)
     image_width = Column("ImageWidth", Float, nullable=True)
     image_length = Column("ImageLength", Float, nullable=True)

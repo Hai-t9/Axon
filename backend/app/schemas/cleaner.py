@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -18,7 +20,7 @@ class CleanerResultResponse(BaseModel):
 
 class DuplicateGroup(BaseModel):
     hash: str
-    image_ids: List[int]
+    image_ids: List[UUID]
 
 class ScanDuplicatesResponse(BaseModel):
     duplicate_groups: List[DuplicateGroup]
