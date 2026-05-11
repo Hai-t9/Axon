@@ -53,11 +53,22 @@ class ValidationRepository:
             _memory_assignment_expiry.pop(key, None)
         return True
 
+    def _parse_uuid_list(self, values: list[str]) -> list[UUID]:
+        """Convert string list to UUIDs. Returns empty if ANY value is invalid,
+        forcing the caller to regenerate assignments from scratch."""
+        result = []
+        for v in values:
+            try:
+                result.append(UUID(v))
+            except ValueError:
+                return []
+        return result
+
     def _get_assignment_list(self, key: str) -> list[UUID]:
         client = self._redis_client()
         if client:
             values = client.lrange(key, 0, -1)
-            return [UUID(value) for value in values]
+            return self._parse_uuid_list(values)
 
         expires_at = _memory_assignment_expiry.get(key)
         if expires_at is not None and _current_time() >= expires_at:
@@ -66,7 +77,7 @@ class ValidationRepository:
             return []
 
         values = _memory_assignment_store.get(key, [])
-        return [UUID(value) for value in values]
+        return self._parse_uuid_list(values)
 
     def _assignment_key_for_team(self, team_id: UUID) -> str:
         return f"validation:team:{team_id}"
