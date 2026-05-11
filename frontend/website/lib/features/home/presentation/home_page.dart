@@ -139,16 +139,34 @@ class _HeroCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Welcome to Axon',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryDark.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.bolt,
+                      color: AppColors.primaryDark,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Text(
+                    'Welcome to Axon',
             style: Theme.of(context)
                 .textTheme
                 .headlineMedium
                 ?.copyWith(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary),
           ),
+                ],
+              ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Create competitions, distribute invitation links, and keep your\nteams aligned on the dashboard.',
