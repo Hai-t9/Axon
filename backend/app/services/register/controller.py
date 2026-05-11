@@ -4,7 +4,17 @@ from uuid import UUID
 
 from app.core.database import SessionLocal
 from app.core.exceptions import AuthenticationError, ValidationError
-from app.schemas.user import AuthResponse, LoginRequest, SignupRequest, UserResponse
+from app.schemas.user import (
+    AuthResponse,
+    LoginRequest,
+    ResendVerificationRequest,
+    ResendVerificationResponse,
+    SignupRequest,
+    SignupResponse,
+    UserResponse,
+    VerifyTokenRequest,
+    VerifyTokenResponse,
+)
 from app.services.auth.repository import AuthRepository
 from app.services.auth.service import AuthService
 
@@ -27,7 +37,7 @@ def get_register_service(db: Session = Depends(get_db)) -> RegisterService:
     return RegisterService(repository)
 
 
-@router.post("/signup", response_model=AuthResponse)
+@router.post("/signup", response_model=SignupResponse)
 async def signup(
     payload: SignupRequest, service: RegisterService = Depends(get_register_service)
 ):
@@ -47,6 +57,29 @@ async def login(
         return result
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
+
+
+@router.post("/verify", response_model=VerifyTokenResponse)
+async def verify(
+    payload: VerifyTokenRequest,
+    service: RegisterService = Depends(get_register_service),
+):
+    result = service.confirm_verification(payload.access_token)
+    if not result.get("verified"):
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+async def resend_verification(
+    payload: ResendVerificationRequest,
+    service: RegisterService = Depends(get_register_service),
+):
+    try:
+        result = service.resend_verification(payload.email)
+        return result
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/me", response_model=UserResponse)

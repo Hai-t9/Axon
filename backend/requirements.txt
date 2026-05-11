@@ -42,6 +42,11 @@ python-dotenv>=1.0.0
 requests>=2.31.0
 
 # ============================================
+# SUPABASE AUTH — Email Verification
+# ============================================
+supabase>=2.0.0
+
+# ============================================
 # AWS S3 / MinIO STORAGE (Object Storage)
 # ============================================
 # Used for image storage via MinIO (S3-compatible)

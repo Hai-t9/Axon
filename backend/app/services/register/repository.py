@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -18,4 +19,10 @@ class RegisterRepository:
         self.db.commit()
         self.db.refresh(user)
         return user
+
+    def mark_verified(self, user_id: UUID) -> None:
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.email_verified = True
+            self.db.commit()
 

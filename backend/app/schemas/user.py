@@ -30,3 +30,27 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class SignupResponse(BaseModel):
+    message: str
+    email: str
+    verification_sent: bool
+
+
+class VerifyTokenRequest(BaseModel):
+    access_token: str
+
+
+class VerifyTokenResponse(BaseModel):
+    message: str
+    verified: bool
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ResendVerificationResponse(BaseModel):
+    message: str
+    sent: bool
