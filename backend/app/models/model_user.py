@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -17,7 +17,6 @@ class User(Base):
     fullname = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
-    email_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     roles = relationship("Role", back_populates="user", cascade="all, delete-orphan")
