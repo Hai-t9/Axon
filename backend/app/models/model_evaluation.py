@@ -65,6 +65,7 @@ class EvaluationTask(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     error_message = Column(String, nullable=True)
+    status_detail = Column(String, nullable=True)
 
     job = relationship("EvaluationJob", back_populates="tasks")
     result = relationship("EvaluationResult", back_populates="task", uselist=False)

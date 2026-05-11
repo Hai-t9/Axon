@@ -8,6 +8,7 @@ from uuid import UUID
 from app.core.exceptions import NotFoundError, ValidationError
 from app.services.phase.repository import PhaseRepository
 from app.services.phase.service import PHASE_LABELS, PhaseService
+from app.storage.minio_client import storage_service
 
 from .repository import ExportRepository
 
@@ -140,7 +141,9 @@ class ExportService:
                 label = label_map.get(img.id) or img.label or "unlabeled"
                 safe_label = label.replace(" ", "_").lower()
                 filename = os.path.basename(img.filepath)
-                zf.write(img.filepath, f"{safe_label}/{filename}")
+                object_name = img.filepath.removeprefix("uploads/")
+                file_bytes = storage_service.get_file(object_name)
+                zf.writestr(f"{safe_label}/{filename}", file_bytes)
 
             csv_buf = io.StringIO()
             writer = csv.writer(csv_buf)

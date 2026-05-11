@@ -168,6 +168,21 @@ class EvaluationOrchestrationRepository:
             self.db.flush()
         return task
 
+    def update_task_progress(
+        self,
+        task_id: UUID,
+        status_detail: str,
+        status: Optional[TaskStatus] = None,
+    ) -> None:
+        task = (
+            self.db.query(EvaluationTask).filter(EvaluationTask.id == task_id).first()
+        )
+        if task:
+            task.status_detail = status_detail  # type: ignore[assignment]
+            if status:
+                task.status = status.value  # type: ignore[assignment]
+            self.db.commit()
+
     # ------------------------------------------------------------------ #
     #  EvaluationResult CRUD                                               #
     # ------------------------------------------------------------------ #
@@ -228,3 +243,6 @@ class EvaluationOrchestrationRepository:
             eval_row = Evaluation(model_id=model_id, score=score)
             self.db.add(eval_row)
         self.db.flush()
+
+    def commit(self) -> None:
+        self.db.commit()

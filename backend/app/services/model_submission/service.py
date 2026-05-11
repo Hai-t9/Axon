@@ -80,8 +80,12 @@ class ModelSubmissionService:
           6. Persist model record + metadata in DB
           7. Auto-schedule for evaluation
         """
-        logger.debug("submit_model: team=%s comp=%s file=%s",
-                     team_id, competition_id, file.filename)
+        file_content = await file.read()
+        if not file_content:
+            raise ValidationError("Uploaded file is empty.")
+
+        logger.info("=== MODEL SUBMISSION START === team=%s comp=%s file=%s size=%.1fMB",
+                     team_id, competition_id, file.filename, len(file_content) / (1024*1024) if file_content else 0)
 
         # 1. Must be a zip
         if not file.filename or not file.filename.lower().endswith(".zip"):
@@ -89,21 +93,22 @@ class ModelSubmissionService:
                 "Submission must be a .zip Docker build context. "
                 "Expected structure: Dockerfile, inference.py, requirements.txt, model/, data/"
             )
-
-        file_content = await file.read()
-        if not file_content:
             raise ValidationError("Uploaded file is empty.")
-        logger.debug("Read %d bytes from upload", len(file_content))
+        logger.info("STEP 1/8: Read %d bytes (%.1f MB) from upload '%s'", len(file_content), len(file_content) / (1024*1024), file.filename)
 
         # 2. Validate team eligibility and competition phase
         team = self._validate_team_eligibility(team_id, competition_id, user_id)
         self._validate_submission_phase(competition_id)
+        logger.info("STEP 2/8: Team eligibility and phase validation passed (team=%s)", team.name)
 
         # 3. Fetch organizer's spec (falls back to defaults if not set)
         spec = self._get_model_spec(competition_id)
+        logger.info("STEP 3/8: Model spec loaded: required_files=%s allowed_formats=%s",
+                     spec.get("required_files"), spec.get("allowed_model_formats"))
 
         # 4. Validate the zip contents against the spec
         validation_result = self.validate_docker_submission(file_content, spec)
+        logger.info("STEP 4/8: Zip validation passed: detected_format=%s", validation_result["detected_format"])
 
         # 5. SHA-256 deduplication
         model_hash = hashlib.sha256(file_content).hexdigest()
@@ -113,16 +118,19 @@ class ModelSubmissionService:
                 f"A submission with identical content already exists "
                 f"(model ID: {existing.id}). Modify your submission before resubmitting."
             )
+        logger.info("STEP 5/8: SHA-256 dedup passed (hash=%s...)", model_hash[:16])
 
         # 6. Determine next version before storage (needed for path)
         latest = self.repository.find_latest_by_team(team_id, competition_id)
         next_version: int = (latest.version + 1) if latest else 1  # type: ignore[operator]
+        logger.info("STEP 6/8: Next version=%d (previous=%s)", next_version, latest.version if latest else "none")
 
         # 7. Store zip
         size_mb = len(file_content) / (1024 * 1024)
         comp_name = team.competition.name
         team_name = team.name
         storage_path = self._store_submission(competition_id, team_id, comp_name, team_name, next_version, file.filename, file_content)
+        logger.info("STEP 7/8: Zip stored at path=%s", storage_path)
 
         model = self.repository.save_model_record(
             team_id=team_id,
@@ -136,6 +144,7 @@ class ModelSubmissionService:
             submitted_by=user_id,
             version=next_version,
         )
+        logger.info("STEP 7b/8: Model record saved: id=%s status=%s", model.id, model.status)
 
         self.repository.save_model_metadata(model.id, metadata)  # type: ignore[arg-type]
 
@@ -144,9 +153,11 @@ class ModelSubmissionService:
         protocol = "standard"
         if config and isinstance(config.model_spec, dict):
             protocol = config.model_spec.get("evaluation_protocol", "standard")
+            logger.info("STEP 8/8: Found evaluation_protocol in config: %s", protocol)
         if protocol not in ("standard", "loto", "toto"):
+            logger.warning("STEP 8/8: Unknown protocol '%s', falling back to 'standard'", protocol)
             protocol = "standard"
-        logger.debug("Auto-scheduling model %s with protocol=%s", model.id, protocol)
+        logger.info("=== AUTO-SCHEDULING === model=%s protocol=%s", model.id, protocol)
         self._schedule_for_evaluation(model.id, protocol)
 
         return {
@@ -493,8 +504,10 @@ class ModelSubmissionService:
         return object_name
 
     def _schedule_for_evaluation(self, model_id, protocol: str) -> None:
+        logger.info("_schedule_for_evaluation: Setting model %s status to SCHEDULED", model_id)
         self.repository.update_status(model_id, ModelStatus.SCHEDULED)
         self.repository.update_scheduled_at(model_id)
+        logger.info("_schedule_for_evaluation: Model %s status updated, now calling scheduleEvaluation", model_id)
 
         from app.core.database import SessionLocal
         from app.services.evaluation_orchestration.repository import (
@@ -509,11 +522,19 @@ class ModelSubmissionService:
             eval_service = EvaluationOrchestrationService(
                 EvaluationOrchestrationRepository(db)
             )
-            eval_service.scheduleEvaluation(
+            logger.info("_schedule_for_evaluation: Calling scheduleEvaluation(model=%s, protocol=%s)", model_id, protocol)
+            result = eval_service.scheduleEvaluation(
                 model_id=model_id,
                 protocol=protocol,
             )
+            logger.info("_schedule_for_evaluation: scheduleEvaluation returned: job_id=%s status=%s folds=%d",
+                         result.get("id"), result.get("status"), result.get("total_folds"))
             db.commit()
+            logger.info("_schedule_for_evaluation: DB committed successfully")
+        except Exception as e:
+            logger.error("_schedule_for_evaluation: FAILED - %s: %s", type(e).__name__, e)
+            db.rollback()
+            raise
         finally:
             db.close()
 
