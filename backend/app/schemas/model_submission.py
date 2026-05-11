@@ -50,6 +50,17 @@ class ModelMetadataResponse(BaseModel):
     model_config = {"from_attributes": True, "populate_by_name": True}
 
 
+class ModelSubmitJsonRequest(BaseModel):
+    team_id: str
+    model_name: str
+    framework: str
+    python_version: str
+    framework_version: Optional[str] = None
+    description: Optional[str] = None
+    file_content: str  # base64-encoded zip
+    filename: str
+
+
 class ModelSubmitRequest(BaseModel):
     """Request schema for submitting a model"""
 

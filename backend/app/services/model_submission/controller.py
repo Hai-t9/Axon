@@ -1,8 +1,9 @@
+import base64
 import logging
 import traceback
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("model_submission.controller")
@@ -21,6 +22,7 @@ from app.schemas.model_submission import (
     ModelListResponse,
     ModelResponse,
     ModelScheduleResponse,
+    ModelSubmitJsonRequest,
     ModelSubmitResponse,
 )
 from app.services.auth.repository import AuthRepository
@@ -57,42 +59,30 @@ def get_model_service(db: Session = Depends(get_db)) -> ModelSubmissionService:
     "/competitions/{comp_id}/models/submit",
     response_model=ModelSubmitResponse,
     summary="Submit a model for evaluation",
-    description=(
-        "Upload a .zip Docker build context. "
-        "The zip must contain: Dockerfile, inference.py, requirements.txt, "
-        "a model/ directory, and an empty data/ directory. "
-        "Exact requirements are defined by the organizer in the competition config."
-    ),
 )
 async def submit_model(
     comp_id: str,
-    team_id: str = Query(..., description="ID of the team submitting"),
-    model_name: str = Query(..., description="Human-readable model name"),
-    framework: str = Query(
-        ..., description="ML framework (pytorch | tensorflow | sklearn | keras | onnx)"
-    ),
-    python_version: str = Query(..., description="Python version used (e.g. 3.9)"),
-    framework_version: str = Query(None, description="Framework version (optional)"),
-    description: str = Query(None, description="Short description (optional)"),
-    file: UploadFile = File(..., description="The .zip Docker build context"),
+    body: ModelSubmitJsonRequest,
     authorization: str = Header(...),
     auth_service: AuthService = Depends(get_auth_service),
     model_service: ModelSubmissionService = Depends(get_model_service),
 ):
     try:
         comp_uuid = UUID(comp_id)
-        team_uuid = UUID(team_id)
+        team_uuid = UUID(body.team_id)
 
         token = extract_bearer_token(authorization)
         user = auth_service.get_current_user(token)
         auth_service.require_roles(token, comp_uuid, {RoleType.participant})
 
+        file_bytes = base64.b64decode(body.file_content)
+
         metadata = {
-            "model_name": model_name,
-            "framework": framework,
-            "python_version": python_version,
-            "framework_version": framework_version,
-            "description": description,
+            "model_name": body.model_name,
+            "framework": body.framework,
+            "python_version": body.python_version,
+            "framework_version": body.framework_version,
+            "description": body.description,
             "dependencies": None,
             "input_shape": None,
             "output_shape": None,
@@ -100,12 +90,17 @@ async def submit_model(
             "performance_metrics": None,
         }
 
+        from io import BytesIO
+        from fastapi import UploadFile
+
+        fake_file = UploadFile(filename=body.filename, file=BytesIO(file_bytes))
+
         result = await model_service.submit_model(
             team_id=team_uuid,
             competition_id=comp_uuid,
-            file=file,
+            file=fake_file,
             metadata=metadata,
-            user_id=user.id,  # type: ignore[arg-type]
+            user_id=user.id,
         )
 
         return ModelSubmitResponse(**result)

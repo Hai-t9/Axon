@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:website/core/network/api_client.dart';
 import 'package:website/features/auth/data/auth_models.dart';
@@ -29,7 +31,6 @@ class ModelSubmissionRepository {
       '/competitions/$competitionId/config',
       headers: _authHeaders(),
     );
-    // The spec is in config.model_spec
     if (response['model_spec'] != null) {
       return ModelSpec.fromJson(response['model_spec']);
     }
@@ -52,20 +53,22 @@ class ModelSubmissionRepository {
     required String fileName,
     void Function(double progress)? onProgress,
   }) async {
-    // The query parameters are passed in the URL for this specific endpoint as per backend contract
-    final queryParams = request.toQueryParameters();
-    final queryString = Uri(queryParameters: queryParams).query;
-    final path = '/competitions/$competitionId/models/submit?$queryString';
+    final base64Content = base64Encode(fileBytes);
+    final body = {
+      'team_id': request.teamId,
+      'model_name': request.modelName,
+      'framework': request.framework,
+      'python_version': request.pythonVersion,
+      'framework_version': request.frameworkVersion,
+      'description': request.description,
+      'file_content': base64Content,
+      'filename': fileName,
+    };
 
-    final response = await _apiClient.postMultipart(
-      path,
-      fileField: 'file',
-      fileBytes: fileBytes,
-      fileName: fileName,
+    final response = await _apiClient.postJson(
+      '/competitions/$competitionId/models/submit',
+      body,
       headers: _authHeaders(),
-      onProgress: onProgress != null
-          ? (sent, total) => onProgress(sent / total)
-          : null,
     );
 
     return SubmitModelResponse.fromJson(response);
