@@ -1,3 +1,4 @@
+import logging
 from collections import Counter
 import random
 from uuid import UUID
@@ -6,6 +7,8 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.services.label.service import LabelService
 
 from .repository import ValidationRepository
+
+logger = logging.getLogger(__name__)
 
 
 class ValidationService:
@@ -25,25 +28,23 @@ class ValidationService:
         return shuffled
 
     def generate_assignments(self, comp_id: UUID) -> dict:
-        """
-        Round-Robin assignment ensures every image reaches exactly the threshold.
-        Cycles through teams, assigning each image repeatedly until it has been
-        assigned threshold times in total.
-        """
+        logger.info("[VALIDATION] Generating assignments for competition %s", comp_id)
         teams = self.repository.fetch_all_teams(comp_id)
         if not teams:
+            logger.warning("[VALIDATION] No teams found for competition %s", comp_id)
             raise NotFoundError("No teams found for competition")
+        logger.info("[VALIDATION] Found %d teams for competition %s", len(teams), comp_id)
 
         images = self.repository.fetch_all_competition_images(comp_id)
         if not images:
+            logger.warning("[VALIDATION] No images found for competition %s", comp_id)
             raise NotFoundError("No images found for competition")
+        logger.info("[VALIDATION] Found %d images for competition %s", len(images), comp_id)
 
         threshold = self.repository.find_validation_threshold(comp_id) or 3
+        logger.info("[VALIDATION] Validation threshold=%d for competition %s", threshold, comp_id)
 
-        # Initialize per-team buckets
         team_assignments: dict[UUID, list[UUID]] = {team.id: [] for team in teams}
-
-        # Round-Robin: for each image, assign it threshold times across teams
         team_index = 0
         for image_id in images:
             for _ in range(threshold):
@@ -51,32 +52,63 @@ class ValidationService:
                 team_assignments[team.id].append(image_id)
                 team_index += 1
 
-        # Store each team's list in Redis
         for team in teams:
+            count = len(team_assignments[team.id])
+            logger.info(
+                "[VALIDATION] Assigning %d images to team %s",
+                count, team.id,
+            )
             self.repository.store_team_assignments(team.id, team_assignments[team.id])
 
+        logger.info("[VALIDATION] Done generating assignments for competition %s", comp_id)
         return {"success": True}
 
     def get_validation_list(self, comp_id: UUID, participant_id: UUID) -> dict:
+        logger.info(
+            "[VALIDATION] get_validation_list called: comp=%s participant=%s",
+            comp_id, participant_id,
+        )
         team_id = self.repository.find_participant_team(comp_id, participant_id)
         if not team_id:
+            logger.warning(
+                "[VALIDATION] No team found for participant %s in comp %s",
+                participant_id, comp_id,
+            )
             raise NotFoundError("Participant team not found")
+        logger.info("[VALIDATION] Participant %s belongs to team %s", participant_id, team_id)
 
         image_ids = self.repository.get_team_assignments(team_id)
+        logger.info(
+            "[VALIDATION] Team %s has %d assigned images from store",
+            team_id, len(image_ids) if image_ids else 0,
+        )
         if not image_ids:
+            logger.info("[VALIDATION] No stored assignments — generating new ones")
             self.generate_assignments(comp_id)
             image_ids = self.repository.get_team_assignments(team_id)
+            logger.info(
+                "[VALIDATION] After generation, team %s has %d images",
+                team_id, len(image_ids) if image_ids else 0,
+            )
             if not image_ids:
+                logger.warning("[VALIDATION] Still no images after generation — returning empty")
                 return {"images": [], "total": 0}
 
-        # Filter out already-validated images
         unvalidated_ids = self.repository.filter_unvalidated_images(image_ids)
-        
+        logger.info(
+            "[VALIDATION] %d unvalidated out of %d total assigned images",
+            len(unvalidated_ids), len(image_ids),
+        )
+
         shuffled = self._deterministic_shuffle(unvalidated_ids, participant_id)
-        
-        # Fetch details (filepath, current_label) for each image
+        logger.debug("[VALIDATION] Shuffled order: %s", [str(i) for i in shuffled[:5]])
+
         details = self.repository.fetch_image_details(shuffled)
-        
+        logger.info(
+            "[VALIDATION] Fetched details for %d of %d images",
+            len(details), len(shuffled),
+        )
+
         images = [
             {
                 "image_id": str(img_id),
@@ -86,6 +118,7 @@ class ValidationService:
             for img_id in shuffled
             if img_id in details
         ]
+        logger.info("[VALIDATION] Returning %d images in validation list", len(images))
         return {"images": images, "total": len(images)}
 
     def submit_vote(self, image_id: UUID, validator_id: UUID, label: str) -> dict:

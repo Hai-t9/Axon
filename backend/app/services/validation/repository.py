@@ -1,6 +1,9 @@
+import logging
 import time
 from typing import Any
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -32,6 +35,11 @@ class ValidationRepository:
     def _redis_client(self):
         if self.cache and getattr(self.cache, "client", None):
             return self.cache.client
+        logger.warning(
+            "[VALIDATION] No Redis client available (cache=%s client=%s) — using in-memory fallback",
+            self.cache is not None,
+            getattr(self.cache, "client", None) is not None if self.cache else False,
+        )
         return None
 
     def _set_assignment_list(self, key: str, values: list[UUID], ttl_seconds: int) -> bool:
@@ -39,6 +47,7 @@ class ValidationRepository:
         string_values = [str(value) for value in values]
 
         if client:
+            logger.info("[VALIDATION] Storing %d values in Redis key=%s ttl=%d", len(string_values), key, ttl_seconds)
             client.delete(key)
             if string_values:
                 client.rpush(key, *string_values)
@@ -46,6 +55,7 @@ class ValidationRepository:
                 client.expire(key, ttl_seconds)
             return True
 
+        logger.info("[VALIDATION] Storing %d values in MEMORY key=%s ttl=%d", len(string_values), key, ttl_seconds)
         _memory_assignment_store[key] = string_values
         if ttl_seconds > 0:
             _memory_assignment_expiry[key] = _current_time() + ttl_seconds
@@ -68,15 +78,18 @@ class ValidationRepository:
         client = self._redis_client()
         if client:
             values = client.lrange(key, 0, -1)
+            logger.info("[VALIDATION] Read %d values from Redis key=%s", len(values), key)
             return self._parse_uuid_list(values)
 
         expires_at = _memory_assignment_expiry.get(key)
         if expires_at is not None and _current_time() >= expires_at:
+            logger.info("[VALIDATION] Memory key=%s expired, removing", key)
             _memory_assignment_store.pop(key, None)
             _memory_assignment_expiry.pop(key, None)
             return []
 
         values = _memory_assignment_store.get(key, [])
+        logger.info("[VALIDATION] Read %d values from MEMORY key=%s", len(values), key)
         return self._parse_uuid_list(values)
 
     def _assignment_key_for_team(self, team_id: UUID) -> str:
@@ -86,15 +99,16 @@ class ValidationRepository:
         return f"validation:participant:{participant_id}"
 
     def fetch_all_teams(self, comp_id: UUID) -> list[Team]:
-        return (
+        teams = (
             self.db.query(Team)
             .filter(Team.comp_id == comp_id)
             .order_by(Team.id.asc())
             .all()
         )
+        logger.info("[VALIDATION] DB: fetched %d teams for comp %s", len(teams), comp_id)
+        return teams
 
     def fetch_all_competition_images(self, comp_id: UUID) -> list[UUID]:
-        """Fetch all image IDs in the competition, ordered by image_id."""
         rows = (
             self.db.query(Label.image_id)
             .join(Image, Image.id == Label.image_id)
@@ -103,7 +117,9 @@ class ValidationRepository:
             .order_by(Label.image_id.asc())
             .all()
         )
-        return [row.image_id for row in rows]
+        image_ids = [row.image_id for row in rows]
+        logger.info("[VALIDATION] DB: fetched %d image IDs for comp %s", len(image_ids), comp_id)
+        return image_ids
 
     def store_team_assignments(self, team_id: UUID, image_ids: list[UUID]) -> bool:
         return self._set_assignment_list(
@@ -126,11 +142,13 @@ class ValidationRepository:
         return self._get_assignment_list(self._assignment_key_for_team(team_id))
 
     def find_participant_team(self, comp_id: UUID, participant_id: UUID) -> UUID | None:
-        # Look up the user's email, then find the team containing that email
         from app.models import User
 
         user = self.db.query(User).filter(User.id == participant_id).first()
         if not user:
+            logger.warning(
+                "[VALIDATION] User %s not found in DB", participant_id,
+            )
             return None
         user_email = user.email.strip().lower()
 
@@ -139,10 +157,22 @@ class ValidationRepository:
             .filter(Team.comp_id == comp_id)
             .all()
         )
+        logger.info(
+            "[VALIDATION] Looking up participant %s (%s) across %d teams in comp %s",
+            participant_id, user_email, len(teams), comp_id,
+        )
         for team in teams:
             emails_dict = team.user_emails or {}
             if user_email in {k.lower() for k in emails_dict.keys()}:
+                logger.info(
+                    "[VALIDATION] Participant %s found in team %s (team has %d members)",
+                    participant_id, team.id, len(emails_dict),
+                )
                 return team.id
+        logger.warning(
+            "[VALIDATION] Participant %s (%s) not in any team of comp %s",
+            participant_id, user_email, comp_id,
+        )
         return None
 
     def find_validation_threshold(self, comp_id: UUID) -> int | None:
