@@ -40,6 +40,7 @@ python-dotenv>=1.0.0
 # HTTP & NETWORKING
 # ============================================
 requests>=2.31.0
+python-multipart>=0.0.9
 
 # ============================================
 # AWS S3 / MinIO STORAGE (Object Storage)
