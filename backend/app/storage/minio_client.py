@@ -31,6 +31,8 @@ class MinioStorageService:
         self.access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
         self.secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
 
+        verify_ssl = os.getenv("S3_VERIFY_SSL", "true").lower() != "false"
+
         boto_config = Config(
             connect_timeout=10,
             read_timeout=30,
@@ -42,8 +44,9 @@ class MinioStorageService:
             endpoint_url=self.endpoint,
             aws_access_key_id=self.access_key,
             aws_secret_access_key=self.secret_key,
-            region_name=os.getenv("S3_REGION", "us-east-1"),
+            region_name=os.getenv("S3_REGION", "eu-west-1"),
             config=boto_config,
+            verify=verify_ssl,
         )
         self._ensure_bucket()
 

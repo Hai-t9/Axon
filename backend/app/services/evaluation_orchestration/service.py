@@ -27,21 +27,24 @@ class EvaluationOrchestrationService:
         protocol: str,
         requested_folds: Optional[int] = None,
     ) -> dict:
-        logger.debug("scheduleEvaluation: model=%s protocol=%s folds=%s", model_id, protocol, requested_folds)
+        logger.info("=== EVALUATION SCHEDULE START === model=%s protocol=%s requested_folds=%s", model_id, protocol, requested_folds)
         model = self.repository.find_model_by_id(model_id)
         if not model:
             raise NotFoundError(f"Model {model_id} not found.")
+        logger.info("SCHEDULE: Model found, status=%s, team=%s, comp=%s", model.status, model.team_id, model.competition_id)
         if model.status != ModelStatus.SCHEDULED.value:
             raise ValidationError(
                 f"Cannot evaluate model in '{model.status}' status. "
                 "Model must be in SCHEDULED status."
             )
+        logger.info("SCHEDULE: Model status check passed (SCHEDULED)")
 
         competition_id = UUID(str(model.competition_id))
         teams = self.repository.find_teams_by_competition(competition_id)
+        team_names = [(str(t.id)[:8], t.name) for t in teams]
+        logger.info("SCHEDULE: Competition teams (%d): %s", len(teams), team_names)
         total_folds = self._determine_fold_count(protocol, teams, requested_folds)
-        logger.debug("scheduleEvaluation: determined %d folds from protocol=%s teams=%d",
-                     total_folds, protocol, len(teams))
+        logger.info("SCHEDULE: Determined %d folds from protocol=%s teams=%d", total_folds, protocol, len(teams))
 
         job = self.repository.create_evaluation_job(
             model_id=model_id,
@@ -50,11 +53,18 @@ class EvaluationOrchestrationService:
             total_folds=total_folds,
         )
         job_id = UUID(str(job.id))
+        logger.info("SCHEDULE: Evaluation job created: id=%s protocol=%s folds=%d", job_id, protocol, total_folds)
+
         tasks = self.repository.create_evaluation_tasks(job_id, total_folds)
+        logger.info("SCHEDULE: Created %d evaluation tasks: %s", len(tasks), [(str(t.id)[:8], t.task_number) for t in tasks])
+
+        self.repository.commit()
+        logger.info("SCHEDULE: DB committed — tasks visible to Celery workers")
 
         self._queue_tasks(job, tasks, protocol)
 
         model.status = ModelStatus.QUEUED.value  # type: ignore[assignment]
+        logger.info("=== EVALUATION SCHEDULE COMPLETE === job=%s model_status=QUEUED", job_id)
 
         return {
             "id": str(job.id),
@@ -78,10 +88,12 @@ class EvaluationOrchestrationService:
         requested_folds: Optional[int] = None,
     ) -> int:
         parsed = EvaluationProtocol(protocol)
+        logger.info("FOLD_COUNT: protocol=%s parsed=%s teams=%d", protocol, parsed, len(teams))
         if parsed == EvaluationProtocol.standard:
             folds = requested_folds or 5
             if folds < 2:
                 raise ValidationError("Standard K-Fold requires at least 2 folds.")
+            logger.info("FOLD_COUNT: Standard K-Fold -> %d folds", folds)
             return folds
 
         team_count = len(teams)
@@ -90,6 +102,9 @@ class EvaluationOrchestrationService:
                 raise ValidationError(
                     "Leave-One-Team-Out requires at least 2 teams in the competition."
                 )
+            team_names = [t.name for t in teams]
+            logger.info("FOLD_COUNT: LOTO -> %d folds (teams: %s)", team_count, team_names)
+            logger.info("FOLD_COUNT: Each fold will leave out one team as test set")
             return team_count
 
         if parsed == EvaluationProtocol.toto:
@@ -102,6 +117,8 @@ class EvaluationOrchestrationService:
                     "The 'folds' parameter is not supported for TOTO protocol. "
                     "Fold count is derived from the number of teams."
                 )
+            team_names = [t.name for t in teams]
+            logger.info("FOLD_COUNT: TOTO -> %d folds (teams: %s)", team_count, team_names)
             return team_count
 
         raise ValidationError(f"Unknown evaluation protocol: {protocol}")
@@ -119,6 +136,18 @@ class EvaluationOrchestrationService:
         completed = getattr(job, 'completed_folds') or 0
         progress = completed / total
 
+        tasks = self.repository.find_tasks_by_evaluation(evaluation_id)
+        task_list = []
+        for t in tasks:
+            task_list.append({
+                "task_number": t.task_number,
+                "status": str(t.status) if t.status else "pending",
+                "status_detail": t.status_detail,
+                "started_at": t.started_at,
+                "completed_at": t.completed_at,
+                "error_message": t.error_message,
+            })
+
         return {
             "id": str(job.id),
             "model_id": str(job.model_id),
@@ -129,6 +158,7 @@ class EvaluationOrchestrationService:
             "created_at": job.created_at,
             "started_at": job.started_at,
             "completed_at": job.completed_at,
+            "tasks": task_list,
         }
 
     def getEvaluationStatusByModel(self, model_id: UUID) -> dict:
@@ -219,12 +249,10 @@ class EvaluationOrchestrationService:
             )
 
         job_id = UUID(str(job.id))
-        for task in failed_tasks:
-            task_id = UUID(str(task.id))
-            self.repository.update_task_status(task_id, TaskStatus.pending, error=None)
 
         self.repository.increment_retry_counter(evaluation_id)
-        self.repository.update_evaluation_status(job_id, EvaluationStatus.queued)
+
+        self._queue_tasks(job, failed_tasks, str(job.protocol))
 
         return {
             "evaluation_id": str(job_id),
@@ -292,17 +320,20 @@ class EvaluationOrchestrationService:
 
     def _queue_tasks(self, job, tasks: list, protocol: str) -> None:
         job_id = UUID(str(job.id))
-        logger.debug("Queueing %d tasks for evaluation job %s", len(tasks), job_id)
+        logger.info("=== QUEUE TASKS === job=%s task_count=%d protocol=%s", job_id, len(tasks), protocol)
         try:
             from app.workers.evaluation_worker import run_evaluation_task  # type: ignore[import]
 
             for task in tasks:
                 task_id = UUID(str(task.id))
+                logger.info("QUEUE: Dispatching task %s to Celery via delay()", task_id)
                 run_evaluation_task.delay(str(task_id))
-                logger.debug("Queued task %s for evaluation", task_id)
+                logger.info("QUEUE: Task %s dispatched successfully, setting status=queued", task_id)
                 self.repository.update_task_status(task_id, TaskStatus.queued)
             self.repository.update_evaluation_status(job_id, EvaluationStatus.queued)
-        except Exception:
+            logger.info("=== QUEUE COMPLETE === job=%s all %d tasks dispatched", job_id, len(tasks))
+        except Exception as exc:
+            logger.error("QUEUE: Celery/Redis dispatch FAILED: %s", exc)
             logger.warning(
                 "Celery/Redis unavailable — falling back to queued (polling) mode."
             )
@@ -310,3 +341,4 @@ class EvaluationOrchestrationService:
                 task_id = UUID(str(task.id))
                 self.repository.update_task_status(task_id, TaskStatus.queued)
             self.repository.update_evaluation_status(job_id, EvaluationStatus.queued)
+            logger.info("QUEUE: Fallback mode applied for %d tasks", len(tasks))

@@ -29,6 +29,15 @@ class EvaluationJobResponse(BaseModel):
         from_attributes = True
 
 
+class TaskProgressResponse(BaseModel):
+    task_number: int
+    status: str
+    status_detail: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+
+
 class EvaluationStatusResponse(BaseModel):
     id: str
     model_id: str
@@ -39,6 +48,7 @@ class EvaluationStatusResponse(BaseModel):
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    tasks: List[TaskProgressResponse] = []
 
     class Config:
         from_attributes = True
